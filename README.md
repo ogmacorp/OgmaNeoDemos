@@ -47,7 +47,7 @@ Makefile target for this demo: `make MNIST_Anomaly_Detection`
 
 ## Building
 
-All the demos have a reliance on the main [OgmaNeo](https://github.com/ogmacorp/OgmaNeo/) C++ library, and therefore have the same requirements: A C++1x compiler, [CMake](https://cmake.org/), the [FlatBuffers](https://google.github.io/flatbuffers/) package (version 1.4.0), an OpenCL 1.2 SDK, and the Khronos Group cl2.hpp file. Refer to the main OgmaNeo [README.md](https://github.com/ogmacorp/OgmaNeo/README.md) file for further details.
+All the demos have a reliance on the main [OgmaNeo](https://github.com/ogmacorp/OgmaNeo/) C++ library, and therefore have the same requirements: A C++1x compiler, [CMake](https://cmake.org/), the [FlatBuffers](https://google.github.io/flatbuffers/) package (version 1.4.0), an OpenCL 1.2 SDK, and the Khronos Group cl2.hpp file. Refer to the main OgmaNeo [README.md](https://github.com/ogmacorp/OgmaNeo/blob/master/README.md) file for further details.
 
 Each demo has further dependencies outlined in the previous demo description sections that are required before building the OgmaNeoDemos.
 
@@ -69,6 +69,6 @@ Refer to the [CONTRIBUTING.md](https://github.com/ogmacorp/OgmaNeoDemos/blob/mas
 
 <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc-sa/4.0/88x31.png" /></a><br />The work in this repository is licensed under the <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/">Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License</a>. See the [OGMANEODEMOS_LICENSE.md](https://github.com/ogmacorp/OgmaNeoDemos/blob/master/OGMANEODEMOS_LICENSE.md) and [LICENSE.md](https://github.com/ogmacorp/OgmaNeoDemos/blob/master/LICENSE.md) file for further information.
 
-Contact Ogma Intelligent Systems Corp [licenses@ogmacorp.com](licenses@ogmacorp.com) to discuss commercial use and licensing options.
+Contact Ogma Intelligent Systems Corp licenses@ogmacorp.com to discuss commercial use and licensing options.
 
 OgmaNeoDemos Copyright (c) 2016 [Ogma Intelligent Systems Corp](https://ogmacorp.com). All rights reserved.
