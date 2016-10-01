@@ -50,7 +50,7 @@ int main() {
     const int frameSkip = 2; // Frames to skip
     const float videoScale = 1.0f; // Rescale ratio
     const float blendPred = 0.0f; // Ratio of how much prediction to blend in to input (part of input corruption)
-    const float noise = 0.01f; // Noise (part of input corruption)
+    const float noise = 0.001f; // Noise (part of input corruption)
 
     // Video rescaling render target
     sf::RenderTexture rescaleRT;
@@ -183,11 +183,9 @@ int main() {
                 for (int y = 0; y < reImg.getSize().y; y++) {
                     sf::Color c = reImg.getPixel(x, y);
 
-                    float v = (c.r / 255.0f + c.g / 255.0f + c.b / 255.0f) * 0.3333f;
+                    float mono = (c.r / 255.0f + c.g / 255.0f + c.b / 255.0f) * 0.3333f;
 
-                    float mono = invert ? 1.0f - v : v;
-
-                    monochrome[x + y * reImg.getSize().x] = mono;// > thresh ? 1.0f : 0.0f;
+                    monochrome[x + y * reImg.getSize().x] = mono;
 
                     monochromeCorrupted[x + y * reImg.getSize().x] = blendPred * pred[x + y * reImg.getSize().x] + (1.0f - blendPred) * monochrome[x + y * reImg.getSize().x] + noise * noiseDist(generator);
                 }
