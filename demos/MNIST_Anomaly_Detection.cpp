@@ -159,7 +159,11 @@ int main() {
 #ifdef _WINDOWS
     tickFont.loadFromFile("C:/Windows/Fonts/Arial.ttf");
 #else
+#ifdef __APPLE__
+    tickFont.loadFromFile("/Library/Fonts/Courier New.ttf");
+#else
     tickFont.loadFromFile("/usr/share/fonts/truetype/freefont/FreeMono.ttf");
+#endif
 #endif
 
     // Uniform random in [0, 1]
