@@ -29,8 +29,11 @@ This demo uses:
 [SFML](http://www.sfml-dev.org/) (Simple and Fast Multimedia Library, version 2.4.x) to create a Window and handle keyboard entry.
 
 Note for OpenCV if you have CUDA 8 or higher (latest version), there is currently an error in OpenCV 3.1 as explained [here](http://answers.opencv.org/question/95148/cudalegacy-not-compile-nppigraphcut-missing/). Essentially, you need to edit `opencv-3.1.0/modules/cudalegacy/src/graphcuts.cpp` and change the line:
+
     #if !defined (HAVE_CUDA) || defined (CUDA_DISABLER)
+
 to:
+
     #if !defined (HAVE_CUDA) || defined (CUDA_DISABLER)  || (CUDART_VERSION >= 8000)
 
 Makefile target for build this demo: `make Video_Prediction`
