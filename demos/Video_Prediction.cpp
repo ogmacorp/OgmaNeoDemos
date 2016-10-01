@@ -36,7 +36,7 @@ int main() {
     window.setFramerateLimit(0);
 
     // Target file name
-    std::string fileName = "resources/Tesseract.wmv";
+    std::string fileName = "Tesseract.wmv";
 
     sf::Font font;
 
@@ -47,10 +47,9 @@ int main() {
 #endif
 
     // Parameters
-    const int frameSkip = 2; // Frames to skip
+    const int frameSkip = 4; // Frames to skip
     const float videoScale = 1.0f; // Rescale ratio
     const float blendPred = 0.0f; // Ratio of how much prediction to blend in to input (part of input corruption)
-    const float noise = 0.001f; // Noise (part of input corruption)
 
     // Video rescaling render target
     sf::RenderTexture rescaleRT;
@@ -80,6 +79,15 @@ int main() {
     layerDescs[1]._size = { 64, 64 };
     layerDescs[2]._size = { 64, 64 };
 
+    for (int l = 0; l < layerDescs.size(); l++) {
+        layerDescs[l]._recurrentRadius = 6;
+        layerDescs[l]._spActiveRatio = 0.02f;
+        layerDescs[l]._spBiasAlpha = 0.01f;
+
+        pLayerDescs[l]._alpha = 0.08f;
+        pLayerDescs[l]._beta = 0.16f;
+    }
+
     // Predictive hierarchy
     Predictor ph;
 
@@ -92,7 +100,7 @@ int main() {
     std::normal_distribution<float> noiseDist(0.0f, 1.0f);
 
     // Training time
-    const int numIter = 8;
+    const int numIter = 16;
 
     // UI update resolution
     const int progressBarLength = 40;
@@ -187,7 +195,7 @@ int main() {
 
                     monochrome[x + y * reImg.getSize().x] = mono;
 
-                    monochromeCorrupted[x + y * reImg.getSize().x] = blendPred * pred[x + y * reImg.getSize().x] + (1.0f - blendPred) * monochrome[x + y * reImg.getSize().x] + noise * noiseDist(generator);
+                    monochromeCorrupted[x + y * reImg.getSize().x] = blendPred * pred[x + y * reImg.getSize().x] + (1.0f - blendPred) * monochrome[x + y * reImg.getSize().x];
                 }
 
             cs.getQueue().enqueueWriteImage(inputImage, CL_TRUE, { 0, 0, 0 }, { reImg.getSize().x, reImg.getSize().y, 1 }, 0, 0, monochrome.data());
