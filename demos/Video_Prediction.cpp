@@ -36,7 +36,7 @@ int main() {
     window.setFramerateLimit(0);
 
     // Target file name
-    std::string fileName = "Tesseract.wmv";
+    std::string fileName = "resources/Tesseract.wmv";
 
     sf::Font font;
 
@@ -81,7 +81,7 @@ int main() {
 
     for (int l = 0; l < layerDescs.size(); l++) {
         layerDescs[l]._recurrentRadius = 6;
-        layerDescs[l]._spActiveRatio = 0.02f;
+        layerDescs[l]._spActiveRatio = 0.04f;
         layerDescs[l]._spBiasAlpha = 0.01f;
 
         pLayerDescs[l]._alpha = 0.08f;

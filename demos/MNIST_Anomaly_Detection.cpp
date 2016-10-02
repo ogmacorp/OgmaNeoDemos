@@ -57,12 +57,12 @@ int main() {
     const float moveSpeed = 1.0f; // Speed digits move across the screen
     const float spacing = 28.0f; // Spacing between digits
     const int targetLabel = 3; // Label of non-anomalous class
-    const int totalMain = 1000; // Amount of target (main) digits to load
+    const int totalMain = 3; // Amount of target (main) digits to load
     const int totalAnomalous = 2000; // Amount of anomalous digits to load
-    const float anomalyRate = 0.1f; // Ratio of time which anomalies randomly appear
+    const float anomalyRate = 0.18f; // Ratio of time which anomalies randomly appear
     const int imgPoolSize = 20; // Offscreen digit pool buffer size
-    const float sensitivity = 0.64f; // Sensitivity to anomalies
-    const float averageDecay = 0.02f; // Average activity decay
+    const float sensitivity = 0.1f; // Sensitivity to anomalies
+    const float averageDecay = 0.01f; // Average activity decay
     const int numSuccessorsRequired = 5; // Number of successors before an anomaly is signalled
     const float spinRate = 5.0f; // How fast the digits spin
     const int okRange = 1; // Approximate range (in digits) where an anomaly flag can be compared to the actual anomaly outcome
@@ -117,6 +117,10 @@ int main() {
     layerDescs[1]._size = { 48, 48 };
     layerDescs[2]._size = { 32, 32 };
     layerDescs[3]._size = { 24, 24 };
+
+    for (int l = 0; l < layerDescs.size(); l++) {
+        layerDescs[l]._spActiveRatio = 0.02f;
+    }
 
     Predictor h;
 
@@ -424,10 +428,10 @@ int main() {
         // Activate sparse coder
         std::vector<cl::Image2D> visibleLayers = { scInputImage };
 
-        sc.activate(cs, visibleLayers, 0.9f, 0.04f, generator);
+        sc.activate(cs, visibleLayers, 0.9f, 0.02f, generator);
 
         if (trainMode)
-            sc.learn(cs, 0.01f, 0.04f);
+            sc.learn(cs, 0.00004f, 0.02f);
 
         sc.stepEnd(cs);
 
@@ -491,7 +495,7 @@ int main() {
         // First detection
         bool firstDetection = prevAnomalous == 0.0f && sustainedAnomaly == 1.0f;
 
-        if (firstDetection) {
+        if (!trainMode && firstDetection) {
             if (anomalyInRange)
                 numTruePositives++;
             else
@@ -585,6 +589,35 @@ int main() {
         plotS.setPosition(512.0f, 0.0f);
 
         window.draw(plotS);
+
+        // Show SDRs
+        {
+            const float scale = 4.0f;
+
+            sf::Image sdrImg;
+
+            sdrImg.create(hInWidth, hInHeight);
+
+            for (int x = 0; x < hInWidth; x++)
+                for (int y = 0; y < hInHeight; y++) {
+                    sf::Color c;
+
+                    c.r = c.g = c.b = 255 * std::min(1.0f, std::max(0.0f, newSDR[x + y * hInWidth]));
+
+                    sdrImg.setPixel(x, y, c);
+                }
+
+            sf::Texture sdrTex;
+            sdrTex.loadFromImage(sdrImg);
+
+            sf::Sprite s;
+
+            s.setTexture(sdrTex);
+            s.setPosition(0.0f, window.getSize().y - scale * hInHeight);
+            s.setScale(scale, scale);
+
+            window.draw(s);
+        }
 
         window.display();
     }
