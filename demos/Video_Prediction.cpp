@@ -43,7 +43,11 @@ int main() {
 #ifdef _WINDOWS
     font.loadFromFile("C:/Windows/Fonts/Arial.ttf");
 #else
+#ifdef __APPLE__
+    font.loadFromFile("/Library/Fonts/Courier New.ttf");
+#else
     font.loadFromFile("/usr/share/fonts/truetype/freefont/FreeMono.ttf");
+#endif
 #endif
 
     // Parameters
