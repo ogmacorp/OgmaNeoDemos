@@ -1,10 +1,10 @@
 #!/bin/sh
 
-# OgmaNeo
+# OgmaNeoDemos
 # Copyright(c) 2016 Ogma Intelligent Systems Corp. All rights reserved.
 #
-# This copy of OgmaNeo is licensed to you under the terms described
-# in the OGMANEO_LICENSE.md file included in this distribution.
+# This copy of OgmaNeoDemos is licensed to you under the terms described
+# in the OGMANEODEMOS_LICENSE.md file included in this distribution.
 
 set -ex
 
