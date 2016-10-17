@@ -83,7 +83,7 @@ include_directories(${OGMANEO_INCLUDE_DIRS})
 # Find SFML include and libs
 
 #set(SFML_STATIC_LIBRARIES TRUE)
-find_package(SFML 2 COMPONENTS system window graphics audio network)
+find_package(SFML COMPONENTS system window graphics audio)
 
 #if(APPLE)
 #    find_package(boost COMPONENTS filesystem-mt REQUIRED)
@@ -103,8 +103,8 @@ else()
         URL "https://github.com/SFML/SFML/archive/2.4.0.zip"
         CMAKE_ARGS
             "-DCMAKE_INSTALL_PREFIX=${3RDPARTY_PATH}"
-            "-DBUILD_SHARED_LIBS=OFF" #${BUILD_SHARED_LIBS}"
-            "-DSFML_STATIC_LIBRARIES=${SFML_STATIC_LIBRARIES}"
+            "-DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS}"
+            #"-DSFML_STATIC_LIBRARIES=${SFML_STATIC_LIBRARIES}"
             "-DSFML_BUILD_EXAMPLES=OFF"
             "-DSFML_BUILD_DOC=OFF"
     )
@@ -160,7 +160,8 @@ else()
 
         CMAKE_ARGS
             "-DCMAKE_INSTALL_PREFIX=${3RDPARTY_PATH}"
-            "-DBOX2D_INSTALL=On"
+            "-DBOX2D_INSTALL=ON"
+            "-DBOX2D_BUILD_EXAMPLES=OFF"
     )
     set(BOX2D_INCLUDE_DIRS "${3RDPARTY_PATH}/include")
     set(BOX2D_LIBRARIES "box2d${CMAKE_STATIC_LIBRARY_SUFFIX}")
@@ -170,8 +171,12 @@ endif()
 ############################################################################
 # Find OpenCV
 
-find_package(OpenCV)
-include_directories(${OpenCV_INCLUDE_DIRS})
+find_package(OpenCV HINTS /usr/local/opt/opencv3)
+
+if(OpenCV_FOUND)
+    message(STATUS "Found existing OpenCV in ${OpenCV_INCLUDE_DIRS}")
+    include_directories(${OpenCV_INCLUDE_DIRS})
+endif()
 
 
 ############################################################################
@@ -200,6 +205,12 @@ endif()
 # Define experiments to build
 
 include_directories("${PROJECT_SOURCE_DIR}/demos")
+
+list(APPEND SEQUENCE_RECALL_SRCS "demos/SequenceRecall.cpp")
+list(APPEND SEQUENCE_RECALL_DEPS "")
+list(APPEND DEMO_PROJECTS_LIST "Sequence_Recall")
+list(APPEND DEMO_SOURCES_LIST SEQUENCE_RECALL_SRCS)
+list(APPEND DEMO_DEPENDS_LIST SEQUENCE_RECALL_DEPS)
 
 list(APPEND VIDEO_PREDICTION_SRCS "demos/Video_Prediction.cpp")
 list(APPEND VIDEO_PREDICTION_DEPS "SFML")
