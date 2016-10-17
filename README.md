@@ -15,6 +15,7 @@ Examples and experiments using the [Ogma Intelligent Systems Corp](https://ogmac
 Currently released demos include:
 - Video prediction
 - Anomaly detection
+- Sequence recall
 
 The Ogma Intelligent Systems Corp YouTube channel contains videos associated with certain demos, [https://www.youtube.com/ogmaai](https://www.youtube.com/ogmaai).
 
@@ -52,6 +53,14 @@ This demo uses:
 [SFML](http://www.sfml-dev.org/) (Simple and Fast Multimedia Library, version 2.4.x).
 
 Makefile target for this demo: `make MNIST_Anomaly_Detection`
+
+### Sequence Recall
+
+A sequence of ten random digits [0-9] are created. Each digit in the sequence is successively shown to a Predictor hierarchy as a bit vector. The hierarchy is repeatable shown the sequence until it is able to recall the entire sequence. Once it is recalled correctly, a new random sequence is created and this processes is repeated.
+
+This demo only depends on the OgmaNeo library.
+
+Makefile target for this demo: `make Sequence_Recall`
 
 ## Building
 
