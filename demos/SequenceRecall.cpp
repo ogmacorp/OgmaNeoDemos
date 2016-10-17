@@ -16,7 +16,7 @@
 using namespace ogmaneo;
 
 int main() {
-	std::mt19937 generator(std::time(nullptr));
+    std::mt19937 generator(std::time(nullptr));
 
     ComputeSystem cs;
     cs.create(ComputeSystem::_gpu);
@@ -49,7 +49,7 @@ int main() {
 
     ph.createRandom(cs, prog, { 4, 4 }, pLayerDescs, layerDescs, { -0.01f, 0.01f }, generator);
 
-	std::uniform_int_distribution<int> item_dist(0, 9);
+    std::uniform_int_distribution<int> item_dist(0, 9);
 
     std::vector<float> digitVec(16, 0.0f);
 
@@ -63,7 +63,7 @@ int main() {
     int sequenceCount = 1;
     std::cout << "Testing recall for " << numSequences << " sequences" << std::endl;
 
-    while(numSequences > 0) {
+    while (numSequences > 0) {
         if (recalled) {
             std::cout << "Sequence #: " << sequenceCount << std::endl;
 
@@ -80,34 +80,33 @@ int main() {
 
         // Show each digit in the sequence to the network as a bit vector
         for (size_t show_iter = 0; show_iter < digits.size(); show_iter++) {
-			for (int i = 0; i < 16; i++)
-				digitVec[i] = 0.0f;
+            for (int i = 0; i < 16; i++)
+                digitVec[i] = 0.0f;
 
-			digitVec[digits[show_iter]] = 1.0f;
+            digitVec[digits[show_iter]] = 1.0f;
 
-			cs.getQueue().enqueueWriteImage(inputImage, CL_TRUE, { 0, 0, 0 }, { 4, 4, 1 }, 0, 0, digitVec.data());
-			ph.simStep(cs, inputImage, inputImage, generator);
-		}
+            cs.getQueue().enqueueWriteImage(inputImage, CL_TRUE, { 0, 0, 0 }, { 4, 4, 1 }, 0, 0, digitVec.data());
+            ph.simStep(cs, inputImage, inputImage, generator);
+        }
 
-		std::vector<float> prediction(16, 0.0f);
+        std::vector<float> prediction(16, 0.0f);
 
         int recallCount = 0;
 
         // Query the hierarchy and count how many predicted digits match the input sequence
         std::cout << "Prediction: ";
         for (size_t recall_iter = 0; recall_iter < digits.size(); recall_iter++) {
-			cs.getQueue().enqueueReadImage(ph.getPrediction(), CL_TRUE, { 0, 0, 0 }, { 4, 4, 1 }, 0, 0, prediction.data());
+            cs.getQueue().enqueueReadImage(ph.getPrediction(), CL_TRUE, { 0, 0, 0 }, { 4, 4, 1 }, 0, 0, prediction.data());
 
             // Determine the highest prediction
             float highestItem = -1.0f;
             int predictedDigit = -1;
-			for (size_t i = 0; i < digits.size(); i++) {
-                if (prediction[i] > highestItem)
-                {
+            for (size_t i = 0; i < digits.size(); i++) {
+                if (prediction[i] > highestItem) {
                     highestItem = prediction[i];
                     predictedDigit = static_cast<int>(i);
                 }
-			}
+            }
             std::cout << predictedDigit << " ";
 
             // Does the predicted digit match the input digit?
@@ -115,21 +114,20 @@ int main() {
                 recallCount++;
 
             // Present the next digit
-			for (int i = 0; i < 16; i++)
-				digitVec[i] = 0.0f;
+            for (int i = 0; i < 16; i++)
+                digitVec[i] = 0.0f;
 
-			digitVec[digits[recall_iter]] = 1.0f;
+            digitVec[digits[recall_iter]] = 1.0f;
 
-			cs.getQueue().enqueueWriteImage(inputImage, CL_TRUE, { 0, 0, 0 }, { 4, 4, 1 }, 0, 0, digitVec.data());
-			ph.simStep(cs, inputImage, inputImage, generator);
-		}
+            cs.getQueue().enqueueWriteImage(inputImage, CL_TRUE, { 0, 0, 0 }, { 4, 4, 1 }, 0, 0, digitVec.data());
+            ph.simStep(cs, inputImage, inputImage, generator);
+        }
         std::cout << std::endl;
 
         recallSteps++;
 
         // If the input sequence matches the predicted sequence, create a new random sequence of digits
-        if (recallCount == 10)
-        {
+        if (recallCount == 10) {
             std::cout << "Sequence recalled in " << recallSteps << " steps, resetting sequence" << std::endl << std::endl;
             recalled = true;
             recallSteps = 0;
@@ -139,5 +137,5 @@ int main() {
         }
     }
 
-	return 0;
+    return 0;
 }
