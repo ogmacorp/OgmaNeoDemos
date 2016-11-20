@@ -6,9 +6,9 @@
 //  in the OGMANEODEMOS_LICENSE.md file included in this distribution.
 // ----------------------------------------------------------------------------
 
-#include <neo/Predictor.h>
-#include <neo/SparseCoder.h>
-#include <neo/ImageWhitener.h>
+#include <neo/Architect.h>
+#include <neo/Hierarchy.h>
+#include <neo/SparseFeaturesChunk.h>
 
 #include <vis/Plot.h>
 
@@ -57,74 +57,53 @@ int main() {
     const float moveSpeed = 1.0f; // Speed digits move across the screen
     const float spacing = 28.0f; // Spacing between digits
     const int targetLabel = 3; // Label of non-anomalous class
-    const int totalMain = 3; // Amount of target (main) digits to load
+    const int totalMain = 5; // Amount of target (main) digits to load
     const int totalAnomalous = 2000; // Amount of anomalous digits to load
-    const float anomalyRate = 0.18f; // Ratio of time which anomalies randomly appear
+    const float anomalyRate = 0.1f; // Ratio of time which anomalies randomly appear
     const int imgPoolSize = 20; // Offscreen digit pool buffer size
-    const float sensitivity = 0.1f; // Sensitivity to anomalies
+    const float sensitivity = 1.1f; // Sensitivity to anomalies
     const float averageDecay = 0.01f; // Average activity decay
-    const int numSuccessorsRequired = 5; // Number of successors before an anomaly is signalled
+    const int numSuccessorsRequired = 4; // Number of successors before an anomaly is signalled
     const float spinRate = 5.0f; // How fast the digits spin
     const int okRange = 1; // Approximate range (in digits) where an anomaly flag can be compared to the actual anomaly outcome
 
     // Creat a random number generator
     std::mt19937 generator(time(nullptr));
 
-    ComputeSystem cs;
-
-    // Use GPU
-    cs.create(ComputeSystem::_gpu);
-
-    // Load kernel file "extra" (for sparse coder)
-    ComputeProgram progExtra;
-
-    progExtra.loadExtraKernel(cs);
-
-    // Load kernel file "main" (for everything else)
-    ComputeProgram progMain;
-
-    progMain.loadMainKernel(cs);
-
-    // --------------------------- Create the Sparse Coder ---------------------------
+    // --------------------------- Create the Hierarchy ---------------------------
 
     // Bottom input width and height
     int bottomWidth = 28;
     int bottomHeight = 28;
 
-    // Predictor hierarchy input width and height (= sparse coder size)
-    int hInWidth = 32;
-    int hInHeight = 32;
+    std::shared_ptr<ogmaneo::Resources> res = std::make_shared<ogmaneo::Resources>();
 
-    SparseCoder sc;
+    res->create(ogmaneo::ComputeSystem::_gpu);
 
-    std::vector<SparseCoder::VisibleLayerDesc> scLayerDescs(1);
+    ogmaneo::Architect arch;
+    arch.initialize(1234, res);
 
-    scLayerDescs[0]._size = { bottomWidth, bottomHeight };
-    scLayerDescs[0]._radius = 8; // Receptive radius
-    scLayerDescs[0]._weightAlpha = 0.001f;
+    // 1 input layer
+    arch.addInputLayer(ogmaneo::Vec2i(bottomWidth, bottomHeight))
+        .setValue("in_p_alpha", 0.02f)
+        .setValue("in_p_radius", 12);
 
-    sc.createRandom(cs, progExtra, scLayerDescs, { hInWidth, hInHeight }, 6, { -0.001f, 0.001f }, { -0.001f, 0.001f }, generator);
+    // 8 layers using chunk encoders
+    for (int l = 0; l < 8; l++)
+        arch.addHigherLayer(ogmaneo::Vec2i(96, 96), ogmaneo::_chunk)
+        .setValue("sfc_chunkSize", ogmaneo::Vec2i(6, 6))
+        .setValue("sfc_ff_radius", 12)
+        .setValue("hl_poolSteps", 2)
+        .setValue("p_alpha", 0.08f)
+        .setValue("p_beta", 0.16f)
+        .setValue("p_radius", 12);
 
-    cl::Image2D scInputImage = cl::Image2D(cs.getContext(), CL_MEM_READ_WRITE, cl::ImageFormat(CL_R, CL_FLOAT), bottomWidth, bottomHeight);
+    // Generate the hierarchy
+    std::shared_ptr<ogmaneo::Hierarchy> h = arch.generateHierarchy();
 
-    // --------------------------- Create the Predictor ---------------------------
-
-    std::vector<Predictor::PredLayerDesc> pLayerDescs(4); // Predictor layer descriptors
-    std::vector<FeatureHierarchy::LayerDesc> layerDescs(4); // Matching feature layer descriptors
-
-    // Sizes
-    layerDescs[0]._size = { 64, 64 };
-    layerDescs[1]._size = { 48, 48 };
-    layerDescs[2]._size = { 32, 32 };
-    layerDescs[3]._size = { 24, 24 };
-
-    for (int l = 0; l < layerDescs.size(); l++) {
-        layerDescs[l]._spActiveRatio = 0.02f;
-    }
-
-    Predictor h;
-
-    h.createRandom(cs, progMain, { hInWidth, hInHeight }, pLayerDescs, layerDescs, { -0.01f, 0.01f }, generator);
+    // Input and prediction fields
+    ogmaneo::ValueField2D inputField(ogmaneo::Vec2i(bottomWidth, bottomHeight));
+    ogmaneo::ValueField2D predField(ogmaneo::Vec2i(bottomWidth, bottomHeight));
 
     // --------------------------- Create the Windows ---------------------------
 
@@ -176,7 +155,7 @@ int main() {
     // --------------------------- Digit rendering ---------------------------
 
     // Load MNIST
-#ifdef _WINDOWS
+#if defined(_WINDOWS) || defined(__APPLE__)
     std::ifstream fromImageFile("resources/train-images.idx3-ubyte", std::ios::binary | std::ios::in);
 #else
     std::ifstream fromImageFile("resources/train-images-idx3-ubyte", std::ios::binary | std::ios::in);
@@ -187,7 +166,7 @@ int main() {
         return 1;
     }
 
-#ifdef _WINDOWS
+#if defined(_WINDOWS) || defined(__APPLE__)
     std::ifstream fromLabelFile("resources/train-labels.idx1-ubyte", std::ios::binary | std::ios::in);
 #else
     std::ifstream fromLabelFile("resources/train-labels-idx1-ubyte", std::ios::binary | std::ios::in);
@@ -301,6 +280,8 @@ int main() {
             case sf::Event::Closed:
                 quit = true;
                 break;
+            default:
+                break;
             }
         }
 
@@ -413,9 +394,7 @@ int main() {
         // ------------------------------------- Anomaly detection -------------------------------------
 
         // Retrieve prediction
-        std::vector<float> predSDR(hInWidth * hInHeight);
-
-        cs.getQueue().enqueueReadImage(h.getPrediction(), CL_TRUE, { 0, 0, 0 }, { static_cast<cl::size_type>(hInWidth), static_cast<cl::size_type>(hInHeight), 1 }, 0, 0, predSDR.data());
+        predField = h->getPredictions().front();
 
         // Copy image data
         std::vector<float> rtData(rtImg.getSize().x * rtImg.getSize().y);
@@ -424,38 +403,19 @@ int main() {
             for (int y = 0; y < rtImg.getSize().y; y++) {
                 sf::Color c = rtImg.getPixel(x, y);
 
-                rtData[x + y * rtImg.getSize().x] = 0.333f * (c.r / 255.0f + c.b / 255.0f + c.g / 255.0f);
+                inputField.setValue(ogmaneo::Vec2i(x, y), 0.333f * (c.r / 255.0f + c.b / 255.0f + c.g / 255.0f));
             }
 
-        cs.getQueue().enqueueWriteImage(scInputImage, CL_TRUE, { 0, 0, 0 }, { static_cast<cl::size_type>(rt.getSize().x), static_cast<cl::size_type>(rt.getSize().y), 1 }, 0, 0, rtData.data());
-
-        // Activate sparse coder
-        std::vector<cl::Image2D> visibleLayers = { scInputImage };
-
-        sc.activate(cs, visibleLayers, 0.9f, 0.02f, generator);
-
-        if (trainMode)
-            sc.learn(cs, 0.00004f, 0.02f);
-
-        sc.stepEnd(cs);
-
-        // Retrieve new SDR
-        std::vector<float> newSDR(hInWidth * hInHeight);
-
-        cs.getQueue().enqueueReadImage(sc.getHiddenStates()[_back], CL_TRUE, { 0, 0, 0 }, { static_cast<cl::size_type>(hInWidth), static_cast<cl::size_type>(hInHeight), 1 }, 0, 0, newSDR.data());
-
-        // Compare (dot product)
+        // Compare input and pred fields (distance)
         float anomalyScore = 0.0f;
 
-        float totalNew = 0.0f;
-        float totalPred = 0.0f;
+        for (int i = 0; i < inputField.getData().size(); i++) {
+            float delta = inputField.getData()[i] - predField.getData()[i];
 
-        for (int i = 0; i < newSDR.size(); i++) {
-            anomalyScore += newSDR[i] * predSDR[i];
-
-            totalNew += newSDR[i];
-            totalPred += predSDR[i];
+            anomalyScore += -delta * delta;
         }
+
+        anomalyScore /= inputField.getData().size();
 
         // Detection
         float anomaly = anomalyScore < averageScore * sensitivity ? 1.0f : 0.0f;
@@ -474,12 +434,12 @@ int main() {
             averageScore = averageDecay * averageScore + (1.0f - averageDecay) * anomalyScore;
 
         // Hierarchy simulation step
-        h.simStep(cs, sc.getHiddenStates()[_back], sc.getHiddenStates()[_back], generator, trainMode);
+        std::vector<ogmaneo::ValueField2D> inputVector = { inputField };
+        h->simStep(inputVector, trainMode);
 
         // Shift plot y values
-        for (int i = plot._curves[0]._points.size() - 1; i >= 1; i--) {
+        for (int i = plot._curves[0]._points.size() - 1; i >= 1; i--)
             plot._curves[0]._points[i]._position.y = plot._curves[0]._points[i - 1]._position.y;
-        }
 
         // Add anomaly to plot
         plot._curves[0]._points.front()._position.y = sustainedAnomaly;
@@ -593,35 +553,6 @@ int main() {
         plotS.setPosition(512.0f, 0.0f);
 
         window.draw(plotS);
-
-        // Show SDRs
-        {
-            const float scale = 4.0f;
-
-            sf::Image sdrImg;
-
-            sdrImg.create(hInWidth, hInHeight);
-
-            for (int x = 0; x < hInWidth; x++)
-                for (int y = 0; y < hInHeight; y++) {
-                    sf::Color c;
-
-                    c.r = c.g = c.b = 255 * std::min(1.0f, std::max(0.0f, newSDR[x + y * hInWidth]));
-
-                    sdrImg.setPixel(x, y, c);
-                }
-
-            sf::Texture sdrTex;
-            sdrTex.loadFromImage(sdrImg);
-
-            sf::Sprite s;
-
-            s.setTexture(sdrTex);
-            s.setPosition(0.0f, window.getSize().y - scale * hInHeight);
-            s.setScale(scale, scale);
-
-            window.draw(s);
-        }
 
         window.display();
     }

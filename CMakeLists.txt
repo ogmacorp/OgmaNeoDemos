@@ -67,7 +67,9 @@ else()
     ExternalProject_Add(OgmaNeo
         PREFIX OgmaNeo
         UPDATE_COMMAND ""
-        GIT_REPOSITORY "https://github.com/ogmacorp/OgmaNeo.git"
+        #TODO Change to OgmaNeo repo for release
+        #URL "https://github.com/ogmacorp/OgmaNeoInternal/archive/v0.1.0.zip"
+        GIT_REPOSITORY "https://github.com/OgmaCorp/OgmaNeoInternal.git"
         CMAKE_ARGS
             "-DBUILD_SHARED_LIBS=OFF"
             "-DCMAKE_INSTALL_PREFIX=${3RDPARTY_PATH}"
@@ -206,11 +208,11 @@ endif()
 
 include_directories("${PROJECT_SOURCE_DIR}/demos")
 
-list(APPEND SEQUENCE_RECALL_SRCS "demos/SequenceRecall.cpp")
-list(APPEND SEQUENCE_RECALL_DEPS "")
-list(APPEND DEMO_PROJECTS_LIST "Sequence_Recall")
-list(APPEND DEMO_SOURCES_LIST SEQUENCE_RECALL_SRCS)
-list(APPEND DEMO_DEPENDS_LIST SEQUENCE_RECALL_DEPS)
+list(APPEND LEVEL_GEN_SRCS "demos/Level_Gen.cpp")
+list(APPEND LEVEL_GEN_DEPS "SFML")
+list(APPEND DEMO_PROJECTS_LIST "Level_Gen")
+list(APPEND DEMO_SOURCES_LIST LEVEL_GEN_SRCS)
+list(APPEND DEMO_DEPENDS_LIST LEVEL_GEN_DEPS)
 
 list(APPEND VIDEO_PREDICTION_SRCS "demos/Video_Prediction.cpp")
 list(APPEND VIDEO_PREDICTION_DEPS "SFML")

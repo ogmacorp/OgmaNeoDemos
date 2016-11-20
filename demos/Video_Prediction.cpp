@@ -16,7 +16,9 @@
 #include <iostream>
 #include <random>
 
-#include <neo/Predictor.h>
+#include <neo/Architect.h>
+#include <neo/Hierarchy.h>
+#include <neo/SparseFeaturesSTDP.h>
 
 using namespace ogmaneo;
 using namespace cv;
@@ -59,52 +61,71 @@ int main() {
     sf::RenderTexture rescaleRT;
     rescaleRT.create(128, 128);
 
-    ComputeSystem cs;
+    // --------------------------- Create the Hierarchy ---------------------------
 
-    // Use GPU
-    cs.create(ComputeSystem::_gpu);
+    std::shared_ptr<ogmaneo::Resources> res = std::make_shared<ogmaneo::Resources>();
 
-    ComputeProgram prog;
+    res->create(ogmaneo::ComputeSystem::_gpu);
 
-    // Load the main portion of the kernels
-    prog.loadMainKernel(cs);
+    ogmaneo::Architect arch;
+    arch.initialize(1234, res);
 
-    // --------------------------- Create the Sparse Coder ---------------------------
+    // 3 input layers for RGB
+    arch.addInputLayer(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y))
+        .setValue("in_p_alpha", 0.02f)
+        .setValue("in_p_radius", 8);
 
-    // Input images
-    cl::Image2D inputImage = cl::Image2D(cs.getContext(), CL_MEM_READ_WRITE, cl::ImageFormat(CL_R, CL_FLOAT), static_cast<cl_int>(rescaleRT.getSize().x), static_cast<cl_int>(rescaleRT.getSize().y));
-    cl::Image2D inputImageCorrupted = cl::Image2D(cs.getContext(), CL_MEM_READ_WRITE, cl::ImageFormat(CL_R, CL_FLOAT), static_cast<cl_int>(rescaleRT.getSize().x), static_cast<cl_int>(rescaleRT.getSize().y));
+    arch.addInputLayer(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y))
+        .setValue("in_p_alpha", 0.02f)
+        .setValue("in_p_radius", 8);
 
-    // Hierarchy structure
-    std::vector<FeatureHierarchy::LayerDesc> layerDescs(3);
-    std::vector<Predictor::PredLayerDesc> pLayerDescs(3);
+    arch.addInputLayer(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y))
+        .setValue("in_p_alpha", 0.02f)
+        .setValue("in_p_radius", 8);
 
-    layerDescs[0]._size = { 64, 64 };
-    layerDescs[1]._size = { 64, 64 };
-    layerDescs[2]._size = { 64, 64 };
+    for (int l = 0; l < 1; l++)
+        arch.addHigherLayer(ogmaneo::Vec2i(64, 64), ogmaneo::_chunk)
+        .setValue("sfc_chunkSize", ogmaneo::Vec2i(6, 6))
+        .setValue("sfc_ff_radius", 8)
+        .setValue("hl_poolSteps", 2)
+        .setValue("sfc_numSamples", 2)
+        .setValue("sfc_weightAlpha", 0.01f)
+        .setValue("sfc_biasAlpha", 0.1f)
+        .setValue("sfc_gamma", 0.92f)
+        .setValue("p_alpha", 0.04f)
+        .setValue("p_beta", 0.08f)
+        .setValue("p_radius", 8);
 
-    for (int l = 0; l < layerDescs.size(); l++) {
-        layerDescs[l]._recurrentRadius = 6;
-        layerDescs[l]._spActiveRatio = 0.04f;
-        layerDescs[l]._spBiasAlpha = 0.01f;
+    // 8 layers using chunk encoders
+    for (int l = 0; l < 4; l++)
+        arch.addHigherLayer(ogmaneo::Vec2i(64, 64), ogmaneo::_stdp)
+        .setValue("sfs_ff_radius", 8)
+        .setValue("hl_poolSteps", 2)
+        .setValue("sfs_inhibitionRadius", 6)
+        .setValue("sfs_activeRatio", 0.02f)
+        .setValue("sfs_weightAlpha", 0.01f)
+        .setValue("sfs_biasAlpha", 0.1f)
+        .setValue("sfs_gamma", 0.92f)
+        .setValue("p_alpha", 0.04f)
+        .setValue("p_beta", 0.08f)
+        .setValue("p_radius", 8);
 
-        pLayerDescs[l]._alpha = 0.08f;
-        pLayerDescs[l]._beta = 0.16f;
-    }
+    // Generate the hierarchy
+    std::shared_ptr<ogmaneo::Hierarchy> h = arch.generateHierarchy();
 
-    // Predictive hierarchy
-    Predictor ph;
-
-    ph.createRandom(cs, prog, { static_cast<cl_int>(rescaleRT.getSize().x), static_cast<cl_int>(rescaleRT.getSize().y) }, pLayerDescs, layerDescs, { -0.01f, 0.01f }, generator);
-
-    // Host image buffer
-    std::vector<float> pred(rescaleRT.getSize().x * rescaleRT.getSize().y, 0.0f);
+    // Input and prediction fields for color components
+    ValueField2D inputFieldR(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y), 0.0f);
+    ValueField2D inputFieldG(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y), 0.0f);
+    ValueField2D inputFieldB(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y), 0.0f);
+    ValueField2D predFieldR(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y), 0.0f);
+    ValueField2D predFieldG(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y), 0.0f);
+    ValueField2D predFieldB(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y), 0.0f);
 
     // Unit Gaussian noise for input corruption
     std::normal_distribution<float> noiseDist(0.0f, 1.0f);
 
     // Training time
-    const int numIter = 16;
+    const int numIter = 32;
 
     // UI update resolution
     const int progressBarLength = 40;
@@ -152,9 +173,9 @@ int main() {
 
             for (int x = 0; x < img.getSize().x; x++)
                 for (int y = 0; y < img.getSize().y; y++) {
-                    sf::Uint8 r = frame.data[(x + y * img.getSize().x) * 3 + 0];
+                    sf::Uint8 r = frame.data[(x + y * img.getSize().x) * 3 + 2];
                     sf::Uint8 g = frame.data[(x + y * img.getSize().x) * 3 + 1];
-                    sf::Uint8 b = frame.data[(x + y * img.getSize().x) * 3 + 2];
+                    sf::Uint8 b = frame.data[(x + y * img.getSize().x) * 3 + 0];
 
                     img.setPixel(x, y, sf::Color(r, g, b));
                 }
@@ -188,28 +209,21 @@ int main() {
             sf::Image reImg = rescaleRT.getTexture().copyToImage();
 
             // Get input buffers
-            std::vector<float> monochrome(reImg.getSize().x * reImg.getSize().y);
-            std::vector<float> monochromeCorrupted(reImg.getSize().x * reImg.getSize().y);
-
             for (int x = 0; x < reImg.getSize().x; x++)
                 for (int y = 0; y < reImg.getSize().y; y++) {
                     sf::Color c = reImg.getPixel(x, y);
 
-                    float mono = (c.r / 255.0f + c.g / 255.0f + c.b / 255.0f) * 0.3333f;
-
-                    monochrome[x + y * reImg.getSize().x] = mono;
-
-                    monochromeCorrupted[x + y * reImg.getSize().x] = blendPred * pred[x + y * reImg.getSize().x] + (1.0f - blendPred) * monochrome[x + y * reImg.getSize().x];
+                    inputFieldR.setValue(ogmaneo::Vec2i(x, y), c.r / 255.0f * (1.0f - blendPred) + predFieldR.getValue(ogmaneo::Vec2i(x, y)) * blendPred);
+                    inputFieldG.setValue(ogmaneo::Vec2i(x, y), c.g / 255.0f * (1.0f - blendPred) + predFieldG.getValue(ogmaneo::Vec2i(x, y)) * blendPred);
+                    inputFieldB.setValue(ogmaneo::Vec2i(x, y), c.b / 255.0f * (1.0f - blendPred) + predFieldB.getValue(ogmaneo::Vec2i(x, y)) * blendPred);
                 }
 
-            cs.getQueue().enqueueWriteImage(inputImage, CL_TRUE, { 0, 0, 0 }, { reImg.getSize().x, reImg.getSize().y, 1 }, 0, 0, monochrome.data());
-            cs.getQueue().enqueueWriteImage(inputImageCorrupted, CL_TRUE, { 0, 0, 0 }, { reImg.getSize().x, reImg.getSize().y, 1 }, 0, 0, monochromeCorrupted.data());
+            std::vector<ogmaneo::ValueField2D> inputVector = { inputFieldR, inputFieldG, inputFieldB };
+            h->simStep(inputVector, true);
 
-            // Run a simulation step of the hierarchy (learning enabled)
-            ph.simStep(cs, inputImage, inputImageCorrupted, generator, true);
-
-            // Get the resulting prediction (for prediction blending)
-            cs.getQueue().enqueueReadImage(ph.getPrediction(), CL_TRUE, { 0, 0, 0 }, { static_cast<cl::size_type>(rescaleRT.getSize().x), static_cast<cl::size_type>(rescaleRT.getSize().y), 1 }, 0, 0, pred.data());
+            predFieldR = h->getPredictions()[0];
+            predFieldG = h->getPredictions()[1];
+            predFieldB = h->getPredictions()[2];
 
             // Show progress bar
             float ratio = static_cast<float>(currentFrame + 1) / captureLength;
@@ -242,6 +256,8 @@ int main() {
                     {
                     case sf::Event::Closed:
                         quit = true;
+                        break;
+                    default:
                         break;
                     }
                 }
@@ -322,6 +338,8 @@ int main() {
             case sf::Event::Closed:
                 quit = true;
                 break;
+            default:
+                break;
             }
         }
 
@@ -330,14 +348,12 @@ int main() {
 
         window.clear();
 
-        // Write prediction as input
-        cs.getQueue().enqueueWriteImage(inputImage, CL_TRUE, { 0, 0, 0 }, { rescaleRT.getSize().x, rescaleRT.getSize().y, 1 }, 0, 0, pred.data());
+        std::vector<ogmaneo::ValueField2D> inputVector = { predFieldR, predFieldG, predFieldB };
+        h->simStep(inputVector, false);
 
-        // Run a simulation step with learning disabled
-        ph.simStep(cs, inputImage, inputImage, generator, false);
-
-        // Display prediction
-        cs.getQueue().enqueueReadImage(ph.getPrediction(), CL_TRUE, { 0, 0, 0 }, { static_cast<cl::size_type>(rescaleRT.getSize().x), static_cast<cl::size_type>(rescaleRT.getSize().y), 1 }, 0, 0, pred.data());
+        predFieldR = h->getPredictions()[0];
+        predFieldG = h->getPredictions()[1];
+        predFieldB = h->getPredictions()[2];
 
         sf::Image img;
 
@@ -347,7 +363,9 @@ int main() {
             for (int y = 0; y < rescaleRT.getSize().y; y++) {
                 sf::Color c;
 
-                c.r = c.g = c.b = 255.0f * std::min(1.0f, std::max(0.0f, pred[x + y * img.getSize().x]));
+                c.r = 255.0f * std::min(1.0f, std::max(0.0f, predFieldR.getValue(ogmaneo::Vec2i(x, y))));
+                c.g = 255.0f * std::min(1.0f, std::max(0.0f, predFieldG.getValue(ogmaneo::Vec2i(x, y))));
+                c.b = 255.0f * std::min(1.0f, std::max(0.0f, predFieldB.getValue(ogmaneo::Vec2i(x, y))));
 
                 img.setPixel(x, y, c);
             }
