@@ -67,9 +67,7 @@ else()
     ExternalProject_Add(OgmaNeo
         PREFIX OgmaNeo
         UPDATE_COMMAND ""
-        #TODO Change to OgmaNeo repo for release
-        #URL "https://github.com/ogmacorp/OgmaNeoInternal/archive/v0.1.0.zip"
-        GIT_REPOSITORY "https://github.com/OgmaCorp/OgmaNeoInternal.git"
+        GIT_REPOSITORY "https://github.com/ogmacorp/ogmaneo.git"
         CMAKE_ARGS
             "-DBUILD_SHARED_LIBS=OFF"
             "-DCMAKE_INSTALL_PREFIX=${3RDPARTY_PATH}"
