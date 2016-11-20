@@ -1,7 +1,10 @@
-// --------------------------------------------------------------------------
-//	Ogma Toolkit(OTK)
-//	Copyright(c) 2016 Ogma Intelligent Systems Corp. All rights reserved.
-// --------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+//  OgmaNeoDemos
+//  Copyright(c) 2016 Ogma Intelligent Systems Corp. All rights reserved.
+//
+//  This copy of OgmaNeoDemos is licensed to you under the terms described
+//  in the OGMANEODEMOS_LICENSE.md file included in this distribution.
+// ----------------------------------------------------------------------------
 
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
