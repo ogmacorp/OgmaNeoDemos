@@ -14,8 +14,8 @@ Examples and experiments using the [Ogma Intelligent Systems Corp](https://ogmac
 
 Currently released demos include:
 - Video prediction
-- Anomaly detection
-- Sequence recall
+- Simple anomaly detection
+- Level generation
 
 The Ogma Intelligent Systems Corp YouTube channel contains videos associated with certain demos, [https://www.youtube.com/ogmaai](https://www.youtube.com/ogmaai).
 
@@ -23,7 +23,7 @@ The Ogma Intelligent Systems Corp YouTube channel contains videos associated wit
 
 An OgmaNeo Predictor class is used to build an online predictive hierarchy. The video file is streamed through the hierarchy eight times. Each video frame is converted to greyscale, and an associated corrupted frame (based on previous hierarchy prediction), and are both passed into the hierarchy. Progress information is shown in the main window as this occurs as well as in the terminal.
 
-Once the video has been presented eight times, the original video is ignored and the hierarchy is fed with predictions from the hierarchy. These predictions are then shown in the main window.
+Once the video has been presented a few times, the original video is ignored and the hierarchy is fed with predictions from the hierarchy. These predictions are then shown in the main window.
 
 This demo uses:
 [OpenCV](http://opencv.org/) (Open Source Computer Vision, version 3.x) library to load a `resources/Tesseract.wmv` video file.  
@@ -45,7 +45,7 @@ The [MNIST database of handwritten digits](http://yann.lecun.com/exdb/mnist/) is
 
 The `train-images-idx3-ubyte.gz` and `train-labels-idx1-ubyte.gz` training set files must be downloaded from http://yann.lecun.com/exdb/mnist/ and extracted into the `resources` directory.
 
-An OgmaNeo SparseCoder is used to convert individual training images to SDRs and feed the results into an OgmaNeo Predictor online predictive hierarchy. Predictions from the hierarchy are then compared to the SparseCoder's SDR to determine if the video feed is anomalous (not predicted).
+A predictor learns to predict the pixels of the digits as they move by, and when there is a large enough discrepancy between the prediction at (t) and the input at (t + 1), then an anomaly has been detected.
 
 Initially only a selection of the digit 3 training images are presented to the hierarchy. This can be seen in the left half of the main window. After a short amount of time (a few minutes), the `R` key can be pressed to change from learning mode into detection mode. The right half of the window has a graph that shows peaks when a non-3 digit occurs. A red bar will also appear when the system detects an anomaly. Further, a bar at the top left of the window displays digits as the come, with the center of the bar indicating the current digit.
 
@@ -54,13 +54,14 @@ This demo uses:
 
 Makefile target for this demo: `make MNIST_Anomaly_Detection`
 
-### Sequence Recall
+### Level Gen
 
-A sequence of ten random digits [0-9] are created. Each digit in the sequence is successively shown to a Predictor hierarchy as a bit vector. The hierarchy is repeatable shown the sequence until it is able to recall the entire sequence. Once it is recalled correctly, a new random sequence is created and this processes is repeated.
+An image of a game level is presented to the hierarchy and scrolls to the left. An infinite level is then generated through recall with noise.
 
-This demo only depends on the OgmaNeo library.
+This demo uses:
+[SFML](http://www.sfml-dev.org/) (Simple and Fast Multimedia Library, version 2.4.x).
 
-Makefile target for this demo: `make Sequence_Recall`
+Makefile target for this demo: `make Level_Gen`
 
 ## Building
 
