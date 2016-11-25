@@ -1,3 +1,8 @@
+1.2.1  November 25,2016
+=======================
+
+- CMake updates for OgmaNeo (1.1.1) discovery
+
 1.2  November, 2016
 =====================
 

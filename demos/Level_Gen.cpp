@@ -156,6 +156,8 @@ int main() {
             case sf::Event::Closed:
                 quit = true;
                 break;
+            default:
+                break;
             }
         }
 
