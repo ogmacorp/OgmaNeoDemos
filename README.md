@@ -8,7 +8,7 @@
 
 # OgmaNeoDemos
 
-Examples and experiments using the [Ogma Intelligent Systems Corp](https://ogmacorp.com) [OgmaNeo](https://github.com/ogmacorp/OgmaNeo/) C++ library.
+Examples and experiments using the [Ogma](https://ogmacorp.com) [OgmaNeo](https://github.com/ogmacorp/OgmaNeo/) C++ library.
 
 ## Demos
 
@@ -17,7 +17,7 @@ Currently released demos include:
 - Simple anomaly detection
 - Level generation
 
-The Ogma Intelligent Systems Corp YouTube channel contains videos associated with certain demos, [https://www.youtube.com/ogmaai](https://www.youtube.com/ogmaai).
+The Ogma YouTube channel contains videos associated with certain demos, [https://www.youtube.com/ogmaai](https://www.youtube.com/ogmaai).
 
 ### Video Prediction
 
@@ -87,6 +87,6 @@ Refer to the [CONTRIBUTING.md](https://github.com/ogmacorp/OgmaNeoDemos/blob/mas
 
 <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc-sa/4.0/88x31.png" /></a><br />The work in this repository is licensed under the <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/">Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License</a>. See the [OGMANEODEMOS_LICENSE.md](https://github.com/ogmacorp/OgmaNeoDemos/blob/master/OGMANEODEMOS_LICENSE.md) and [LICENSE.md](https://github.com/ogmacorp/OgmaNeoDemos/blob/master/LICENSE.md) file for further information.
 
-Contact Ogma Intelligent Systems Corp licenses@ogmacorp.com to discuss commercial use and licensing options.
+Contact Ogma via licenses@ogmacorp.com to discuss commercial use and licensing options.
 
 OgmaNeoDemos Copyright (c) 2016 [Ogma Intelligent Systems Corp](https://ogmacorp.com). All rights reserved.

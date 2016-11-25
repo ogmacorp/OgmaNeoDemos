@@ -1,7 +1,10 @@
-# --------------------------------------------------------------------------
-# Ogma Neo Python Toolkit (PyOgmaNeo)
-#	Copyright(c) 2016 Ogma Intelligent Systems Corp. All rights reserved.
-# --------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+#  OgmaNeoDemos
+#  Copyright(c) 2016 Ogma Intelligent Systems Corp. All rights reserved.
+#
+#  This copy of OgmaNeoDemos is licensed to you under the terms described
+#  in the OGMANEODEMOS_LICENSE.md file included in this distribution.
+# ----------------------------------------------------------------------------
 
 # Locate OgmaNeo library
 #
@@ -15,7 +18,10 @@ IF(OGMANEO_INCLUDE_DIR)
   SET(OGMANEO_FIND_QUIETLY TRUE)
 ENDIF(OGMANEO_INCLUDE_DIR)
 
-FIND_PATH(OGMANEO_INCLUDE_DIR OgmaNeo/OgmaNeo.h)
+FIND_PATH(OGMANEO_INCLUDE_DIR ogmaneo/neo/Architect.h)
+if (NOT "${OGMANEO_INCLUDE_DIR}" STREQUAL "OGMANEO_INCLUDE_DIR-NOTFOUND")
+  SET(OGMANEO_INCLUDE_DIR "${OGMANEO_INCLUDE_DIR}/ogmaneo")
+ENDIF()
 
 SET(OGMANEO_NAMES ogmaneo OgmaNeo OGMANEO)
 FIND_LIBRARY(OGMANEO_LIBRARY NAMES ${OGMANEO_NAMES})
