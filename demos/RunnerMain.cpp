@@ -151,6 +151,8 @@ int main() {
 			case sf::Event::Closed:
 				quit = true;
 				break;
+			default:
+				break;
 			}
 		}
 
@@ -190,8 +192,9 @@ int main() {
 
             inputField.getData() = se.getEncoderOutputs();
 
-            // Simulation step
-            a->simStep(reward, std::vector<ogmaneo::ValueField2D>{ inputField }, true);
+            // Simulation steps
+			std::vector<ogmaneo::ValueField2D> inputVector = { inputField };
+            a->simStep(reward, inputVector, true);
 
             // Retrieve actions
             actionField = a->getActions().front();

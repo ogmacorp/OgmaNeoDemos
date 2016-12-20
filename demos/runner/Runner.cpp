@@ -6,6 +6,7 @@
 //  in the OGMANEODEMOS_LICENSE.md file included in this distribution.
 // ----------------------------------------------------------------------------
 
+#include <cmath>
 #include "Runner.h"
 
 void Runner::Limb::create(b2World* pWorld, const std::vector<LimbSegmentDesc> &descs, b2Body* pAttachBody, const b2Vec2 &localAttachPoint, uint16 categoryBits, uint16 maskBits) {
