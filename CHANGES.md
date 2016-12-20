@@ -1,3 +1,13 @@
+1.3  December 19, 2016
+========================
+
+- Quadruped walking robot agent demo
+- Ball physics prediction demo
+- Video Prediction prediction error graph
+- Sinusoidal prediction example
+- FlatBuffers parser utility
+- DebugWindow helper visualization window
+
 1.2.1  November 25,2016
 =======================
 

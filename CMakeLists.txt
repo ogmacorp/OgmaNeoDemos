@@ -14,11 +14,19 @@ project(OgmaNeoDemos)
 set(CMAKE_VERBOSE_MAKEFILE OFF)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake")
 
-#if(NOT CMAKE_BUILD_TYPE)
-#    message(STATUS "CMAKE_BUILD_TYPE not set, setting it to Release")
-#    set(CMAKE_BUILD_TYPE Release)
-#endif()
-#message("Build type: ${CMAKE_BUILD_TYPE}")
+if(NOT CMAKE_BUILD_TYPE)
+    message("CMAKE_BUILD_TYPE not set, setting it to Release")
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(BITNESS 64)
+else()
+    set(BITNESS 32)
+endif()
+message(STATUS "Bitness: ${BITNESS}")
+
 
 include(ExternalProject)
 
@@ -35,19 +43,52 @@ link_directories("${3RDPARTY_PATH}/lib")
 
 find_path(OPENCL_INCLUDE_DIRS 
     NAMES OpenCL/cl.h CL/cl.h
-    HINTS /usr/local/include/ $ENV{AMDAPPSDKROOT}/include/
+    HINTS
+        $ENV{AMDAPPSDKROOT}/include/
+        $ENV{INTELOCLSDKROOT}/include/
+        $ENV{CUDA_PATH}/include/
+        $ENV{OPENCL_ROOT}/include/
+    PATHS
+        /usr/include /usr/local/include/
 )
 
-find_library(OPENCL_LIBRARIES
-    NAMES OpenCL
-    HINTS /usr/local/lib/ $ENV{AMDAPPSDKROOT}/lib/x86_64/
-    PATH_SUFFIXES ${PLATFORM}${BITNESS} ${BITNESS_SUFFIX}
-)
+if(BITNESS EQUAL 64)
+    find_library(OPENCL_LIBRARIES
+        NAMES OpenCL
+        HINTS
+            $ENV{AMDAPPSDKROOT}/lib
+            $ENV{INTELOCLSDKROOT}/lib
+            $ENV{CUDA_PATH}/lib
+            $ENV{OPENCL_ROOT}/lib
+        PATH_SUFFIXES x86_64 x64
+        PATHS /usr/lib64 /usr/lib /usr/local/lib
+    )
+elseif(BITNESS EQUAL 32)
+    find_library(OPENCL_LIBRARIES
+        NAMES OpenCL
+        HINTS
+            $ENV{AMDAPPSDKROOT}/lib
+            $ENV{INTELOCLSDKROOT}/lib
+            $ENV{CUDA_PATH}/lib
+            $ENV{OPENCL_ROOT}/lib
+        PATH_SUFFIXES x86 Win32
+        PATHS /usr/lib32 /usr/lib /usr/local/lib
+    )
+endif()
+
+# Fall-back to find a POCL install
+if(OPENCL_LIBRARIES STREQUAL "")
+    find_library(OPENCL_LIBRARIES
+        NAMES pocl
+        HINTS $HOME/.local/pocl/lib /usr/lib64 /usr/lib /usr/local/lib
+    )
+endif()
 
 if(OPENCL_INCLUDE_DIRS STREQUAL "" OR OPENCL_LIBRARIES STREQUAL "")
     message(FATAL_ERROR "Could not locate OpenCL include & libs")
 else()
     message(STATUS "Found existing OpenCL in ${OPENCL_INCLUDE_DIRS}")
+    message(STATUS "Found existing OpenCL lib ${OPENCL_LIBRARIES}")
 endif()
 
 include_directories(${OPENCL_INCLUDE_DIRS})
@@ -67,7 +108,9 @@ else()
     ExternalProject_Add(OgmaNeo
         PREFIX OgmaNeo
         UPDATE_COMMAND ""
-        GIT_REPOSITORY "https://github.com/ogmacorp/ogmaneo.git"
+        #TODO Change to OgmaNeo repo for release
+        #URL "https://github.com/ogmacorp/OgmaNeoInternal/archive/v0.1.0.zip"
+        GIT_REPOSITORY "https://github.com/OgmaCorp/OgmaNeoInternal.git"
         CMAKE_ARGS
             "-DBUILD_SHARED_LIBS=OFF"
             "-DCMAKE_INSTALL_PREFIX=${3RDPARTY_PATH}"
@@ -206,6 +249,22 @@ endif()
 
 include_directories("${PROJECT_SOURCE_DIR}/demos")
 
+list(APPEND WAVY_TEST_SRCS "demos/Wavy_Test.cpp")
+list(APPEND WAVY_TEST_SRCS "demos/vis/Plot.cpp")
+list(APPEND WAVY_TEST_SRCS "demos/vis/Plot.h")
+list(APPEND WAVY_TEST_SRCS "demos/vis/DebugWindow.cpp")
+list(APPEND WAVY_TEST_SRCS "demos/vis/DebugWindow.h")
+list(APPEND WAVY_TEST_DEPS "SFML")
+list(APPEND DEMO_PROJECTS_LIST "Wavy_Test")
+list(APPEND DEMO_SOURCES_LIST WAVY_TEST_SRCS)
+list(APPEND DEMO_DEPENDS_LIST WAVY_TEST_DEPS)
+
+list(APPEND FB_PARSER_SRCS "demos/FB_Parser.cpp")
+list(APPEND FB_PARSER_DEPS "SFML")
+list(APPEND DEMO_PROJECTS_LIST "FB_Parser")
+list(APPEND DEMO_SOURCES_LIST FB_PARSER_SRCS)
+list(APPEND DEMO_DEPENDS_LIST FB_PARSER_DEPS)
+
 list(APPEND LEVEL_GEN_SRCS "demos/Level_Gen.cpp")
 list(APPEND LEVEL_GEN_DEPS "SFML")
 list(APPEND DEMO_PROJECTS_LIST "Level_Gen")
@@ -213,6 +272,8 @@ list(APPEND DEMO_SOURCES_LIST LEVEL_GEN_SRCS)
 list(APPEND DEMO_DEPENDS_LIST LEVEL_GEN_DEPS)
 
 list(APPEND VIDEO_PREDICTION_SRCS "demos/Video_Prediction.cpp")
+list(APPEND VIDEO_PREDICTION_SRCS "demos/vis/DebugWindow.h")
+list(APPEND VIDEO_PREDICTION_SRCS "demos/vis/DebugWindow.cpp")
 list(APPEND VIDEO_PREDICTION_DEPS "SFML")
 list(APPEND VIDEO_PREDICTION_DEPS "OPENCV")
 list(APPEND DEMO_PROJECTS_LIST "Video_Prediction")
@@ -226,6 +287,22 @@ list(APPEND MNIST_ANOMALY_DEPS "SFML")
 list(APPEND DEMO_PROJECTS_LIST "MNIST_Anomaly_Detection")
 list(APPEND DEMO_SOURCES_LIST MNIST_ANOMALY_SRCS)
 list(APPEND DEMO_DEPENDS_LIST MNIST_ANOMALY_DEPS)
+
+list(APPEND BALL_PHYSICS_SRCS "demos/Ball_Physics.cpp")
+list(APPEND BALL_PHYSICS_DEPS "SFML")
+list(APPEND BALL_PHYSICS_DEPS "BOX2D")
+list(APPEND DEMO_PROJECTS_LIST "Ball_Physics")
+list(APPEND DEMO_SOURCES_LIST BALL_PHYSICS_SRCS)
+list(APPEND DEMO_DEPENDS_LIST BALL_PHYSICS_DEPS)
+
+list(APPEND RUNNER_SRCS "demos/RunnerMain.cpp")
+list(APPEND RUNNER_SRCS "demos/runner/Runner.h")
+list(APPEND RUNNER_SRCS "demos/runner/Runner.cpp")
+list(APPEND RUNNER_DEPS "SFML")
+list(APPEND RUNNER_DEPS "BOX2D")
+list(APPEND DEMO_PROJECTS_LIST "Runner")
+list(APPEND DEMO_SOURCES_LIST RUNNER_SRCS)
+list(APPEND DEMO_DEPENDS_LIST RUNNER_DEPS)
 
 list(LENGTH DEMO_PROJECTS_LIST num_demos)
 message(STATUS "Demos to build: ${DEMO_PROJECTS_LIST}")

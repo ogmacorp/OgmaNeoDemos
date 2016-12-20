@@ -14,13 +14,23 @@
 using namespace vis;
 
 void Plot::draw(sf::RenderTarget &target, const sf::Texture &lineGradientTexture, const sf::Font &tickFont, float tickTextScale,
-	const sf::Vector2f &domain, const sf::Vector2f &range, const sf::Vector2f &margins, const sf::Vector2f &tickIncrements, float axesSize, float lineSize, float tickSize, float tickLength, float textTickOffset, int precision)
+	const sf::Vector2f &domain, const sf::Vector2f &range, const sf::Vector2f &margins, const sf::Vector2f &tickIncrements,
+    float axesSize, float lineSize, float tickSize, float tickLength, float textTickOffset, int precision)
 {
 	target.clear(_backgroundColor);
-	
-	sf::Vector2f plotSize = sf::Vector2f(target.getSize().x - margins.x, target.getSize().y - margins.y);
+
+	sf::Vector2f plotSize = sf::Vector2f(target.getSize().x - (2.0f * margins.x), target.getSize().y - (2.0f * margins.y));
 
 	sf::Vector2f origin = sf::Vector2f(margins.x, target.getSize().y - margins.y);
+
+    if (_plotBackgroundColor != _backgroundColor) {
+        sf::RectangleShape plotBackground;
+        plotBackground.setSize(sf::Vector2f(plotSize.x, plotSize.y));
+        plotBackground.setPosition(sf::Vector2f(margins.x, margins.y));
+        plotBackground.setFillColor(_plotBackgroundColor);
+
+        target.draw(plotBackground);
+    }
 
 	// Draw curves
 	for (int c = 0; c < _curves.size(); c++) {
@@ -50,10 +60,12 @@ void Plot::draw(sf::RenderTarget &target, const sf::Texture &lineGradientTexture
 				pointNext._position.y >= range.x && pointNext._position.y <= range.y;
 
 			if (pointVisible || pointNextVisible) {
-				sf::Vector2f renderPoint = sf::Vector2f(origin.x + (point._position.x - domain.x) / (domain.y - domain.x) * plotSize.x,
+				sf::Vector2f renderPoint = sf::Vector2f(
+                    origin.x + (point._position.x - domain.x) / (domain.y - domain.x) * plotSize.x,
 					origin.y - (point._position.y - range.x) / (range.y - range.x) * plotSize.y);
 
-				sf::Vector2f renderPointNext = sf::Vector2f(origin.x + (pointNext._position.x - domain.x) / (domain.y - domain.x) * plotSize.x,
+				sf::Vector2f renderPointNext = sf::Vector2f(
+                    origin.x + (pointNext._position.x - domain.x) / (domain.y - domain.x) * plotSize.x,
 					origin.y - (pointNext._position.y - range.x) / (range.y - range.x) * plotSize.y);
 
 				sf::Vector2f renderDirection = vectorNormalize(renderPointNext - renderPoint);
@@ -62,7 +74,8 @@ void Plot::draw(sf::RenderTarget &target, const sf::Texture &lineGradientTexture
 				sf::Vector2f sizeOffsetNext;
 
 				if (p > 0) {
-					sf::Vector2f renderPointPrev = sf::Vector2f(origin.x + (_curves[c]._points[p - 1]._position.x - domain.x) / (domain.y - domain.x) * plotSize.x,
+					sf::Vector2f renderPointPrev = sf::Vector2f(
+                        origin.x + (_curves[c]._points[p - 1]._position.x - domain.x) / (domain.y - domain.x) * plotSize.x,
 						origin.y - (_curves[c]._points[p - 1]._position.y - range.x) / (range.y - range.x) * plotSize.y);
 
 					sf::Vector2f averageDirection = (renderDirection + vectorNormalize(renderPoint - renderPointPrev)) * 0.5f;
@@ -73,7 +86,8 @@ void Plot::draw(sf::RenderTarget &target, const sf::Texture &lineGradientTexture
 					sizeOffset = vectorNormalize(sf::Vector2f(-renderDirection.y, renderDirection.x));
 
 				if (p < _curves[c]._points.size() - 2) {
-					sf::Vector2f renderPointNextNext = sf::Vector2f(origin.x + (_curves[c]._points[p + 2]._position.x - domain.x) / (domain.y - domain.x) * plotSize.x,
+					sf::Vector2f renderPointNextNext = sf::Vector2f(
+                        origin.x + (_curves[c]._points[p + 2]._position.x - domain.x) / (domain.y - domain.x) * plotSize.x,
 						origin.y - (_curves[c]._points[p + 2]._position.y - range.x) / (range.y - range.x) * plotSize.y);
 
 					sf::Vector2f averageDirection = (renderDirection + vectorNormalize(renderPointNextNext - renderPointNext)) * 0.5f;
@@ -101,7 +115,7 @@ void Plot::draw(sf::RenderTarget &target, const sf::Texture &lineGradientTexture
 				index++;
 
 				vertexArray[index].position = renderPointNext + sizeOffsetNext;
-				vertexArray[index].texCoords = sf::Vector2f(0.0f, lineGradientTexture.getSize().y);
+				vertexArray[index].texCoords = sf::Vector2f(0.0f, (float)lineGradientTexture.getSize().y);
 				vertexArray[index].color = pointNext._color;
 
 				index++;
@@ -113,13 +127,13 @@ void Plot::draw(sf::RenderTarget &target, const sf::Texture &lineGradientTexture
 				index++;
 
 				vertexArray[index].position = renderPointNext + sizeOffsetNext;
-				vertexArray[index].texCoords = sf::Vector2f(0.0f, lineGradientTexture.getSize().y);
+				vertexArray[index].texCoords = sf::Vector2f(0.0f, (float)lineGradientTexture.getSize().y);
 				vertexArray[index].color = pointNext._color;
 
 				index++;
 
 				vertexArray[index].position = renderPoint + sizeOffset;
-				vertexArray[index].texCoords = sf::Vector2f(0.0f, lineGradientTexture.getSize().y);
+				vertexArray[index].texCoords = sf::Vector2f(0.0f, (float)lineGradientTexture.getSize().y);
 				vertexArray[index].color = point._color;
 
 				index++;
@@ -135,7 +149,7 @@ void Plot::draw(sf::RenderTarget &target, const sf::Texture &lineGradientTexture
 
 			for (int v = 0; v < shadowArray.getVertexCount(); v++) {
 				shadowArray[v].position += _curves[c]._shadowOffset;
-				shadowArray[v].color = sf::Color(0, 0, 0, _curves[c]._shadow * 255.0f);
+				shadowArray[v].color = sf::Color(0, 0, 0, static_cast<sf::Uint8>(_curves[c]._shadow * 255.0f));
 			}
 
 			target.draw(shadowArray, &lineGradientTexture);
@@ -146,37 +160,30 @@ void Plot::draw(sf::RenderTarget &target, const sf::Texture &lineGradientTexture
 
 	// Mask off parts of the curve that go beyond bounds
 	sf::RectangleShape leftMask;
-	leftMask.setSize(sf::Vector2f(margins.x, target.getSize().y));
+	leftMask.setSize(sf::Vector2f(margins.x, (float)target.getSize().y));
 	leftMask.setFillColor(_backgroundColor);
 
 	target.draw(leftMask);
 
 	sf::RectangleShape rightMask;
-	rightMask.setSize(sf::Vector2f(target.getSize().x, margins.y));
-	rightMask.setPosition(sf::Vector2f(0.0f, target.getSize().y - margins.y));
+	rightMask.setSize(sf::Vector2f((float)target.getSize().x, margins.y));
+	rightMask.setPosition(sf::Vector2f(0.0f, (float)(target.getSize().y - margins.y)));
 	rightMask.setFillColor(_backgroundColor);
 
 	target.draw(rightMask);
 
-	// Draw axes
-	sf::RectangleShape xAxis;
-	xAxis.setSize(sf::Vector2f(plotSize.x + axesSize * 0.5f, axesSize));
-	xAxis.setPosition(sf::Vector2f(origin.x - axesSize * 0.5f, origin.y - axesSize * 0.5f));
-	xAxis.setFillColor(_axesColor);
-
-	target.draw(xAxis);
-
-	sf::RectangleShape yAxis;
-	yAxis.setSize(sf::Vector2f(axesSize, plotSize.y + axesSize * 0.5f));
-	yAxis.setPosition(sf::Vector2f(origin.x - axesSize * 0.5f, origin.y - axesSize * 0.5f - plotSize.y));
-	yAxis.setFillColor(_axesColor);
-
-	target.draw(yAxis);
-
 	// Draw ticks
-	{
-		float xDistance = domain.y - domain.x;
-		int xTicks = std::floor(xDistance / tickIncrements.x);
+    if (_plotXAxisTicks) {
+        // Draw X axes
+        sf::RectangleShape xAxis;
+        xAxis.setSize(sf::Vector2f(plotSize.x + axesSize * 0.5f, axesSize));
+        xAxis.setPosition(sf::Vector2f(origin.x - axesSize * 0.5f, origin.y - axesSize * 0.5f));
+        xAxis.setFillColor(_axesColor);
+
+        target.draw(xAxis);
+
+        float xDistance = domain.y - domain.x;
+		int xTicks = (int)std::floor(xDistance / tickIncrements.x);
 		float xTickOffset = 0.0f;// std::fmod(domain.x, tickIncrements.x);
 
 		if (xTickOffset < 0.0f)
@@ -216,8 +223,16 @@ void Plot::draw(sf::RenderTarget &target, const sf::Texture &lineGradientTexture
 	}
 
 	{
-		float yDistance = range.y - range.x;
-		int yTicks = std::floor(yDistance / tickIncrements.y);
+        // Draw Y axes
+        sf::RectangleShape yAxis;
+        yAxis.setSize(sf::Vector2f(axesSize, plotSize.y + axesSize * 0.5f));
+        yAxis.setPosition(sf::Vector2f(origin.x - axesSize * 0.5f, origin.y - axesSize * 0.5f - plotSize.y));
+        yAxis.setFillColor(_axesColor);
+
+        target.draw(yAxis);
+
+        float yDistance = range.y - range.x;
+		int yTicks = (int)std::floor(yDistance / tickIncrements.y);
 		float yTickOffset = 0.0f;// std::fmod(range.x, tickIncrements.y);
 
 		if (yTickOffset < 0.0f)
@@ -231,7 +246,7 @@ void Plot::draw(sf::RenderTarget &target, const sf::Texture &lineGradientTexture
 
 		os.precision(precision);
 
-		for (int t = 0; t < yTicks; t++) {
+		for (int t = 0; t < yTicks + 1; t++) {
 			sf::RectangleShape yTick;
 			yTick.setSize(sf::Vector2f(tickLength, axesSize));
 			yTick.setPosition(sf::Vector2f(origin.x - tickLength, origin.y - yTickRenderOffset - yTickRenderDistance * t - tickSize * 0.5f));
