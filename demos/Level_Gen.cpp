@@ -44,28 +44,13 @@ int main() {
     arch.initialize(1234, res); // Seed and provide resources
 
     // 3 input layers - RGB
-    arch.addInputLayer(ogmaneo::Vec2i(rt.getSize().x, rt.getSize().y))
-        .setValue("in_p_alpha", 0.05f)
-        .setValue("in_p_radius", 12);
-
-    arch.addInputLayer(ogmaneo::Vec2i(rt.getSize().x, rt.getSize().y))
-        .setValue("in_p_alpha", 0.03f)
-        .setValue("in_p_radius", 10);
-
-    arch.addInputLayer(ogmaneo::Vec2i(rt.getSize().x, rt.getSize().y))
-        .setValue("in_p_alpha", 0.03f)
-        .setValue("in_p_radius", 10);
+    arch.addInputLayer(ogmaneo::Vec2i(rt.getSize().x, rt.getSize().y));
+    arch.addInputLayer(ogmaneo::Vec2i(rt.getSize().x, rt.getSize().y));
+    arch.addInputLayer(ogmaneo::Vec2i(rt.getSize().x, rt.getSize().y));
 
     // 5 chunk encoder layers with some parameter settings
     for (int l = 0; l < 6; l++)
-        arch.addHigherLayer(ogmaneo::Vec2i(128, 128), ogmaneo::_chunk)
-        .setValue("sfc_chunkSize", ogmaneo::Vec2i(8, 8))
-        .setValue("sfc_ff_radius", 10)
-        .setValue("hl_poolSteps", 2)
-        .setValue("sfc_gamma", 2.0f)
-        .setValue("p_alpha", 0.04f)
-        .setValue("p_beta", 0.1f)
-        .setValue("p_radius", 10);
+        arch.addHigherLayer(ogmaneo::Vec2i(96, 96), ogmaneo::_chunk);
 
     // Generate the hierarchy
     std::shared_ptr<ogmaneo::Hierarchy> h = arch.generateHierarchy();
