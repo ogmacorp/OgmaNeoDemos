@@ -18,6 +18,7 @@ Currently released demos include:
 - Level generation
 - Sinusoidal prediction
 - Runner
+- Ball physics
 - FlatBuffers parser
 
 The Ogma YouTube channel contains videos associated with certain demos, [https://www.youtube.com/ogmaai](https://www.youtube.com/ogmaai).
