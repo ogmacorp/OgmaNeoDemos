@@ -61,7 +61,7 @@ int main() {
     const int totalAnomalous = 2000; // Amount of anomalous digits to load
     const float anomalyRate = 0.1f; // Ratio of time which anomalies randomly appear
     const int imgPoolSize = 20; // Offscreen digit pool buffer size
-    const float sensitivity = 1.1f; // Sensitivity to anomalies
+    const float sensitivity = 1.35f; // Sensitivity to anomalies
     const float averageDecay = 0.01f; // Average activity decay
     const int numSuccessorsRequired = 4; // Number of successors before an anomaly is signalled
     const float spinRate = 5.0f; // How fast the digits spin
@@ -84,19 +84,11 @@ int main() {
     arch.initialize(1234, res);
 
     // 1 input layer
-    arch.addInputLayer(ogmaneo::Vec2i(bottomWidth, bottomHeight))
-        .setValue("in_p_alpha", 0.02f)
-        .setValue("in_p_radius", 12);
+    arch.addInputLayer(ogmaneo::Vec2i(bottomWidth, bottomHeight));
 
     // 8 layers using chunk encoders
-    for (int l = 0; l < 8; l++)
-        arch.addHigherLayer(ogmaneo::Vec2i(96, 96), ogmaneo::_chunk)
-        .setValue("sfc_chunkSize", ogmaneo::Vec2i(6, 6))
-        .setValue("sfc_ff_radius", 12)
-        .setValue("hl_poolSteps", 2)
-        .setValue("p_alpha", 0.08f)
-        .setValue("p_beta", 0.16f)
-        .setValue("p_radius", 12);
+    for (int l = 0; l < 6; l++)
+        arch.addHigherLayer(ogmaneo::Vec2i(96, 96), l == 0 ? ogmaneo::_distance : ogmaneo::_chunk);
 
     // Generate the hierarchy
     std::shared_ptr<ogmaneo::Hierarchy> h = arch.generateHierarchy();
@@ -435,7 +427,11 @@ int main() {
 
         // Hierarchy simulation step
         std::vector<ogmaneo::ValueField2D> inputVector = { inputField };
-        h->simStep(inputVector, trainMode);
+
+        h->activate(inputVector);
+
+        if (trainMode)
+            h->learn(inputVector);
 
         // Shift plot y values
         for (int i = plot._curves[0]._points.size() - 1; i >= 1; i--)
