@@ -14,9 +14,7 @@
 #include "DebugWindow.h"
 
 #include <neo/SparseFeaturesChunk.h>
-#include <neo/SparseFeaturesDelay.h>
-#include <neo/SparseFeaturesSTDP.h>
-#include <neo/SparseFeaturesReLU.h>
+#include <neo/SparseFeaturesDistance.h>
 
 using namespace vis;
 using namespace ogmaneo;
@@ -54,7 +52,7 @@ void DebugWindow::addImage(const std::string& title, const cl::Image2D& img, con
     rtw.text.setString(title);
     rtw.text.setPosition(offset.x, offset.y);
     rtw.text.setPosition(offset.x, offset.y - rtw.text.getCharacterSize() - 4.f);
-    rtw.text.setColor(sf::Color::White);
+    rtw.text.setFillColor(sf::Color::White);
 
     _textureWindows.push_back(rtw);
 }
@@ -76,7 +74,7 @@ void DebugWindow::addValueField2D(const std::string& title, const ValueField2D& 
     rtw.text.setCharacterSize(12);
     rtw.text.setString(title);
     rtw.text.setPosition(offset.x, offset.y - rtw.text.getCharacterSize() - 4.f);
-    rtw.text.setColor(sf::Color::White);
+    rtw.text.setFillColor(sf::Color::White);
 
     _textureWindows.push_back(rtw);
 }
@@ -89,7 +87,7 @@ void DebugWindow::registerHierarchy(std::shared_ptr<Resources> resources, std::s
     Predictor& predictor = h->getPredictor();
     FeatureHierarchy& featureHierarchy = predictor.getHierarchy();
 
-    const std::vector<cl::Image2D> &inputImages = h->getInputImages();
+    const std::vector<cl::Image2D> &inputImages = h->getInputImagesFeed();
 
     float inputWidth = (float)inputImages[0].getImageInfo<CL_IMAGE_WIDTH>();
     float inputHeight = (float)inputImages[0].getImageInfo<CL_IMAGE_HEIGHT>();
@@ -155,10 +153,10 @@ void DebugWindow::registerHierarchy(std::shared_ptr<Resources> resources, std::s
             break;
         }
 
-        case SparseFeaturesType::_delay: {
-            SparseFeaturesDelay* sparseFeaturesDelay = reinterpret_cast<SparseFeaturesDelay*>(sparseFeatures.get());
+        case SparseFeaturesType::_distance: {
+            SparseFeaturesDistance* sparseFeaturesDistance = reinterpret_cast<SparseFeaturesDistance*>(sparseFeatures.get());
 
-            const cl::Image2D& states = sparseFeaturesDelay->getHiddenStates()[_back];
+            const cl::Image2D& states = sparseFeaturesDistance->getHiddenStates()[_back];
             unsigned int width = (unsigned int)states.getImageInfo<CL_IMAGE_WIDTH>();
             unsigned int height = (unsigned int)states.getImageInfo<CL_IMAGE_HEIGHT>();
 
@@ -170,73 +168,18 @@ void DebugWindow::registerHierarchy(std::shared_ptr<Resources> resources, std::s
             addImage(title, states, sf::Vector2f(xOffset, yOffset));
             xOffset += (float)width * _globalScale + xSeperation;
 
-            const cl::Image2D& activations = sparseFeaturesDelay->getHiddenActivations()[_back];
+            const cl::Image2D& activations = sparseFeaturesDistance->getHiddenActivations()[_back];
             width = (unsigned int)activations.getImageInfo<CL_IMAGE_WIDTH>();
 
             title = "Activations:" + std::to_string(i);
             addImage(title, activations, sf::Vector2f(xOffset, yOffset));
             xOffset += (float)width * _globalScale + xSeperation;
 
-            const cl::Image2D& biases = sparseFeaturesDelay->getHiddenBiases()[_back];
-            width = (unsigned int)biases.getImageInfo<CL_IMAGE_WIDTH>();
+            const cl::Image2D& winners = sparseFeaturesDistance->getDistanceWinners()[_back];
+            width = (unsigned int)winners.getImageInfo<CL_IMAGE_WIDTH>();
 
-            title = "Biases:" + std::to_string(i);
-            addImage(title, biases, sf::Vector2f(xOffset, yOffset));
-            xOffset += (float)width * _globalScale + xSeperation;
-            break;
-        }
-
-        case SparseFeaturesType::_stdp: {
-            SparseFeaturesSTDP* sparseFeaturesSTDP = reinterpret_cast<SparseFeaturesSTDP*>(sparseFeatures.get());
-
-            const cl::Image2D& states = sparseFeaturesSTDP->getHiddenStates()[_back];
-            unsigned int width = (unsigned int)states.getImageInfo<CL_IMAGE_WIDTH>();
-            unsigned int height = (unsigned int)states.getImageInfo<CL_IMAGE_HEIGHT>();
-
-            _globalScale = (maxTileSize - width) / maxTileSize;
-
-            yOffset -= (float)height * _globalScale + ySeperation;
-
-            title = "States:" + std::to_string(i);
-            addImage(title, states, sf::Vector2f(xOffset, yOffset));
-            xOffset += (float)width * _globalScale + xSeperation;
-
-            const cl::Image2D& activations = sparseFeaturesSTDP->getHiddenActivations()[_back];
-            width = (unsigned int)activations.getImageInfo<CL_IMAGE_WIDTH>();
-
-            title = "Activations:" + std::to_string(i);
-            addImage(title, activations, sf::Vector2f(xOffset, yOffset));
-            xOffset += (float)width * _globalScale + xSeperation;
-
-            const cl::Image2D& biases = sparseFeaturesSTDP->getHiddenBiases()[_back];
-            width = (unsigned int)biases.getImageInfo<CL_IMAGE_WIDTH>();
-
-            title = "Biases:" + std::to_string(i);
-            addImage(title, biases, sf::Vector2f(xOffset, yOffset));
-            xOffset += (float)width * _globalScale + xSeperation;
-            break;
-        }
-
-        case SparseFeaturesType::_ReLU: {
-            SparseFeaturesReLU* sparseFeaturesReLU = reinterpret_cast<SparseFeaturesReLU*>(sparseFeatures.get());
-
-            const cl::Image2D& states = sparseFeaturesReLU->getHiddenStates()[_back];
-            unsigned int width = (unsigned int)states.getImageInfo<CL_IMAGE_WIDTH>();
-            unsigned int height = (unsigned int)states.getImageInfo<CL_IMAGE_HEIGHT>();
-
-            _globalScale = (maxTileSize - width) / maxTileSize;
-
-            yOffset -= (float)height * _globalScale + ySeperation;
-
-            title = "States:" + std::to_string(i);
-            addImage(title, states, sf::Vector2f(xOffset, yOffset));
-            xOffset += (float)width * _globalScale + xSeperation;
-
-            const cl::Image2D& biases = sparseFeaturesReLU->getHiddenBiases()[_back];
-            width = (unsigned int)biases.getImageInfo<CL_IMAGE_WIDTH>();
-
-            title = "Biases:" + std::to_string(i);
-            addImage(title, biases, sf::Vector2f(xOffset, yOffset));
+            title = "Winners:" + std::to_string(i);
+            addImage(title, winners, sf::Vector2f(xOffset, yOffset));
             xOffset += (float)width * _globalScale + xSeperation;
             break;
         }
@@ -245,67 +188,36 @@ void DebugWindow::registerHierarchy(std::shared_ptr<Resources> resources, std::s
         yOffset -= ySeperation;
     }
 
-    const std::vector<ValueField2D> &predictions = h->getPredictions();
+    const cl::Image2D& states = predictor.getPredLayer(0)[0].getHiddenStates()[_back];
 
-    float predictionWidth = (float)predictions[0].getSize().x;
-    float predictionHeight = (float)predictions[0].getSize().y;
+    unsigned int predictionWidth = (unsigned int)states.getImageInfo<CL_IMAGE_WIDTH>();
+    unsigned int predictionHeight = (unsigned int)states.getImageInfo<CL_IMAGE_HEIGHT>();
 
     _globalScale = (maxTileSize - predictionWidth) / maxTileSize;
 
-    xOffset = (float)_window.getSize().x / 2.f;
     yOffset = (float)_window.getSize().y - (predictionHeight * _globalScale) - ySeperation;
 
-    for (size_t i = 0; i < predictions.size(); i++) {
-        const ValueField2D& valueField = predictions[i];
+    for (int p = 0; p < (int)predictor.getNumPredLayers(); p++) {
+        const std::vector<PredictorLayer>& predictorLayers = predictor.getPredLayer(p);
 
-        title = "Prediction:" + std::to_string(i);
-        addValueField2D(title, valueField, sf::Vector2f(xOffset, yOffset));
-        xOffset += (float)predictionWidth * _globalScale + xSeperation;
-    }
-    yOffset -= ySeperation;
+        xOffset = ((float)_window.getSize().x / 2.f);
 
-    xOffset = (float)_window.getSize().x / 2.f;
+        for (int i = 0; i < (int)predictorLayers.size(); i++) {
+            const cl::Image2D& states = predictorLayers[i].getHiddenStates()[_back];
+            unsigned int width = (unsigned int)states.getImageInfo<CL_IMAGE_WIDTH>();
+            unsigned int height = (unsigned int)states.getImageInfo<CL_IMAGE_HEIGHT>();
 
-    const std::vector<PredictorLayer> &readoutLayers = h->getReadOutPredictorLayers();
+            _globalScale = (maxTileSize - width) / maxTileSize;
 
-    const cl::Image2D& states = readoutLayers[0].getHiddenStates()[_back];
-    unsigned int height = (unsigned int)states.getImageInfo<CL_IMAGE_HEIGHT>();
-    yOffset -= (float)height * _globalScale + ySeperation;
+            title = "States:" + std::to_string(p) + "-" + std::to_string(i);
+            addImage(title, states, sf::Vector2f(xOffset, yOffset));
 
-    for (int i = (int)readoutLayers.size() - 1; i >= 0; i--) {
-        const cl::Image2D& states = readoutLayers[i].getHiddenStates()[_back];
-        unsigned int width = (unsigned int)states.getImageInfo<CL_IMAGE_WIDTH>();
-        unsigned int height = (unsigned int)states.getImageInfo<CL_IMAGE_HEIGHT>();
-
-        _globalScale = (maxTileSize - width) / maxTileSize;
-
-        title = "States:" + std::to_string(i);
-        addImage(title, states, sf::Vector2f(xOffset, yOffset));
-
-        float layerYOffset = yOffset - (float)height * _globalScale + ySeperation;
-
-        for (int j = 0; j < readoutLayers[i].getNumLayers(); j++) {
-            const PredictorLayer::VisibleLayer &visibleLayer = readoutLayers[i].getLayer(j);
-
-            const cl::Image2D& derivedInput = visibleLayer._derivedInput[_back];
-            unsigned int width = (unsigned int)derivedInput.getImageInfo<CL_IMAGE_WIDTH>();
-            unsigned int height = (unsigned int)derivedInput.getImageInfo<CL_IMAGE_HEIGHT>();
-
-            layerYOffset -= (float)height * _globalScale + ySeperation;
-
-            title = "Inputs:" + std::to_string(j);
-            addImage(title, derivedInput, sf::Vector2f(xOffset, layerYOffset));
+            xOffset += (float)width * _globalScale + xSeperation;
         }
 
-        xOffset += (float)predictionWidth * _globalScale + xSeperation;
+        yOffset -= (float)predictionHeight * _globalScale + ySeperation;
     }
 
-}
-
-
-void DebugWindow::registerAgent(std::shared_ptr<Resources> resources, std::shared_ptr<Agent> agent) {
-    a = agent;
-    res = resources;
 }
 
 
@@ -331,7 +243,7 @@ void DebugWindow::update() {
 
     int windowIndex = 0;
 
-    const std::vector<cl::Image2D> &inputImages = h->getInputImages();
+    const std::vector<cl::Image2D> &inputImages = h->getInputImagesFeed();
     for (size_t i = 0; i < inputImages.size(); i++) {
         const cl::Image2D &img = inputImages[i];
 
@@ -361,63 +273,28 @@ void DebugWindow::update() {
             break;
         }
 
-        case SparseFeaturesType::_delay: {
-            SparseFeaturesDelay* sparseFeaturesDelay = reinterpret_cast<SparseFeaturesDelay*>(sparseFeatures.get());
+        case SparseFeaturesType::_distance: {
+            SparseFeaturesDistance* sparseFeaturesDistance = reinterpret_cast<SparseFeaturesDistance*>(sparseFeatures.get());
 
-            cl::Image2D states = sparseFeaturesDelay->getHiddenStates()[_back];
+            cl::Image2D states = sparseFeaturesDistance->getHiddenStates()[_back];
             updateTextureFromImage2D(states, _textureWindows[windowIndex++].texture);
 
-            cl::Image2D activations = sparseFeaturesDelay->getHiddenActivations()[_back];
+            cl::Image2D activations = sparseFeaturesDistance->getHiddenActivations()[_back];
             updateTextureFromImage2D(activations, _textureWindows[windowIndex++].texture);
 
-            cl::Image2D biases = sparseFeaturesDelay->getHiddenBiases()[_back];
-            updateTextureFromImage2D(biases, _textureWindows[windowIndex++].texture);
-            break;
-        }
-
-        case SparseFeaturesType::_stdp: {
-            SparseFeaturesSTDP* sparseFeaturesSTDP = reinterpret_cast<SparseFeaturesSTDP*>(sparseFeatures.get());
-
-            cl::Image2D states = sparseFeaturesSTDP->getHiddenStates()[_back];
-            updateTextureFromImage2D(states, _textureWindows[windowIndex++].texture);
-
-            cl::Image2D activations = sparseFeaturesSTDP->getHiddenActivations()[_back];
-            updateTextureFromImage2D(activations, _textureWindows[windowIndex++].texture);
-
-            cl::Image2D biases = sparseFeaturesSTDP->getHiddenBiases()[_back];
-            updateTextureFromImage2D(biases, _textureWindows[windowIndex++].texture);
-            break;
-        }
-
-        case SparseFeaturesType::_ReLU: {
-            SparseFeaturesReLU* sparseFeaturesReLU = reinterpret_cast<SparseFeaturesReLU*>(sparseFeatures.get());
-
-            cl::Image2D states = sparseFeaturesReLU->getHiddenStates()[_back];
-            updateTextureFromImage2D(states, _textureWindows[windowIndex++].texture);
-
-            cl::Image2D biases = sparseFeaturesReLU->getHiddenBiases()[_back];
-            updateTextureFromImage2D(biases, _textureWindows[windowIndex++].texture);
+            cl::Image2D winners = sparseFeaturesDistance->getDistanceWinners()[_back];
+            updateTextureFromImage2D(winners, _textureWindows[windowIndex++].texture);
             break;
         }
         }
     }
 
-    const std::vector<ValueField2D> &predictions = h->getPredictions();
-    for (size_t i = 0; i < predictions.size(); i++) {
-        ValueField2D valueField = predictions[i];
+    for (int p = 0; p < (int)predictor.getNumPredLayers(); p++) {
+        for (int i = 0; i < (int)predictor.getPredLayer(p).size(); i++) {
+            const PredictorLayer& predictorLayer = predictor.getPredLayer(p)[i];
 
-        updateTextureFromValueField2D(valueField, _textureWindows[windowIndex++].texture);
-    }
-
-    const std::vector<PredictorLayer> &readoutLayers = h->getReadOutPredictorLayers();
-    for (size_t i = 0; i < readoutLayers.size(); i++) {
-        cl::Image2D states = readoutLayers[i].getHiddenStates()[_back];
-        updateTextureFromImage2D(states, _textureWindows[windowIndex++].texture);
-
-        for (int j = 0; j < readoutLayers[i].getNumLayers(); j++) {
-            const PredictorLayer::VisibleLayer &visibleLayer = readoutLayers[i].getLayer(j);
-            const cl::Image2D& derivedInput = visibleLayer._derivedInput[_back];
-            updateTextureFromImage2D(derivedInput, _textureWindows[windowIndex++].texture);
+            const cl::Image2D& states = predictorLayer.getHiddenStates()[_back];
+            updateTextureFromImage2D(states, _textureWindows[windowIndex++].texture);
         }
     }
 }

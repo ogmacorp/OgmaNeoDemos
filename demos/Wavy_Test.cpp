@@ -11,7 +11,6 @@
 
 #include <neo/Architect.h>
 #include <neo/Hierarchy.h>
-#include <neo/ScalarEncoder.h>
 
 #include <vis/Plot.h>
 #include <vis/DebugWindow.h>
@@ -94,25 +93,16 @@ int main() {
     ogmaneo::Architect arch;
     arch.initialize(1234, res);
 
-    ogmaneo::ScalarEncoder se;
-    int encoderOutputWidth = 16;
-    se.createRandom(1, encoderOutputWidth*encoderOutputWidth, -0.999f, 0.999f, 1234);
+    ogmaneo::ValueField2D inputField(ogmaneo::Vec2i(1, 1), 0.0f);
 
-    ogmaneo::ValueField2D inputField(ogmaneo::Vec2i(encoderOutputWidth, encoderOutputWidth), 0.0f);
-    ogmaneo::ValueField2D inputNoisedField(ogmaneo::Vec2i(encoderOutputWidth, encoderOutputWidth), 0.0f);
+    arch.addInputLayer(ogmaneo::Vec2i(1, 1));
 
-    arch.addInputLayer(ogmaneo::Vec2i(encoderOutputWidth, encoderOutputWidth));
+    arch.addHigherLayer(ogmaneo::Vec2i(36, 36), ogmaneo::_distance);
 
-    int chunkLayers = 3;
-    int delayLayers = 3;
+    for (int l = 0; l < 8; l++)
+        arch.addHigherLayer(ogmaneo::Vec2i(36, 36), ogmaneo::_chunk);
 
-    for (int l = 0; l < chunkLayers; l++)
-        arch.addHigherLayer(ogmaneo::Vec2i(60, 60), ogmaneo::_chunk);
-
-    for (int l = 0; l < delayLayers; l++)
-        arch.addHigherLayer(ogmaneo::Vec2i(60, 60), ogmaneo::_delay);
-
-    ogmaneo::ValueField2D prediction(ogmaneo::Vec2i(encoderOutputWidth, encoderOutputWidth), 0.0f);
+    ogmaneo::ValueField2D prediction(ogmaneo::Vec2i(1, 1), 0.0f);
 
     // Generate the hierarchy
     std::shared_ptr<ogmaneo::Hierarchy> h = arch.generateHierarchy();
@@ -171,25 +161,9 @@ int main() {
                     0.7f * std::sin(0.12352f * M_PI * index * 1.5f + 0.2154f) +
                     0.5f * std::sin(0.0612f * M_PI * index * 3.0f - 0.2112f));
 
-            se.encode(std::vector<float>(1, value), 0.1f, 0.0f, 0.0f);
-
-            std::vector<float> outputNoised = se.getEncoderOutputs();
-
-            for (int i = 0; i < outputNoised.size(); i++)
-                if (dist01(generator) < 0.001f)
-                    outputNoised[i] = 1.0f - outputNoised[i];
-
             prediction = h->getPredictions()[0];
 
-            std::vector<float> result(encoderOutputWidth*encoderOutputWidth);
-
-            for (size_t i = 0; i < se.getEncoderOutputs().size(); i++) {
-                result[i] = std::min(1.0f, std::max(0.0f, prediction.getData()[i]));
-            }
-
-            se.decode(result);
-
-            float v = se.getDecoderOutputs()[0];
+            float v = prediction.getData()[0];
 
             // Plot target data
             vis::Point p;
@@ -237,24 +211,18 @@ int main() {
             renderWindow.draw(plotSprite);
 
             if (!sf::Keyboard::isKeyPressed(sf::Keyboard::T)) {
-                for (size_t i = 0; i < se.getEncoderOutputs().size(); i++) {
-                    inputField.getData()[i] = se.getEncoderOutputs().data()[i];
-                    inputNoisedField.getData()[i] = outputNoised[i];
-                }
+                inputField.getData()[0] = value;
 
                 std::vector<ogmaneo::ValueField2D> inputVector = { inputField };
-                std::vector<ogmaneo::ValueField2D> inputNoisedVector = { inputNoisedField };
-                h->simStep(inputVector, inputNoisedVector, true);
+                h->activate(inputVector);
+                h->learn(inputVector);
             }
             else {
                 prediction = h->getPredictions()[0];
-
-                for (size_t i = 0; i < se.getEncoderOutputs().size(); i++) {
-                    inputField.getData()[i] = prediction.getData()[i];
-                }
+                inputField.getData()[0] = prediction.getData()[0];
 
                 std::vector<ogmaneo::ValueField2D> inputVector = { inputField };
-                h->simStep(inputVector, false);
+                h->activate(inputVector);
             }
 
 #if 0

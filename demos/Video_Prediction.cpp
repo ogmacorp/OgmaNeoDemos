@@ -110,7 +110,7 @@ int main() {
         return 1;
     }
 
-    const int frameSkip = 1;        // Frames to skip
+    const int frameSkip = 4;        // Frames to skip
     const float videoScale = 1.0f;  // Rescale ratio
     const float blendPred = 0.0f;   // Ratio of how much prediction to blend in to input (part of input corruption)
 
@@ -133,7 +133,7 @@ int main() {
     arch.addInputLayer(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y));
 
     for (int l = 0; l < chunkLayers; l++)
-        arch.addHigherLayer(ogmaneo::Vec2i(layerSizes[l], layerSizes[l]), ogmaneo::_chunk);
+        arch.addHigherLayer(ogmaneo::Vec2i(layerSizes[l], layerSizes[l]), l == 0 ? ogmaneo::_distance : ogmaneo::_chunk);
 
     // Generate the hierarchy
     std::shared_ptr<ogmaneo::Hierarchy> h = arch.generateHierarchy();
@@ -141,8 +141,12 @@ int main() {
     if (enableDebugWindow)
         debugWindow.registerHierarchy(res, h);
 
+    // Whether to save out the Architect and Hierarchy state
     bool saveArchitectAndHierarchy = false;
-	
+
+    // Whether to reload the hierarchy (ignoring the Architect state, and rely on Architect setup here instead)
+    bool reloadHierarchy = false && !saveArchitectAndHierarchy;
+
     if (saveArchitectAndHierarchy)
         arch.save("Video_Prediction.oar");
 
@@ -198,237 +202,254 @@ int main() {
         graphScaleY = 25.0f;
     }
 
-    // Train for a bit
-    for (int iter = 0; iter < numIter && !quit; iter++) {
-        std::cout << "Iteration " << (iter + 1) << " of " << numIter << ":" << std::endl;
+    if (!reloadHierarchy) {
+        // Train for a bit
+        for (int iter = 0; iter < numIter && !quit; iter++) {
+            std::cout << "Iteration " << (iter + 1) << " of " << numIter << ":" << std::endl;
 
-        int currentFrame = 0;
-        float movieError = 0.0f;
+            int currentFrame = 0;
+            float movieError = 0.0f;
 
-        capture.set(CAP_PROP_POS_FRAMES,0.0f);
+            capture.set(CAP_PROP_POS_FRAMES,0.0f);
 
-        // Run through video
-        do {
-            // Read several discarded frames if frame skip is > 0
-            for (int i = 0; i < frameSkip; i++) {
-                capture >> frame;
+            // Run through video
+            do {
+                // Read several discarded frames if frame skip is > 0
+                for (int i = 0; i < frameSkip; i++) {
+                    capture >> frame;
 
-                currentFrame++;
+                    currentFrame++;
+
+                    if (frame.empty())
+                        break;
+                }
 
                 if (frame.empty())
                     break;
-            }
 
-            if (frame.empty())
-                break;
+                if (currentFrame > captureLength)
+                    break;
 
-            if (currentFrame > captureLength)
-                break;
+                // Convert to SFML image
+                sf::Image img;
 
-            // Convert to SFML image
-            sf::Image img;
+                img.create(frame.cols, frame.rows);
 
-            img.create(frame.cols, frame.rows);
+                for (unsigned int x = 0; x < img.getSize().x; x++)
+                    for (unsigned int y = 0; y < img.getSize().y; y++) {
+                        sf::Uint8 r = frame.data[(x + y * img.getSize().x) * 3 + 2];
+                        sf::Uint8 g = frame.data[(x + y * img.getSize().x) * 3 + 1];
+                        sf::Uint8 b = frame.data[(x + y * img.getSize().x) * 3 + 0];
 
-            for (unsigned int x = 0; x < img.getSize().x; x++)
-                for (unsigned int y = 0; y < img.getSize().y; y++) {
-                    sf::Uint8 r = frame.data[(x + y * img.getSize().x) * 3 + 2];
-                    sf::Uint8 g = frame.data[(x + y * img.getSize().x) * 3 + 1];
-                    sf::Uint8 b = frame.data[(x + y * img.getSize().x) * 3 + 0];
-
-                    img.setPixel(x, y, sf::Color(r, g, b));
-                }
-
-            // To SFML texture
-            sf::Texture tex;
-            tex.loadFromImage(img);
-            tex.setSmooth(true);
-
-            // Rescale using render target
-            float scale = videoScale * std::min(static_cast<float>(rescaleRT.getSize().x) / img.getSize().x, static_cast<float>(rescaleRT.getSize().y) / img.getSize().y);
-
-            sf::Sprite s;
-            s.setPosition(rescaleRT.getSize().x * 0.5f, rescaleRT.getSize().y * 0.5f);
-            s.setTexture(tex);
-            s.setOrigin(sf::Vector2f(tex.getSize().x * 0.5f, tex.getSize().y * 0.5f));
-            s.setScale(scale, scale);
-
-            rescaleRT.clear();
-            rescaleRT.draw(s);
-            rescaleRT.display();
-
-            // SFML image from rescaled frame
-            sf::Image reImg = rescaleRT.getTexture().copyToImage();
-
-            float predError = 0.0;
-            // Get input buffers
-            for (unsigned int x = 0; x < reImg.getSize().x; x++)
-                for (unsigned int y = 0; y < reImg.getSize().y; y++) {
-                    sf::Color c = reImg.getPixel(x, y);
-
-                    float errr = c.r / 255.0f - predFieldR.getValue(ogmaneo::Vec2i(x, y));
-                    float errg = c.g / 255.0f - predFieldG.getValue(ogmaneo::Vec2i(x, y));
-                    float errb = c.b / 255.0f - predFieldB.getValue(ogmaneo::Vec2i(x, y));
-                    predError += ((errr * errr) + (errg * errg) + (errb * errb)) / 3.0f;
-
-                    inputFieldR.setValue(ogmaneo::Vec2i(x, y), c.r / 255.0f * (1.0f - blendPred) + predFieldR.getValue(ogmaneo::Vec2i(x, y)) * blendPred);
-                    inputFieldG.setValue(ogmaneo::Vec2i(x, y), c.g / 255.0f * (1.0f - blendPred) + predFieldG.getValue(ogmaneo::Vec2i(x, y)) * blendPred);
-                    inputFieldB.setValue(ogmaneo::Vec2i(x, y), c.b / 255.0f * (1.0f - blendPred) + predFieldB.getValue(ogmaneo::Vec2i(x, y)) * blendPred);
-                }
-
-            errors[currentFrame] = predError / (reImg.getSize().x * reImg.getSize().y);
-
-            std::vector<ogmaneo::ValueField2D> inputVector = { inputFieldR, inputFieldG, inputFieldB };
-
-            h->simStep(inputVector, true);
-
-            predFieldR = h->getPredictions()[0];
-            predFieldG = h->getPredictions()[1];
-            predFieldB = h->getPredictions()[2];
-
-            // Show progress bar
-            float ratio = static_cast<float>(currentFrame + 1) / captureLength;
-
-            // Console
-            if (currentFrame % progressUpdateTicks == 0) {
-                std::cout << "\r";
-                std::cout << "[";
-
-                int bars = static_cast<int>(std::round(ratio * progressBarLength));
-
-                int spaces = progressBarLength - bars;
-
-                for (int i = 0; i < bars; i++)
-                    std::cout << "=";
-
-                for (int i = 0; i < spaces; i++)
-                    std::cout << " ";
-
-                std::cout << "] " << static_cast<int>(ratio * 100.0f) << "%";
-            }
-
-            // UI
-            if (currentFrame % progressUpdateTicks == 0) {
-                sf::Event windowEvent;
-
-                while (window.pollEvent(windowEvent)) {
-                    switch (windowEvent.type) {
-                    case sf::Event::Closed:
-                        quit = true;
-                        break;
-                    default:
-                        break;
+                        img.setPixel(x, y, sf::Color(r, g, b));
                     }
-                }
 
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
-                    quit = true;
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::G))
-                    graph = !graph;
+                // To SFML texture
+                sf::Texture tex;
+                tex.loadFromImage(img);
+                tex.setSmooth(true);
 
-                window.clear();
+                // Rescale using render target
+                float scale = videoScale * std::min(static_cast<float>(rescaleRT.getSize().x) / img.getSize().x, static_cast<float>(rescaleRT.getSize().y) / img.getSize().y);
+
+                sf::Sprite s;
+                s.setPosition(rescaleRT.getSize().x * 0.5f, rescaleRT.getSize().y * 0.5f);
+                s.setTexture(tex);
+                s.setOrigin(sf::Vector2f(tex.getSize().x * 0.5f, tex.getSize().y * 0.5f));
+                s.setScale(scale, scale);
+
+                rescaleRT.clear();
+                rescaleRT.draw(s);
+                rescaleRT.display();
+
+                // SFML image from rescaled frame
+                sf::Image reImg = rescaleRT.getTexture().copyToImage();
+
+                float predError = 0.0;
+                // Get input buffers
+                for (unsigned int x = 0; x < reImg.getSize().x; x++)
+                    for (unsigned int y = 0; y < reImg.getSize().y; y++) {
+                        sf::Color c = reImg.getPixel(x, y);
+
+                        float errr = c.r / 255.0f - predFieldR.getValue(ogmaneo::Vec2i(x, y));
+                        float errg = c.g / 255.0f - predFieldG.getValue(ogmaneo::Vec2i(x, y));
+                        float errb = c.b / 255.0f - predFieldB.getValue(ogmaneo::Vec2i(x, y));
+                        predError += ((errr * errr) + (errg * errg) + (errb * errb)) / 3.0f;
+
+                        inputFieldR.setValue(ogmaneo::Vec2i(x, y), c.r / 255.0f * (1.0f - blendPred) + predFieldR.getValue(ogmaneo::Vec2i(x, y)) * blendPred);
+                        inputFieldG.setValue(ogmaneo::Vec2i(x, y), c.g / 255.0f * (1.0f - blendPred) + predFieldG.getValue(ogmaneo::Vec2i(x, y)) * blendPred);
+                        inputFieldB.setValue(ogmaneo::Vec2i(x, y), c.b / 255.0f * (1.0f - blendPred) + predFieldB.getValue(ogmaneo::Vec2i(x, y)) * blendPred);
+                    }
+
+                errors[currentFrame] = predError / (reImg.getSize().x * reImg.getSize().y);
+
+                std::vector<ogmaneo::ValueField2D> inputVector = { inputFieldR, inputFieldG, inputFieldB };
+
+                h->activate(inputVector);
+                h->learn(inputVector);
+
+                predFieldR = h->getPredictions()[0];
+                predFieldG = h->getPredictions()[1];
+                predFieldB = h->getPredictions()[2];
 
                 // Show progress bar
-                sf::RectangleShape rs;
-                rs.setPosition(8.0f, 8.0f);
-                rs.setSize(sf::Vector2f(128.0f * ratio, 32.0f));
-                rs.setFillColor(sf::Color::Red);
+                float ratio = static_cast<float>(currentFrame + 1) / captureLength;
 
-                window.draw(rs);
+                // Console
+                if (currentFrame % progressUpdateTicks == 0) {
+                    std::cout << "\r";
+                    std::cout << "[";
 
-                float errorTotal = 0.0f;
+                    int bars = static_cast<int>(std::round(ratio * progressBarLength));
 
-                if (graph) {
-                    // Horizontal grid lines
-                    for (int i = 0; i <= 10; i++) {
-                        rs.setPosition(8.0f, windowHeight - 16.0f - graphScaleY * i);
-                        rs.setSize(sf::Vector2f(graphScaleX * captureLength, 1.0f));
-                        rs.setFillColor(sf::Color::White);
+                    int spaces = progressBarLength - bars;
 
-                        window.draw(rs);
+                    for (int i = 0; i < bars; i++)
+                        std::cout << "=";
+
+                    for (int i = 0; i < spaces; i++)
+                        std::cout << " ";
+
+                    std::cout << "] " << static_cast<int>(ratio * 100.0f) << "%";
+                }
+
+                // UI
+                if (currentFrame % progressUpdateTicks == 0) {
+                    sf::Event windowEvent;
+
+                    while (window.pollEvent(windowEvent)) {
+                        switch (windowEvent.type) {
+                        case sf::Event::Closed:
+                            quit = true;
+                            break;
+                        default:
+                            break;
+                        }
                     }
 
-                    // Vertical error bars
-                    for (int i = 0; i < captureLength; i++) {
-                        rs.setPosition(8.0f + graphScaleX * i, windowHeight - 16.0f - graphScaleY * 10.0f * errors[i]);
-                        rs.setSize(sf::Vector2f(graphScaleX, graphScaleY * 10.0f * errors[i]));
+                    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
+                        quit = true;
+                    if (sf::Keyboard::isKeyPressed(sf::Keyboard::G))
+                        graph = !graph;
 
-                        if (i <= currentFrame)
-                            rs.setFillColor(sf::Color::Red);
-                        else
-                            rs.setFillColor(sf::Color::Green);
+                    window.clear();
 
-                        window.draw(rs);
-
-                        errorTotal += errors[i];
-                    }
-
-                    // Horizontal average error line
-                    rs.setPosition(8.0f, windowHeight - 16.0f - graphScaleY * 10.0f * frameSkip * (errorTotal / captureLength));
-                    rs.setFillColor(sf::Color::Yellow);
-                    rs.setSize(sf::Vector2f(graphScaleX * captureLength, 2.0f));
+                    // Show progress bar
+                    sf::RectangleShape rs;
+                    rs.setPosition(8.0f, 8.0f);
+                    rs.setSize(sf::Vector2f(128.0f * ratio, 32.0f));
+                    rs.setFillColor(sf::Color::Red);
 
                     window.draw(rs);
-                }
 
-                // Progress bar outline
-                rs.setPosition(8.0f, 8.0f);
-                rs.setFillColor(sf::Color::Transparent);
-                rs.setOutlineColor(sf::Color::White);
-                rs.setOutlineThickness(2.0f);
-                rs.setSize(sf::Vector2f(128.0f, 32.0f));
+                    float errorTotal = 0.0f;
 
-                window.draw(rs);
+                    if (graph) {
+                        // Horizontal grid lines
+                        for (int i = 0; i <= 10; i++) {
+                            rs.setPosition(8.0f, windowHeight - 16.0f - graphScaleY * i);
+                            rs.setSize(sf::Vector2f(graphScaleX * captureLength, 1.0f));
+                            rs.setFillColor(sf::Color::White);
 
-                std::string st;
-                st += std::to_string(static_cast<int>(ratio * 100.0f)) +
-                    "% (pass " + std::to_string(iter + 1) + " of " + std::to_string(numIter) + ") " +
-                    std::to_string(currentFrame) + "/" + std::to_string(captureLength) + " MSE: " +
-                    std::to_string(predError / (reImg.getSize().x * reImg.getSize().y));
+                            window.draw(rs);
+                        }
 
-                sf::Text t;
-                t.setFont(font);
-                t.setCharacterSize(16);
-                t.setString(st);
-                t.setPosition(144.0f, 12.0f);
-                t.setColor(sf::Color::White);
+                        // Vertical error bars
+                        for (int i = 0; i < captureLength; i++) {
+                            rs.setPosition(8.0f + graphScaleX * i, windowHeight - 16.0f - graphScaleY * 10.0f * errors[i]);
+                            rs.setSize(sf::Vector2f(graphScaleX, graphScaleY * 10.0f * errors[i]));
 
-                window.draw(t);
+                            if (i <= currentFrame)
+                                rs.setFillColor(sf::Color::Red);
+                            else
+                                rs.setFillColor(sf::Color::Green);
 
-                if (graph) {
-                    std::string st2;
-                    st2 += std::to_string(frameSkip * errorTotal / captureLength);
-                    t.setString(st2);
-                    t.setPosition(16.0f + graphScaleX * captureLength, windowHeight - 16.0f - graphScaleY * 10.0f * frameSkip * (errorTotal / captureLength));
+                            window.draw(rs);
+
+                            errorTotal += errors[i];
+                        }
+
+                        // Horizontal average error line
+                        rs.setPosition(8.0f, windowHeight - 16.0f - graphScaleY * 10.0f * frameSkip * (errorTotal / captureLength));
+                        rs.setFillColor(sf::Color::Yellow);
+                        rs.setSize(sf::Vector2f(graphScaleX * captureLength, 2.0f));
+
+                        window.draw(rs);
+                    }
+
+                    // Progress bar outline
+                    rs.setPosition(8.0f, 8.0f);
+                    rs.setFillColor(sf::Color::Transparent);
+                    rs.setOutlineColor(sf::Color::White);
+                    rs.setOutlineThickness(2.0f);
+                    rs.setSize(sf::Vector2f(128.0f, 32.0f));
+
+                    window.draw(rs);
+
+                    std::string st;
+                    st += std::to_string(static_cast<int>(ratio * 100.0f)) +
+                        "% (pass " + std::to_string(iter + 1) + " of " + std::to_string(numIter) + ") " +
+                        std::to_string(currentFrame) + "/" + std::to_string(captureLength) + " MSE: " +
+                        std::to_string(predError / (reImg.getSize().x * reImg.getSize().y));
+
+                    sf::Text t;
+                    t.setFont(font);
+                    t.setCharacterSize(16);
+                    t.setString(st);
+                    t.setPosition(144.0f, 12.0f);
+                    t.setColor(sf::Color::White);
 
                     window.draw(t);
+
+                    if (graph) {
+                        std::string st2;
+                        st2 += std::to_string(frameSkip * errorTotal / captureLength);
+                        t.setString(st2);
+                        t.setPosition(16.0f + graphScaleX * captureLength, windowHeight - 16.0f - graphScaleY * 10.0f * frameSkip * (errorTotal / captureLength));
+
+                        window.draw(t);
+                    }
+
+                    window.display();
+
+                    if (enableDebugWindow) {
+                        debugWindow.update();
+                        debugWindow.display();
+                    }
                 }
 
-                window.display();
+            } while (!frame.empty() && !quit);
 
-                if (enableDebugWindow) {
-                    debugWindow.update();
-                    debugWindow.display();
-                }
-            }
+            // Make sure bar is at 100%
+            std::cout << "\r";
+            std::cout << "[";
 
-        } while (!frame.empty() && !quit);
+            for (int i = 0; i < progressBarLength; i++)
+                std::cout << "=";
 
-        // Make sure bar is at 100%
-        std::cout << "\r";
-        std::cout << "[";
+            std::cout << "] 100%";
 
-        for (int i = 0; i < progressBarLength; i++)
-            std::cout << "=";
-
-        std::cout << "] 100%";
-
-        std::cout << std::endl;
+            std::cout << std::endl;
+        }
 
         if (saveArchitectAndHierarchy) {
-            std::string fileName = "VideoPrediction" + std::to_string(iter) + ".ohr";
+            std::string fileName = "VideoPrediction.ohr";
+
+            std::cout << "Saving hierarchy to " << fileName << std::endl;
+
             h->save(*res->getComputeSystem(), fileName);
         }
+    }
+    else {
+        std::string fileName = "VideoPrediction.ohr";
+
+        std::cout << "Reloading hierarchy from " << fileName << std::endl;
+
+        h->load(*res->getComputeSystem(), fileName);
+
+        predFieldR = h->getPredictions()[0];
+        predFieldG = h->getPredictions()[1];
+        predFieldB = h->getPredictions()[2];
     }
 
     // ---------------------------- Presentation Simulation Loop -----------------------------
@@ -457,7 +478,7 @@ int main() {
         window.clear();
 
         std::vector<ogmaneo::ValueField2D> inputVector = { predFieldR, predFieldG, predFieldB };
-        h->simStep(inputVector, false);
+        h->activate(inputVector);
 
         predFieldR = h->getPredictions()[0];
         predFieldG = h->getPredictions()[1];

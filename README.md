@@ -8,6 +8,8 @@
 
 # OgmaNeoDemos
 
+[![Join the chat at https://gitter.im/ogmaneo/Lobby](https://img.shields.io/gitter/room/nwjs/nw.js.svg)](https://gitter.im/ogmaneo/Lobby) 
+
 Examples and experiments using the [OgmaNeo](https://github.com/ogmacorp/OgmaNeo/) C++ library.
 
 ## Demos
@@ -19,7 +21,6 @@ Currently released demos include:
 - Sinusoidal prediction
 - Runner
 - Ball physics
-- FlatBuffers parser
 
 The Ogma YouTube channel contains videos associated with certain demos, [https://www.youtube.com/ogmaai](https://www.youtube.com/ogmaai).
 
@@ -132,25 +133,6 @@ This demo uses:
 [Box2D](http://box2d.org/) (Box2D, version 2.3.1).
 
 Makefile target for this demo: `make Ball_Physics`
-
-### FlatBuffers Parser
-
-A generated hierarchy and it's internal state can be saved out using the FlatBuffers based serialization routines within OgmaNeo.
-The FlatBuffers parser can reload this and output images that showing the internal state.
-
-The FlatBuffers parser takes two command line options -
-- the name prefix for OAR (Hierarchy archives) and OHR (Hierarchy internal state), and
--  an optional count for processing multiple OHR files.
-
-Refer to the Video_Prediction demo to see an example of how to save out the hierarchy and it's internal state (search for the `saveArchitectAndHierarchy` boolean).
-
-By default, image files are saved as JPEG images to the current directory. SFML is used to save images and supports the following output image types - bmp, png, tga and jpg. An alternative output format can be used by changing the ".jpg" entries
-in the `WriteImage2D` function.
-
-This demo uses:  
-[SFML](http://www.sfml-dev.org/) (Simple and Fast Multimedia Library, version 2.4.x).
-
-Makefile target for this utility application: `make FB_Parser`
 
 ## Building
 
