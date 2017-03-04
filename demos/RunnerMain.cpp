@@ -12,73 +12,73 @@
 #include <runner/Runner.h>
 
 #include <neo/Architect.h>
-#include <neo/Agent.h>
-#include <neo/ScalarEncoder.h>
+#include <neo/Hierarchy.h>
 
 #include <time.h>
 #include <iostream>
 #include <random>
 
 float sigmoid(float x) {
-	return 1.0f / (1.0f + std::exp(-x));
+    return 1.0f / (1.0f + std::exp(-x));
 }
 
 int main() {
     // RNG
     std::mt19937 generator(time(nullptr));
-    
+
     // Create window
-	sf::RenderWindow window;
+    sf::RenderWindow window;
 
-	sf::ContextSettings glContextSettings;
-	glContextSettings.antialiasingLevel = 4;
+    sf::ContextSettings glContextSettings;
+    glContextSettings.antialiasingLevel = 4;
 
-	window.create(sf::VideoMode(800, 600), "Runner Demo", sf::Style::Default, glContextSettings);
+    window.create(sf::VideoMode(800, 600), "Runner Demo", sf::Style::Default, glContextSettings);
 
-	window.setFramerateLimit(60);
-	window.setVerticalSyncEnabled(true);
+    window.setFramerateLimit(60);
+    window.setVerticalSyncEnabled(true);
 
-	// Physics
-	std::shared_ptr<b2World> world = std::make_shared<b2World>(b2Vec2(0.0f, -9.81f));
+    // Physics
+    std::shared_ptr<b2World> world = std::make_shared<b2World>(b2Vec2(0.0f, -9.81f));
 
-	const float pixelsPerMeter = 256.0f;
+    const float pixelsPerMeter = 256.0f;
 
-	const float groundWidth = 5000.0f;
-	const float groundHeight = 5.0f;
+    const float groundWidth = 5000.0f;
+    const float groundHeight = 5.0f;
 
-	// Create ground body
-	b2BodyDef groundBodyDef;
-	groundBodyDef.position.Set(0.0f, 0.0f);
+    // Create ground body
+    b2BodyDef groundBodyDef;
+    groundBodyDef.position.Set(0.0f, 0.0f);
 
-	b2Body* groundBody = world->CreateBody(&groundBodyDef);
+    b2Body* groundBody = world->CreateBody(&groundBodyDef);
 
-	b2PolygonShape groundBox;
-	groundBox.SetAsBox(groundWidth * 0.5f, groundHeight * 0.5f);
+    b2PolygonShape groundBox;
+    groundBox.SetAsBox(groundWidth * 0.5f, groundHeight * 0.5f);
 
-	groundBody->CreateFixture(&groundBox, 0.0f); // 0 density (static)
+    groundBody->CreateFixture(&groundBox, 0.0f); // 0 density (static)
 
-    // Background image
-	sf::Texture skyTexture;
+                                                 // Background image
+    sf::Texture skyTexture;
 
-	skyTexture.loadFromFile("resources/background1.png");
+    skyTexture.loadFromFile("resources/background1.png");
 
-	skyTexture.setSmooth(true);
+    skyTexture.setSmooth(true);
 
     // Floor image
-	sf::Texture floorTexture;
+    sf::Texture floorTexture;
 
-	floorTexture.loadFromFile("resources/floor1.png");
+    floorTexture.loadFromFile("resources/floor1.png");
 
-	floorTexture.setRepeated(true);
-	floorTexture.setSmooth(true);
+    floorTexture.setRepeated(true);
+    floorTexture.setSmooth(true);
 
     // Create a runner
-	Runner runner0;
+    Runner runner0;
 
-	runner0.createDefault(world, b2Vec2(0.0f, 2.762f), 0.0f, 1);
+    runner0.createDefault(world, b2Vec2(0.0f, 2.762f), 0.0f, 1);
 
-	const int inputCount = 3 + 3 + 2 + 2 + 1 + 4; // 3 inputs for hind legs, 2 for front, body angle, contacts for each leg
-	const int outputCount = 3 + 3 + 2 + 2; // Motor output for each joint
+    const int inputCount = 3 + 3 + 2 + 2 + 1 + 4; // 3 inputs for hind legs, 2 for front, body angle, contacts for each leg
+    const int outputCount = 3 + 3 + 2 + 2; // Motor output for each joint
+    const int actionTileWidth = 3;
 
     // Create the agent
     std::shared_ptr<ogmaneo::Resources> res = std::make_shared<ogmaneo::Resources>();
@@ -89,40 +89,44 @@ int main() {
     ogmaneo::Architect arch;
     arch.initialize(1234, res);
 
-    arch.addInputLayer(ogmaneo::Vec2i(8, 8));
+    // State
+    arch.addInputLayer(ogmaneo::Vec2i(4, 4));
 
-    arch.addActionLayer(ogmaneo::Vec2i(4, 4), ogmaneo::Vec2i(3, 3));
+    // Q
+    arch.addInputLayer(ogmaneo::Vec2i(4 * actionTileWidth, 3 * actionTileWidth), true);
 
-    // 4 chunk encoders at default settings
-    for (int l = 0; l < 4; l++)
-        arch.addHigherLayer(ogmaneo::Vec2i(16, 16), ogmaneo::_chunk);
+    const float decay = 0.1f;
+
+    for (int l = 0; l < 6; l++) {
+        if (l == 0)
+            arch.addHigherLayer(ogmaneo::Vec2i(36, 36), ogmaneo::_distance);
+        else
+            arch.addHigherLayer(ogmaneo::Vec2i(36, 36), ogmaneo::_chunk);
+    }
 
     // Generate
-    std::shared_ptr<ogmaneo::Agent> a = arch.generateAgent();
+    std::shared_ptr<ogmaneo::Hierarchy> h = arch.generateHierarchy();
 
     // Create necessary fields
-    ogmaneo::ValueField2D inputField(ogmaneo::Vec2i(8, 8), 0.0f);
-    ogmaneo::ValueField2D actionField(ogmaneo::Vec2i(4, 4), 0.0f);
+    ogmaneo::ValueField2D stateField(ogmaneo::Vec2i(4, 4), 0.0f);
+    ogmaneo::ValueField2D qField(ogmaneo::Vec2i(4 * actionTileWidth, 3 * actionTileWidth), 0.0f);
 
-    // Scalar encoder for mapping real values to SDR
-	ogmaneo::ScalarEncoder se;
+    std::vector<float> valuePrevs(4 * 3, 0.0f);
+    std::vector<float> maxPrevs(4 * 3, 0.0f);
 
-	se.createRandom(15, 64, -2.0f, 2.0f, 1234);
+    std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
 
-    // Rescaling buffer
-	std::vector<float> rescaledActions(16, 0.5f);
+    // ---------------------------- Game Loop -----------------------------
 
-	// ---------------------------- Game Loop -----------------------------
+    sf::View view = window.getDefaultView();
 
-	sf::View view = window.getDefaultView();
+    bool quit = false;
 
-	bool quit = false;
+    sf::Clock clock;
 
-	sf::Clock clock;
+    float dt = 0.017f;
 
-	float dt = 0.017f;
-
-	int steps = 0;
+    int steps = 0;
 
     // Run past real-time
     bool speedMode = false;
@@ -135,37 +139,35 @@ int main() {
     bool tDownPrev = false;
 
     // Layer textures for debugging
-    std::vector<sf::Texture> layerTextures(a->getAgentSwarm().getPredictor().getHierarchy().getNumLayers());
+    std::vector<sf::Texture> layerTextures(h->getPredictor().getHierarchy().getNumLayers());
 
-	do {
-		clock.restart();
+    do {
+        clock.restart();
 
-		// ----------------------------- Input -----------------------------
+        // ----------------------------- Input -----------------------------
 
-		sf::Event windowEvent;
+        sf::Event windowEvent;
 
-		while (window.pollEvent(windowEvent))
-		{
-			switch (windowEvent.type)
-			{
-			case sf::Event::Closed:
-				quit = true;
-				break;
-			default:
-				break;
-			}
-		}
+        while (window.pollEvent(windowEvent))
+        {
+            switch (windowEvent.type)
+            {
+            case sf::Event::Closed:
+                quit = true;
+                break;
+            }
+        }
 
-		if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
-			quit = true;
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
+            quit = true;
 
         // Stabilization (keep runner from tipping over) parameters
-		const float maxRunnerBodyAngle = 0.3f;
-		const float runnerBodyAngleStab = 10.0f;
+        const float maxRunnerBodyAngle = 0.3f;
+        const float runnerBodyAngleStab = 10.0f;
 
-		{
+        {
             // Reward is velocity (flipped direction if K is pressed)
-			float reward;
+            float reward;
 
             if (!kDownPrev && sf::Keyboard::isKeyPressed(sf::Keyboard::K))
                 runBackwards = !runBackwards;
@@ -177,94 +179,162 @@ int main() {
 
             tDownPrev = sf::Keyboard::isKeyPressed(sf::Keyboard::T);
 
-			if (runBackwards)
-				reward = -runner0._pBody->GetLinearVelocity().x;
-			else
-				reward = runner0._pBody->GetLinearVelocity().x;
-
             // Retrieve the sensor states
-			std::vector<float> state;
+            std::vector<float> state;
 
-			runner0.getStateVector(state);
+            runner0.getStateVector(state);
 
-            // Encode
-			se.encode(state, 0.08f, 0.0f, 0.0f);
+            for (int i = 0; i < state.size(); i++)
+                stateField.getData()[i] = state[i];
 
-            inputField.getData() = se.getEncoderOutputs();
+            // Activate
+            std::vector<ogmaneo::ValueField2D> inputVector{ stateField, qField };
 
-            // Simulation steps
-			std::vector<ogmaneo::ValueField2D> inputVector = { inputField };
-            a->simStep(reward, inputVector, true);
+            h->activate(inputVector);
 
-            // Retrieve actions
-            actionField = a->getActions().front();
+            if (runBackwards)
+                reward = -runner0._pBody->GetLinearVelocity().x;
+            else
+                reward = runner0._pBody->GetLinearVelocity().x;
 
-            // Rescale into [0, 1] range
-			for (int i = 0; i < rescaledActions.size(); i++)
-				rescaledActions[i] = actionField.getData()[i] / static_cast<float>(3 * 3 - 1);
+            // Go through tiles
+            std::vector<int> actionIndices(4 * 3);
+
+            float averageTDError = 0.0f;
+
+            for (int tx = 0; tx < 4; tx++)
+                for (int ty = 0; ty < 3; ty++) {
+                    float maxQ = -99999.0f;
+
+                    int maxIndex = 0;
+                    
+                    for (int dx = 0; dx < actionTileWidth; dx++)
+                        for (int dy = 0; dy < actionTileWidth; dy++) {
+                            int x = tx * actionTileWidth + dx;
+                            int y = ty * actionTileWidth + dy;
+
+                            float q = h->getPredictions()[1].getValue(ogmaneo::Vec2i(x, y));
+
+                            if (q > maxQ) {
+                                maxQ = q;
+                                maxIndex = dx + dy * actionTileWidth;
+                            }
+
+                            qField.setValue(ogmaneo::Vec2i(x, y), 0.0f);
+                        }
+
+                    float valuePrev = valuePrevs[tx + ty * 4];
+                    float maxPrev = maxPrevs[tx + ty * 4];
+
+                    int actionExplore = maxIndex;
+
+                    if (dist01(generator) < 0.02f) {
+                        std::uniform_int_distribution<int> actionDist(0, actionTileWidth * actionTileWidth - 1);
+
+                        actionExplore = actionDist(generator);
+                    }
+
+                    actionIndices[tx + ty * 4] = actionExplore;
+
+                    float nextQ;
+
+                    {
+                        int dx = actionExplore % 4;
+                        int dy = actionExplore / 4;
+
+                        int x = tx * actionTileWidth + dx;
+                        int y = ty * actionTileWidth + dy;
+
+                        nextQ = valuePrevs[tx + ty * 4] = h->getPredictions()[1].getValue(ogmaneo::Vec2i(x, y));
+
+                        qField.setValue(ogmaneo::Vec2i(x, y), 1.0f);
+                    }
+                    
+                    maxPrevs[tx + ty * 4] = maxQ;
+
+                    float tdError = maxPrev + (reward + 0.98f * nextQ - maxPrev) * 1.0f - valuePrev;
+
+                    averageTDError += tdError;
+                }
+
+            averageTDError /= 4 * 3;
+
+            std::cout << averageTDError << std::endl;
+
+            inputVector[1] = qField;
+
+            h->learn(inputVector, averageTDError * 0.5f);
+
+            std::vector<float> rescaledActions(4 * 3);
+
+            for (int i = 0; i < rescaledActions.size(); i++) {
+                rescaledActions[i] = actionIndices[i] / static_cast<float>(4 * 3 - 1);
+            }
 
             // Update motors with actions
-			runner0.motorUpdate(rescaledActions);
+            runner0.motorUpdate(rescaledActions);
 
-			// Keep upright (prevent from tipping over)
-			if (std::abs(runner0._pBody->GetAngle()) > maxRunnerBodyAngle)
-				runner0._pBody->SetAngularVelocity(-runnerBodyAngleStab * runner0._pBody->GetAngle());
-		}
+            // Keep upright (prevent from tipping over)
+            if (std::abs(runner0._pBody->GetAngle()) > maxRunnerBodyAngle)
+                runner0._pBody->SetAngularVelocity(-runnerBodyAngleStab * runner0._pBody->GetAngle());
+        }
 
         // Step the physics simulation
-		int subSteps = 1;
+        int subSteps = 1;
 
-		for (int ss = 0; ss < subSteps; ss++) {
-			world->ClearForces();
+        for (int ss = 0; ss < subSteps; ss++) {
+            world->ClearForces();
 
-			world->Step(1.0f / 60.0f / subSteps, 24, 24);
-		}
+            world->Step(1.0f / 60.0f / subSteps, 24, 24);
+        }
 
         // Display every 200 timesteps, or if not in speed mode
-		if (!speedMode || steps % 100 == 1) {
-			// -------------------------------------------------------------------
+        if (!speedMode || steps % 100 == 1) {
+            // -------------------------------------------------------------------
 
             // Center view on the runner
-			view.setCenter(runner0._pBody->GetPosition().x * pixelsPerMeter, -runner0._pBody->GetPosition().y * pixelsPerMeter);
+            view.setCenter(runner0._pBody->GetPosition().x * pixelsPerMeter, -runner0._pBody->GetPosition().y * pixelsPerMeter);
 
-			// Draw sky
-			sf::Sprite skySprite;
-			skySprite.setTexture(skyTexture);
+            // Draw sky
+            sf::Sprite skySprite;
+            skySprite.setTexture(skyTexture);
 
             // Sky doesn't move
             window.setView(window.getDefaultView());
 
-			window.draw(skySprite);
+            window.draw(skySprite);
 
             window.setView(view);
 
             // Draw floor
-			sf::RectangleShape floorShape;
-			floorShape.setSize(sf::Vector2f(groundWidth * pixelsPerMeter, groundHeight * pixelsPerMeter));
-			floorShape.setTexture(&floorTexture);
-			floorShape.setTextureRect(sf::IntRect(0, 0, groundWidth * pixelsPerMeter, groundHeight * pixelsPerMeter));
+            sf::RectangleShape floorShape;
+            floorShape.setSize(sf::Vector2f(groundWidth * pixelsPerMeter, groundHeight * pixelsPerMeter));
+            floorShape.setTexture(&floorTexture);
+            floorShape.setTextureRect(sf::IntRect(0, 0, groundWidth * pixelsPerMeter, groundHeight * pixelsPerMeter));
 
-			floorShape.setOrigin(sf::Vector2f(groundWidth * pixelsPerMeter * 0.5f, groundHeight * pixelsPerMeter * 0.5f));
+            floorShape.setOrigin(sf::Vector2f(groundWidth * pixelsPerMeter * 0.5f, groundHeight * pixelsPerMeter * 0.5f));
 
-			window.draw(floorShape);
+            window.draw(floorShape);
 
-			// Draw the runner
-			runner0.renderDefault(window, sf::Color::Red, pixelsPerMeter);
+            // Draw the runner
+            runner0.renderDefault(window, sf::Color::Red, pixelsPerMeter);
 
-			window.setView(view);
+            window.setView(window.getDefaultView());
 
-			window.display();
-		}
+            window.setView(view);
+
+            window.display();
+        }
 
         // Show distance traveled
         if (steps % 100 == 0)
             std::cout << "Steps: " << steps << " Distance: " << runner0._pBody->GetPosition().x << std::endl;
 
-		steps++;
+        steps++;
 
-	} while (!quit);
+    } while (!quit);
 
-	world->DestroyBody(groundBody);
+    world->DestroyBody(groundBody);
 
-	return 0;
+    return 0;
 }

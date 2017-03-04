@@ -28,7 +28,7 @@ int main() {
 
     // Render target for scene
     sf::RenderTexture rescaleRT;
-    rescaleRT.create(48, 48);
+    rescaleRT.create(64, 64);
 
     // Create the hierarchy
     std::shared_ptr<ogmaneo::Resources> res = std::make_shared<ogmaneo::Resources>();
@@ -39,22 +39,11 @@ int main() {
     arch.initialize(1234, res);
 
     // 1 input layer, greyscale image of scene
-    arch.addInputLayer(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y))
-        .setValue("in_p_alpha", 0.05f)
-        .setValue("in_p_radius", 10);
+    arch.addInputLayer(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y));
 
     // 8 chunk layers
-    for (int l = 0; l < 7; l++)
-        arch.addHigherLayer(ogmaneo::Vec2i(128, 128), ogmaneo::_chunk)
-        .setValue("sfc_chunkSize", ogmaneo::Vec2i(8, 8))
-        .setValue("sfc_ff_radius", 10)
-        .setValue("sfc_r_radius", 10)
-        .setValue("hl_poolSteps", 2)
-        .setValue("sfc_numSamples", 1)
-        .setValue("sfc_gamma", 2.0f)
-        .setValue("p_alpha", 0.05f)
-        .setValue("p_beta", 0.1f)
-        .setValue("p_radius", 10);
+    for (int l = 0; l < 5; l++)
+        arch.addHigherLayer(ogmaneo::Vec2i(60, 60), l == 0 ? ogmaneo::_distance : ogmaneo::_chunk);
 
     std::shared_ptr<ogmaneo::Hierarchy> h = arch.generateHierarchy();
 
@@ -269,12 +258,13 @@ int main() {
 
             std::vector<ogmaneo::ValueField2D> inputVector = { inputField };
 
-            h->simStep(inputVector, false);
+            h->activate(inputVector);        
         }
         else {
             std::vector<ogmaneo::ValueField2D> inputVector = { inputField };
 
-            h->simStep(inputVector, true);
+            h->activate(inputVector);
+            h->learn(inputVector);
         }
 
         // Retrieve prediction

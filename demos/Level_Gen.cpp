@@ -78,7 +78,7 @@ int main() {
     const int step = 1; // Step 1 pixel at a time
 
     // 40 iterations of training on the level
-    for (int iter = 0; iter < 30; iter++) {
+    for (int iter = 0; iter < 5; iter++) {
         std::cout << "Training iter " << (iter + 1) << std::endl;
 
         // Go through level horizontally one pixel at a time
@@ -113,7 +113,8 @@ int main() {
             // Step the hierarchy
             std::vector<ogmaneo::ValueField2D> inputVector = { inputFieldR, inputFieldG, inputFieldB };
 
-            h->simStep(inputVector, true); // Learning enabled
+            h->activate(inputVector);
+            h->learn(inputVector);
         }
     }
 
@@ -225,7 +226,7 @@ int main() {
         // Generate level
         std::vector<ogmaneo::ValueField2D> inputVector = { predFieldR, predFieldG, predFieldB };
 
-        h->simStep(inputVector, false); // Learning disabled
+        h->activate(inputVector);
 
         // Create texture from show image
         sf::Texture tex;

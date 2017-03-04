@@ -44,16 +44,27 @@ void WriteImage2D(const std::string& namePrefix, const schemas::Image2D *fbImg) 
     {
         const schemas::FloatArray* fbFloatArray =
             reinterpret_cast<const schemas::FloatArray*>(fbImg->pixels());
+        const flatbuffers::Vector<float> *data = fbFloatArray->data();
 
-        float minValue = *min_element(fbFloatArray->data()->begin(), fbFloatArray->data()->end());
-        float maxValue = *max_element(fbFloatArray->data()->begin(), fbFloatArray->data()->end());
+        float minValue, maxValue;
+#if defined(_DEBUG)
+        minValue = FLT_MAX;
+        maxValue = -FLT_MAX;
+        for (flatbuffers::uoffset_t d = 0; d < data->Length(); d++) {
+            if (data->Get(d) < minValue)    minValue = data->Get(d);
+            if (data->Get(d) > maxValue)    maxValue = data->Get(d);
+        }
+#else
+        minValue = *min_element(fbFloatArray->data()->begin(), fbFloatArray->data()->end());
+        maxValue = *max_element(fbFloatArray->data()->begin(), fbFloatArray->data()->end());
+#endif
 
         float offset = minValue;
         float scale = 1.f / (maxValue - minValue);
 
         // Catch [-1, 1]
         if (minValue >= -1.0f && minValue < 0.0f &&
-            maxValue <=  1.0f && maxValue > 0.0f) {
+            maxValue <= 1.0f && maxValue > 0.0f) {
             offset = 1.f;
             scale = 0.5f;
         }
@@ -64,7 +75,7 @@ void WriteImage2D(const std::string& namePrefix, const schemas::Image2D *fbImg) 
 
         for (uint32_t i = 0; i < numElements; i += elementsPerPixel) {
             for (uint32_t j = 0; j < elementsPerPixel; j++) {
-                pixelValue = (fbFloatArray->data()->Get(i+j) + offset) * scale;
+                pixelValue = (data->Get(i + j) + offset) * scale;
 
                 switch (j) {
                 default:
@@ -75,7 +86,7 @@ void WriteImage2D(const std::string& namePrefix, const schemas::Image2D *fbImg) 
                 }
             }
 
-            img.setPixel((i/elementsPerPixel) % width, (i/elementsPerPixel) / width, pixel);
+            img.setPixel((i / elementsPerPixel) % width, (i / elementsPerPixel) / width, pixel);
         }
 
         fileName += ".jpg";
@@ -86,19 +97,14 @@ void WriteImage2D(const std::string& namePrefix, const schemas::Image2D *fbImg) 
         const schemas::ByteArray* fbByteArray =
             reinterpret_cast<const schemas::ByteArray*>(fbImg->pixels());
 
-        unsigned char minValue = *min_element(fbByteArray->data()->begin(), fbByteArray->data()->end());
-        unsigned char maxValue = *max_element(fbByteArray->data()->begin(), fbByteArray->data()->end());
-
-        float offset = (float)minValue;
-        float scale = 255.f / (float)(maxValue - minValue);
-
         uint32_t elementsPerPixel = (elementSize / sizeof(unsigned char));
         uint32_t numElements = width * height * elementsPerPixel;
         sf::Uint8 pixelValue;
 
+        const flatbuffers::Vector<uint8_t> *data = fbByteArray->data();
         for (uint32_t i = 0; i < numElements; i += elementsPerPixel) {
             for (uint32_t j = 0; j < elementsPerPixel; j++) {
-                pixelValue = (sf::Uint8)(((float)fbByteArray->data()->Get(i + j) + offset) * scale);
+                pixelValue = (sf::Uint8)data->Get(i + j);
 
                 switch (j) {
                 default:
@@ -128,7 +134,7 @@ void WriteImage3D(const std::string& namePrefix, const schemas::Image3D *fbImg) 
     if (fbImg == nullptr)
         return;
 
-/*
+    /*
     uint32_t width = fbImg->width();
     uint32_t height = fbImg->height();
     uint32_t depth = fbImg->depth();
@@ -139,52 +145,52 @@ void WriteImage3D(const std::string& namePrefix, const schemas::Image3D *fbImg) 
     std::vector<std::string> fileNames;
 
     for (uint32_t i = 0; i < depth; i++) {
-        fileNames[i] = namePrefix + "_d" + std::to_string(i);
-        imgs[i].create(width, height);
+    fileNames[i] = namePrefix + "_d" + std::to_string(i);
+    imgs[i].create(width, height);
     }
 
     switch (fbImg->pixels_type())
     {
     case schemas::PixelData::PixelData_FloatArray:
     {
-        const schemas::FloatArray* fbFloatArray =
-            reinterpret_cast<const schemas::FloatArray*>(fbImg->pixels());
+    const schemas::FloatArray* fbFloatArray =
+    reinterpret_cast<const schemas::FloatArray*>(fbImg->pixels());
 
-        float minValue = *min_element(fbFloatArray->data()->begin(), fbFloatArray->data()->end());
-        float maxValue = *max_element(fbFloatArray->data()->begin(), fbFloatArray->data()->end());
+    float minValue = *min_element(fbFloatArray->data()->begin(), fbFloatArray->data()->end());
+    float maxValue = *max_element(fbFloatArray->data()->begin(), fbFloatArray->data()->end());
 
-        float offset = minValue;
-        float scale = 1.f / (maxValue - minValue);
+    float offset = minValue;
+    float scale = 1.f / (maxValue - minValue);
 
-        // Catch [-1, 1]
-        if (minValue >= -1.0f && minValue < 1.0f &&
-            maxValue <= 1.0f && maxValue > -1.0f) {
-            offset = 1.f;
-            scale = 0.5f;
-        }
+    // Catch [-1, 1]
+    if (minValue >= -1.0f && minValue < 1.0f &&
+    maxValue <= 1.0f && maxValue > -1.0f) {
+    offset = 1.f;
+    scale = 0.5f;
+    }
 
-        uint32_t elementsPerPixel = (elementSize / sizeof(float));
-        uint32_t numElements = width * height * depth * elementsPerPixel;
-        float pixelValue;
+    uint32_t elementsPerPixel = (elementSize / sizeof(float));
+    uint32_t numElements = width * height * depth * elementsPerPixel;
+    float pixelValue;
 
-        for (uint32_t i = 0; i < depth; i++) {
-            fileNames[i] += ".jpg";
-        }
-        break;
+    for (uint32_t i = 0; i < depth; i++) {
+    fileNames[i] += ".jpg";
+    }
+    break;
     }
     case schemas::PixelData::PixelData_ByteArray:
     {
-        break;
+    break;
     }
     default:
-        assert(0);
-        break;
+    assert(0);
+    break;
     }
 
     for (uint32_t i = 0; i < depth; i++) {
-        imgs[i].saveToFile(fileNames[i]);
+    imgs[i].saveToFile(fileNames[i]);
     }
-*/
+    */
 }
 
 
@@ -430,10 +436,20 @@ void WriteValueField2D(const std::string& namePrefix, const schemas::ValueField2
     img.create(size->x(), size->y());
 
     uint32_t numElements = size->x() * size->y();
-    float pixelValue;
+    float pixelValue, minValue, maxValue;
 
-    float minValue = *min_element(valueField->_data()->begin(), valueField->_data()->end());
-    float maxValue = *max_element(valueField->_data()->begin(), valueField->_data()->end());
+#if defined(_DEBUG)
+    minValue = FLT_MAX;
+    maxValue = -FLT_MAX;
+    const flatbuffers::Vector<float> *data = valueField->_data();
+    for (flatbuffers::uoffset_t d = 0; d < data->Length(); d++) {
+        if (data->Get(d) < minValue)    minValue = data->Get(d);
+        if (data->Get(d) > maxValue)    maxValue = data->Get(d);
+    }
+#else
+    minValue = *min_element(valueField->_data()->begin(), valueField->_data()->end());
+    maxValue = *max_element(valueField->_data()->begin(), valueField->_data()->end());
+#endif
 
     float offset = minValue;
     float scale = 1.f / (maxValue - minValue);
@@ -453,8 +469,8 @@ int main(int argc, char *argv[]) {
 
     if (argc < 2) {
         std::cout << "Usage: " << argv[0] << " namePrefix ohrCount" << std::endl;
-        std::cout << "       A hierachy is regenerated from a namePrefix.oar file." << std::endl;
-        std::cout << "       The hierachy state is reloaded from a namePrefix.ohr file(s)." << std::endl;
+        std::cout << "       A hierachy/agent is regenerated from a namePrefix.oar file." << std::endl;
+        std::cout << "       The network state is reloaded from a namePrefix.ohr file(s)." << std::endl;
         std::cout << "       If ohrCount is specified, and greater than one, a count is " << std::endl;
         std::cout << "       appended to the namePrefix when loading ohr files." << std::endl;
         return 1;
@@ -462,7 +478,7 @@ int main(int argc, char *argv[]) {
 
     std::string prefix(argv[1]);
     int ohrCount = 1;
-    
+
     if (argc == 3)
         ohrCount = atoi(argv[2]);
 
@@ -481,13 +497,13 @@ int main(int argc, char *argv[]) {
 
     // Generate the hierarchy
     std::shared_ptr<Hierarchy> hierarchy = arch.generateHierarchy();
-    
+
 
     // --------------------------- Dump out the hierarchies -------------------------
 
     for (int iter = 0; iter < ohrCount; iter++) {
         std::string namePrefix = "";
-        
+
         if (ohrCount > 1)
             namePrefix += std::to_string(iter);
 
@@ -599,7 +615,7 @@ int main(int argc, char *argv[]) {
                         }
                     }
                 }
-
+/*
                 for (flatbuffers::uoffset_t i = 0; i < fbPredictor->_pLayerDescs()->Length(); i++) {
                     const schemas::PredLayerDesc* fbPredLayerDesc = fbPredictor->_pLayerDescs()->Get(i);
 
@@ -614,6 +630,7 @@ int main(int argc, char *argv[]) {
 
                     WritePredictorLayer(layerPrefix, fbPredictorLayer);
                 }
+*/
             }
 
             //for (flatbuffers::uoffset_t i = 0; i < fbHierarchy->_inputImages()->Length(); i++) {
@@ -623,14 +640,14 @@ int main(int argc, char *argv[]) {
             //for (flatbuffers::uoffset_t i = 0; i < fbHierarchy->_corruptedInputImages()->Length(); i++) {
             //    WriteImage2D(namePrefix + "_inputImagesCorrupted" + std::to_string(i), fbHierarchy->_corruptedInputImages()->Get(i));
             //}
-
+/*
             for (flatbuffers::uoffset_t i = 0; i < fbHierarchy->_readoutLayers()->Length(); i++) {
                 const schemas::PredictorLayer* fbPredictorLayer = fbHierarchy->_readoutLayers()->Get(i);
                 std::string layerPrefix = namePrefix + "_predictorLayer" + std::to_string(i);
 
                 WritePredictorLayer(layerPrefix, fbPredictorLayer);
             }
-
+*/
             for (flatbuffers::uoffset_t i = 0; i < fbHierarchy->_predictions()->Length(); i++) {
                 WriteValueField2D(namePrefix + "_predictions" + std::to_string(i), fbHierarchy->_predictions()->Get(i));
             }
