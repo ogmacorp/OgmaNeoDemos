@@ -24,7 +24,7 @@ else
 
     wget https://github.com/Itseez/opencv/archive/3.1.0.zip
     unzip 3.1.0.zip
-    cd 3.1.0
+    cd opencv-3.1.0
 
     mkdir build
     cd build
