@@ -124,7 +124,7 @@ include_directories(${OGMANEO_INCLUDE_DIRS})
 # Find SFML include and libs
 
 #set(SFML_STATIC_LIBRARIES TRUE)
-find_package(SFML COMPONENTS system window graphics audio)
+find_package(SFML 2.4 COMPONENTS system window graphics audio)
 
 #if(APPLE)
 #    find_package(boost COMPONENTS filesystem-mt REQUIRED)
@@ -151,12 +151,13 @@ else()
     )
     set(SFML_INCLUDE_DIR "${3RDPARTY_PATH}/include")
 
-    if(${SFML_STATIC_LIBRARIES})
+    if(${SFML_STATIC_LIBRARIES} OR ${SFML_STATIC})
         set(SFML_BUILD_SUFFIX "-s")
+        set(SFML_LIB_SUFFIX "${CMAKE_STATIC_LIBRARY_SUFFIX}")
     else()
         set(SFML_BUILD_SUFFIX "")
+        set(SFML_LIB_SUFFIX "${CMAKE_SHARED_LIBRARY_SUFFIX}")
     endif()
-    set(SFML_LIB_SUFFIX "${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
     set(SFML_SYSTEM_LIBRARY debug "sfml-system${SFML_BUILD_SUFFIX}-d${SFML_LIB_SUFFIX}" optimized "sfml-system${SFML_BUILD_SUFFIX}${SFML_LIB_SUFFIX}")
     set(SFML_WINDOW_LIBRARY debug "sfml-window${SFML_BUILD_SUFFIX}-d${SFML_LIB_SUFFIX}" optimized "sfml-window${SFML_BUILD_SUFFIX}${SFML_LIB_SUFFIX}")
@@ -205,7 +206,7 @@ else()
             "-DBOX2D_BUILD_EXAMPLES=OFF"
     )
     set(BOX2D_INCLUDE_DIRS "${3RDPARTY_PATH}/include")
-    set(BOX2D_LIBRARIES "box2d${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(BOX2D_LIBRARIES "Box2D${CMAKE_STATIC_LIBRARY_SUFFIX}")
 endif()
 
 

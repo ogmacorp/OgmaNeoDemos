@@ -30,3 +30,6 @@
 
 # MacOS cache
 .DS_Store
+
+# Convenient build location
+build/
