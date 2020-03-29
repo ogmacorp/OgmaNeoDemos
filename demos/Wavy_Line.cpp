@@ -1,6 +1,6 @@
-// ----------------------------------------------------------// ----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
 //  OgmaNeoDemos
-//  Copyright(c) 2016 Ogma Intelligent Systems Corp. All rights reserved.
+//  Copyright(c) 2016-2020 Ogma Intelligent Systems Corp. All rights reserved.
 //
 //  This copy of OgmaNeoDemos is licensed to you under the terms described
 //  in the OGMANEODEMOS_LICENSE.md file included in this distribution.
