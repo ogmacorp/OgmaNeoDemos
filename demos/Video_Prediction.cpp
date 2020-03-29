@@ -37,8 +37,8 @@ int main() {
     // Uniform distribution in [0, 1]
     std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
 
-    const unsigned int windowWidth = 512;
-    const unsigned int windowHeight = 512;
+    const unsigned int windowWidth = 800;
+    const unsigned int windowHeight = 600;
 
     sf::RenderWindow window;
 

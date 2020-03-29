@@ -28,9 +28,6 @@ float sigmoid(float x) {
 }
 
 int main() {
-    std::mt19937 rng(time(nullptr));
-    std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
-
     std::string hFileName = "wavyLine.ohr";
 
     // --------------------------- Create the window(s) ---------------------------
@@ -46,7 +43,7 @@ int main() {
     //renderWindow.setFramerateLimit(60);
 
     vis::Plot plot;
-    //plot._backgroundColor = sf::Color(64, 64, 64, 255);
+    //plot.backgroundColor = sf::Color(64, 64, 64, 255);
     plot.plotXAxisTicks = false;
     plot.curves.resize(2);
     plot.curves[0].shadow = 0.1f; // Input
@@ -75,7 +72,7 @@ int main() {
 
     // --------------------------- Create the Hierarchy ---------------------------
 
-    const int inputColumnSize = 64;
+    const int inputColumnSize = 32;
 
     // Create hierarchy
     ComputeSystem::setNumThreads(4);
@@ -84,9 +81,9 @@ int main() {
     std::vector<Hierarchy::LayerDesc> lds(6);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(4, 4, 16);
+        lds[i].hiddenSize = Int3(4, 4, 32);
 
-        lds[i].ffRadius = lds[i].pRadius = 2;
+        lds[i].ffRadius = lds[i].pRadius = 4;
 
         lds[i].ticksPerUpdate = 2;
         lds[i].temporalHorizon = 4;
@@ -139,10 +136,9 @@ int main() {
             if (index % 1000 == 0)
                 std::cout << "Step: " << index << std::endl;
 
-            float value =
-                0.5f * (std::sin(0.164f * M_PI * index + 0.25f) +
-                    0.6f * std::sin(0.12352f * M_PI * index * 1.5f + 0.2154f) +
-                    0.4f * std::sin(0.0612f * M_PI * index * 3.0f - 0.2112f));
+            float value = std::sin(0.0125f * M_PI * index + 0.25f) * 
+                std::sin(0.03f * M_PI * index + 1.5f) *
+                std::sin(0.025f * M_PI * index - 0.1f);
 
             int predIndex = h.getPredictionCs(0)[0];
 
