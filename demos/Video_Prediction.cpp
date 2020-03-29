@@ -54,7 +54,7 @@ int main() {
 #elif defined(__APPLE__)
     font.loadFromFile("/Library/Fonts/Courier New.ttf");
 #else
-    font.loadFromFile("/usr/share/fonts/truetype/freefont/FreeMono.ttf");
+    font.loadFromFile("/usr/share/fonts/TTF/VeraMono.ttf");
 #endif
 
     // Open the video file
@@ -74,7 +74,7 @@ int main() {
         return 1;
     }
 
-    const float videoScale = 0.5f; // Rescale ratio
+    const float videoScale = 1.0f; // Rescale ratio
     const unsigned int rescaleWidth = videoScale * movieWidth;
     const unsigned int rescaleHeight = videoScale * movieHeight;
 
@@ -92,7 +92,7 @@ int main() {
 
     ImageEncoder::VisibleLayerDesc vld;
     vld.size = Int3(rescaleRT.getSize().x, rescaleRT.getSize().y, 3);
-    vld.radius = 9;
+    vld.radius = 12;
 
     ImageEncoder enc;
 
@@ -135,7 +135,7 @@ int main() {
     const int numIter = 16;
 
     // Frame skip
-    int frameSkip = 4;
+    int frameSkip = 1; // 1 means no frame skip (stride of 1)
 
     // UI update resolution
     const int progressBarLength = 40;
@@ -146,7 +146,7 @@ int main() {
     bool loadHierarchy = false;
     bool saveHierarchy = true;
 
-    const float graphScaleX = 3.0f;
+    const float graphScaleX = 1.0f;
     const float graphScaleY = 25.0f;
 
     if (!loadHierarchy) {
