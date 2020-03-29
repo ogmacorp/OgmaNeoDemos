@@ -1,6 +1,6 @@
 // ----------------------------------------------------------------------------
 //  OgmaNeoDemos
-//  Copyright(c) 2016 Ogma Intelligent Systems Corp. All rights reserved.
+//  Copyright(c) 2016-2020 Ogma Intelligent Systems Corp. All rights reserved.
 //
 //  This copy of OgmaNeoDemos is licensed to you under the terms described
 //  in the OGMANEODEMOS_LICENSE.md file included in this distribution.
@@ -14,8 +14,10 @@
 #include <iostream>
 #include <random>
 
-#include <neo/Architect.h>
-#include <neo/Hierarchy.h>
+#include <ogmaneo/Hierarchy.h>
+#include <ogmaneo/ImageEncoder.h>
+
+using namespace ogmaneo;
 
 int main() {
     std::mt19937 generator(time(nullptr));
@@ -23,33 +25,42 @@ int main() {
     std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
 
     sf::RenderWindow window;
+    window.setFramerateLimit(0); // No limit
 
     window.create(sf::VideoMode(800, 800), "Physics Test", sf::Style::Default);
 
     // Render target for scene
     sf::RenderTexture rescaleRT;
-    rescaleRT.create(64, 64);
+    rescaleRT.create(32, 32);
 
-    // Create the hierarchy
-    std::shared_ptr<ogmaneo::Resources> res = std::make_shared<ogmaneo::Resources>();
+    // --------------------------- Create the Hierarchy ---------------------------
 
-    res->create(ogmaneo::ComputeSystem::_gpu);
+    // Create hierarchy
+    ComputeSystem::setNumThreads(4);
+    ComputeSystem cs;
 
-    ogmaneo::Architect arch;
-    arch.initialize(1234, res);
+    Int3 hiddenSize(8, 8, 16);
 
-    // 1 input layer, greyscale image of scene
-    arch.addInputLayer(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y));
+    ImageEncoder::VisibleLayerDesc vld;
+    vld.size = Int3(rescaleRT.getSize().x, rescaleRT.getSize().y, 1);
+    vld.radius = 9;
 
-    // 8 chunk layers
-    for (int l = 0; l < 5; l++)
-        arch.addHigherLayer(ogmaneo::Vec2i(60, 60), l == 0 ? ogmaneo::_distance : ogmaneo::_chunk);
+    ImageEncoder enc;
+    enc.initRandom(cs, hiddenSize, { vld });
 
-    std::shared_ptr<ogmaneo::Hierarchy> h = arch.generateHierarchy();
+    std::vector<Hierarchy::LayerDesc> lds(3);
 
-    // Fields for inputs and predictions
-    ogmaneo::ValueField2D inputField(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y));
-    ogmaneo::ValueField2D predField(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y));
+    for (int i = 0; i < lds.size(); i++) {
+        lds[i].hiddenSize = Int3(4, 4, 16);
+
+        lds[i].ffRadius = lds[i].pRadius = 2;
+
+        lds[i].ticksPerUpdate = 2;
+        lds[i].temporalHorizon = 4;
+    }
+
+    Hierarchy h;
+    h.initRandom(cs, { hiddenSize }, { prediction }, lds);
 
     // ----------------------------- Physics ------------------------------
 
@@ -116,7 +127,7 @@ int main() {
     b2Body* ballBody = world->CreateBody(&ballBodyDef);
 
     b2CircleShape ballShape;
-    ballShape.m_radius = 0.6f;
+    ballShape.m_radius = 1.4f;
 
     b2Fixture* ballFixture = ballBody->CreateFixture(&ballShape, 5.0f);
 
@@ -129,14 +140,13 @@ int main() {
     // Generation mode flag
     bool genMode = false;
 
-    // Textures for visualizing states
-    std::vector<sf::Texture> layerTextures(h->getPredictor().getHierarchy().getNumLayers());
-
     // ---------------------------- Game Loop -----------------------------
 
     bool quit = false;
 
     int simFrame = simFrames;
+
+    bool gPressedPrev = false;
 
     do {
         // ----------------------------- Input -----------------------------
@@ -169,11 +179,13 @@ int main() {
             ballBody->SetAngularVelocity(0.0f);
             ballBody->SetTransform(ballStart, 0.0f);
 
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::G))
-                genMode = !genMode;
-
             window.setFramerateLimit(genMode ? 60 : 0);
         }
+
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::G) && !gPressedPrev)
+            genMode = !genMode;
+
+        gPressedPrev = sf::Keyboard::isKeyPressed(sf::Keyboard::G);
 
         simFrame++;
 
@@ -242,6 +254,8 @@ int main() {
 
         sf::Image rescaleImg = rescaleRT.getTexture().copyToImage();
 
+        std::vector<float> imagef(rescaleRT.getSize().x * rescaleRT.getSize().y);
+
         // Load into input field
         for (int x = 0; x < rescaleRT.getSize().x; x++)
             for (int y = 0; y < rescaleRT.getSize().y; y++) {
@@ -249,26 +263,23 @@ int main() {
 
                 float mono = 0.333f * (c.r / 255.0f + c.g / 255.0f + c.b / 255.0f);
 
-                inputField.setValue(ogmaneo::Vec2i(x, y), mono);
+                imagef[y + x * rescaleRT.getSize().y] = mono;
             }
 
         // Feed first 5 frames from image, even when generating ("seed" sequence)
-        if (simFrame > 5 && genMode) {
-            inputField = predField;
-
-            std::vector<ogmaneo::ValueField2D> inputVector = { inputField };
-
-            h->activate(inputVector);        
-        }
+        if (simFrame > 5 && genMode)
+            h.step(cs, { &h.getPredictionCs(0) }, false);
         else {
-            std::vector<ogmaneo::ValueField2D> inputVector = { inputField };
+            enc.step(cs, { &imagef }, true);
 
-            h->activate(inputVector);
-            h->learn(inputVector);
+            h.step(cs, { &enc.getHiddenCs() }, true);
         }
 
-        // Retrieve prediction
-        predField = h->getPredictions().front();
+        // Reconstruct
+        enc.reconstruct(cs, &h.getPredictionCs(0));
+
+        // Retrieve reconstructed prediction
+        std::vector<float> pred = enc.getVisibleLayer(0).reconActs;
 
         // Display prediction
         sf::Image img;
@@ -280,7 +291,7 @@ int main() {
             for (int y = 0; y < rescaleRT.getSize().y; y++) {
                 sf::Color c;
 
-                c.r = c.g = c.b = 255.0f * std::min(1.0f, std::max(0.0f, predField.getValue(ogmaneo::Vec2i(x, y))));
+                c.r = c.g = c.b = 255.0f * std::min(1.0f, std::max(0.0f, pred[y + x * rescaleRT.getSize().y]));
 
                 img.setPixel(x, y, c);
             }
@@ -306,51 +317,6 @@ int main() {
         s.setScale(sf::Vector2f(scale, scale));
 
         window.draw(s);
-
-        // If pressing K, show SDRs
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::K)) {
-            float xOffset = 0.0f;
-
-            float SDRScale = 1.0f;
-
-            // Show all layer SDRs
-            for (int l = 0; l < layerTextures.size(); l++) {
-                // Temporary data buffer (host side)
-                std::vector<float> data(h->getPredictor().getHierarchy().getLayer(l)._sf->getHiddenSize().x * h->getPredictor().getHierarchy().getLayer(l)._sf->getHiddenSize().y * 2);
-
-                // Retrieve SDR. Need low level access for this
-                res->getComputeSystem()->getQueue().enqueueReadImage(h->getPredictor().getHierarchy().getLayer(l)._sf->getHiddenStates()[ogmaneo::_back], CL_TRUE, { 0, 0, 0 }, { static_cast<cl::size_type>(h->getPredictor().getHierarchy().getLayer(l)._sf->getHiddenSize().x), static_cast<cl::size_type>(h->getPredictor().getHierarchy().getLayer(l)._sf->getHiddenSize().y), 1 }, 0, 0, data.data());
-
-                // Convert into image
-                sf::Image img;
-
-                img.create(h->getPredictor().getHierarchy().getLayer(l)._sf->getHiddenSize().x, h->getPredictor().getHierarchy().getLayer(l)._sf->getHiddenSize().y);
-
-                for (int x = 0; x < img.getSize().x; x++)
-                    for (int y = 0; y < img.getSize().y; y++) {
-                        sf::Color c = sf::Color::White;
-
-                        c.r = c.b = c.g = 255.0f * data[(x + y * img.getSize().x) * 2 + 0];
-
-                        img.setPixel(x, y, c);
-                    }
-
-                // Display
-                layerTextures[l].loadFromImage(img);
-
-                sf::Sprite s;
-
-                s.setTexture(layerTextures[l]);
-
-                s.setPosition(xOffset, window.getSize().y - img.getSize().y * SDRScale);
-
-                s.setScale(SDRScale, SDRScale);
-
-                window.draw(s);
-
-                xOffset += img.getSize().x * SDRScale;
-            }
-        }
 
         window.display();
     } while (!quit);

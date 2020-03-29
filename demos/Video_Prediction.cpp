@@ -1,12 +1,13 @@
 // ----------------------------------------------------------------------------
 //  OgmaNeoDemos
-//  Copyright(c) 2016 Ogma Intelligent Systems Corp. All rights reserved.
+//  Copyright(c) 2016-2020 Ogma Intelligent Systems Corp. All rights reserved.
 //
 //  This copy of OgmaNeoDemos is licensed to you under the terms described
 //  in the OGMANEODEMOS_LICENSE.md file included in this distribution.
 // ----------------------------------------------------------------------------
 
 #include <opencv2/core/core.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 
 #include <SFML/Window.hpp>
@@ -14,25 +15,30 @@
 
 #include <time.h>
 #include <iostream>
+#include <fstream>
 #include <random>
 
-#include <neo/Architect.h>
-#include <neo/Hierarchy.h>
-
-#include <vis/DebugWindow.h>
+#include <ogmaneo/Hierarchy.h>
+#include <ogmaneo/ImageEncoder.h>
 
 using namespace ogmaneo;
 using namespace cv;
 
 int main() {
+    // Capture file name
+    std::string fileName = "resources/Bullfinch192.mp4";
+
+    std::string encFileName = "videoPrediction.oenc";
+    std::string hFileName = "videoPrediction.ohr";
+
     // Initialize a random number generator
-    std::mt19937 generator(time(nullptr));
+    std::mt19937 rng(time(nullptr));
 
     // Uniform distribution in [0, 1]
     std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
 
-    unsigned int windowWidth = 512;
-    unsigned int windowHeight = 512;
+    const unsigned int windowWidth = 512;
+    const unsigned int windowHeight = 512;
 
     sf::RenderWindow window;
 
@@ -40,19 +46,6 @@ int main() {
 
     // Uncap framerate
     window.setFramerateLimit(0);
-
-    bool enableDebugWindow = false;
-
-    vis::DebugWindow debugWindow;
-
-    if (enableDebugWindow) {
-        window.setPosition(sf::Vector2i(64, 64));
-
-        debugWindow.create(
-            sf::String("Debug"),
-            sf::Vector2i(window.getPosition().x + windowWidth + 8, window.getPosition().y),
-            sf::Vector2u(512, 512));
-    }
 
     sf::Font font;
 
@@ -63,35 +56,6 @@ int main() {
 #else
     font.loadFromFile("/usr/share/fonts/truetype/freefont/FreeMono.ttf");
 #endif
-
-    // Parameters
-    int netScale;
-    int chunkLayers;
-    std::vector<int> layerSizes;
-    std::string fileName;
-
-    bool useBullFinchMovie = false;
-
-    if (useBullFinchMovie) {
-        fileName = "resources/Bullfinch192.mp4";
-        netScale = 192;
-        chunkLayers = 6;
-        layerSizes.push_back(96);
-        layerSizes.push_back(96);
-        layerSizes.push_back(96);
-        layerSizes.push_back(60);
-        layerSizes.push_back(60);
-        layerSizes.push_back(60);
-    }
-    else {
-        fileName = "resources/Tesseract.wmv";
-        netScale = 128;
-        chunkLayers = 4;
-        layerSizes.push_back(96);
-        layerSizes.push_back(96);
-        layerSizes.push_back(60);
-        layerSizes.push_back(60);
-    }
 
     // Open the video file
     VideoCapture capture(fileName);
@@ -110,54 +74,41 @@ int main() {
         return 1;
     }
 
-    const int frameSkip = 4;        // Frames to skip
-    const float videoScale = 1.0f;  // Rescale ratio
-    const float blendPred = 0.0f;   // Ratio of how much prediction to blend in to input (part of input corruption)
+    const float videoScale = 0.5f; // Rescale ratio
+    const unsigned int rescaleWidth = videoScale * movieWidth;
+    const unsigned int rescaleHeight = videoScale * movieHeight;
 
     // Video rescaling render target
     sf::RenderTexture rescaleRT;
-    rescaleRT.create(netScale, netScale);
+    rescaleRT.create(rescaleWidth, rescaleHeight);
 
     // --------------------------- Create the Hierarchy ---------------------------
 
-    std::shared_ptr<ogmaneo::Resources> res = std::make_shared<ogmaneo::Resources>();
+    // Create hierarchy
+    ComputeSystem::setNumThreads(8);
+    ComputeSystem cs;
 
-    res->create(ogmaneo::ComputeSystem::_gpu);
+    Int3 hiddenSize(12, 12, 16);
 
-    ogmaneo::Architect arch;
-    arch.initialize(1234, res);
+    ImageEncoder::VisibleLayerDesc vld;
+    vld.size = Int3(rescaleRT.getSize().x, rescaleRT.getSize().y, 3);
+    vld.radius = 9;
 
-    // 3 input layers for RGB
-    arch.addInputLayer(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y));
-    arch.addInputLayer(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y));
-    arch.addInputLayer(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y));
+    ImageEncoder enc;
 
-    for (int l = 0; l < chunkLayers; l++)
-        arch.addHigherLayer(ogmaneo::Vec2i(layerSizes[l], layerSizes[l]), l == 0 ? ogmaneo::_distance : ogmaneo::_chunk);
+    std::vector<Hierarchy::LayerDesc> lds(4);
 
-    // Generate the hierarchy
-    std::shared_ptr<ogmaneo::Hierarchy> h = arch.generateHierarchy();
+    for (int i = 0; i < lds.size(); i++) {
+        lds[i].hiddenSize = Int3(6, 6, 16);
 
-    if (enableDebugWindow)
-        debugWindow.registerHierarchy(res, h);
+        lds[i].ffRadius = lds[i].pRadius = 2;
 
-    // Whether to save out the Architect and Hierarchy state
-    bool saveArchitectAndHierarchy = false;
+        lds[i].ticksPerUpdate = 2;
+        lds[i].temporalHorizon = 4;
+    }
 
-    // Whether to reload the hierarchy (ignoring the Architect state, and rely on Architect setup here instead)
-    bool reloadHierarchy = false && !saveArchitectAndHierarchy;
-
-    if (saveArchitectAndHierarchy)
-        arch.save("Video_Prediction.oar");
-
-    // Input and prediction fields for color components
-    ValueField2D inputFieldR(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y), 0.0f);
-    ValueField2D inputFieldG(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y), 0.0f);
-    ValueField2D inputFieldB(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y), 0.0f);
-    ValueField2D predFieldR(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y), 0.0f);
-    ValueField2D predFieldG(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y), 0.0f);
-    ValueField2D predFieldB(ogmaneo::Vec2i(rescaleRT.getSize().x, rescaleRT.getSize().y), 0.0f);
-
+    Hierarchy h;
+    
     std::cout << "Running through capture: " << fileName << std::endl;
 
     int captureLength = static_cast<int>(capture.get(CAP_PROP_FRAME_COUNT));
@@ -183,26 +134,26 @@ int main() {
     // Training time
     const int numIter = 16;
 
+    // Frame skip
+    int frameSkip = 4;
+
     // UI update resolution
     const int progressBarLength = 40;
     const int progressUpdateTicks = 1;
 
     bool quit = false;
     bool graph = true;
+    bool loadHierarchy = false;
+    bool saveHierarchy = true;
 
-    float graphScaleX;
-    float graphScaleY;
+    const float graphScaleX = 3.0f;
+    const float graphScaleY = 25.0f;
 
-    if (useBullFinchMovie) {
-        graphScaleX = 1.0f;
-        graphScaleY = 25.0f;
-    }
-    else {
-        graphScaleX = 3.0f;
-        graphScaleY = 25.0f;
-    }
+    if (!loadHierarchy) {
+        // Initialize hierarchy randomly
+        enc.initRandom(cs, hiddenSize, { vld });
+        h.initRandom(cs, { hiddenSize }, { prediction }, lds);
 
-    if (!reloadHierarchy) {
         // Train for a bit
         for (int iter = 0; iter < numIter && !quit; iter++) {
             std::cout << "Iteration " << (iter + 1) << " of " << numIter << ":" << std::endl;
@@ -210,7 +161,7 @@ int main() {
             int currentFrame = 0;
             float movieError = 0.0f;
 
-            capture.set(CAP_PROP_POS_FRAMES,0.0f);
+            capture.set(CAP_PROP_POS_FRAMES, 0.0f);
 
             // Run through video
             do {
@@ -235,11 +186,11 @@ int main() {
 
                 img.create(frame.cols, frame.rows);
 
-                for (unsigned int x = 0; x < img.getSize().x; x++)
-                    for (unsigned int y = 0; y < img.getSize().y; y++) {
-                        sf::Uint8 r = frame.data[(x + y * img.getSize().x) * 3 + 2];
-                        sf::Uint8 g = frame.data[(x + y * img.getSize().x) * 3 + 1];
-                        sf::Uint8 b = frame.data[(x + y * img.getSize().x) * 3 + 0];
+                for (int x = 0; x < img.getSize().x; x++)
+                    for (int y = 0; y < img.getSize().y; y++) {
+                        sf::Uint8 r = frame.data[2 + x * 3 + y * 3 * img.getSize().x]; // Reverse order so it's BGR -> RGB
+                        sf::Uint8 g = frame.data[1 + x * 3 + y * 3 * img.getSize().x]; // OpencV is a different matrix order than OgmaNeo
+                        sf::Uint8 b = frame.data[0 + x * 3 + y * 3 * img.getSize().x];
 
                         img.setPixel(x, y, sf::Color(r, g, b));
                     }
@@ -250,7 +201,7 @@ int main() {
                 tex.setSmooth(true);
 
                 // Rescale using render target
-                float scale = videoScale * std::min(static_cast<float>(rescaleRT.getSize().x) / img.getSize().x, static_cast<float>(rescaleRT.getSize().y) / img.getSize().y);
+                float scale = std::min(static_cast<float>(rescaleRT.getSize().x) / img.getSize().x, static_cast<float>(rescaleRT.getSize().y) / img.getSize().y);
 
                 sf::Sprite s;
                 s.setPosition(rescaleRT.getSize().x * 0.5f, rescaleRT.getSize().y * 0.5f);
@@ -265,32 +216,36 @@ int main() {
                 // SFML image from rescaled frame
                 sf::Image reImg = rescaleRT.getTexture().copyToImage();
 
-                float predError = 0.0;
+                // Reconstruct last prediction
+                enc.reconstruct(cs, &h.getPredictionCs(0));
+
+                std::vector<float> pred = enc.getVisibleLayer(0).reconActs;
+                std::vector<float> input(pred.size());
+
+                float predError = 0.0f;
+
                 // Get input buffers
-                for (unsigned int x = 0; x < reImg.getSize().x; x++)
-                    for (unsigned int y = 0; y < reImg.getSize().y; y++) {
+                for (int x = 0; x < reImg.getSize().x; x++)
+                    for (int y = 0; y < reImg.getSize().y; y++) {
                         sf::Color c = reImg.getPixel(x, y);
 
-                        float errr = c.r / 255.0f - predFieldR.getValue(ogmaneo::Vec2i(x, y));
-                        float errg = c.g / 255.0f - predFieldG.getValue(ogmaneo::Vec2i(x, y));
-                        float errb = c.b / 255.0f - predFieldB.getValue(ogmaneo::Vec2i(x, y));
-                        predError += ((errr * errr) + (errg * errg) + (errb * errb)) / 3.0f;
+                        float errR = c.r / 255.0f - pred[0 + y * 3 + x * 3 * rescaleRT.getSize().y];
+                        float errG = c.g / 255.0f - pred[1 + y * 3 + x * 3 * rescaleRT.getSize().y];
+                        float errB = c.b / 255.0f - pred[2 + y * 3 + x * 3 * rescaleRT.getSize().y];
 
-                        inputFieldR.setValue(ogmaneo::Vec2i(x, y), c.r / 255.0f * (1.0f - blendPred) + predFieldR.getValue(ogmaneo::Vec2i(x, y)) * blendPred);
-                        inputFieldG.setValue(ogmaneo::Vec2i(x, y), c.g / 255.0f * (1.0f - blendPred) + predFieldG.getValue(ogmaneo::Vec2i(x, y)) * blendPred);
-                        inputFieldB.setValue(ogmaneo::Vec2i(x, y), c.b / 255.0f * (1.0f - blendPred) + predFieldB.getValue(ogmaneo::Vec2i(x, y)) * blendPred);
+                        predError += ((errR * errR) + (errG * errG) + (errB * errB)) / 3.0f;
+
+                        input[0 + y * 3 + x * 3 * rescaleRT.getSize().y] = c.r / 255.0f;
+                        input[1 + y * 3 + x * 3 * rescaleRT.getSize().y] = c.g / 255.0f;
+                        input[2 + y * 3 + x * 3 * rescaleRT.getSize().y] = c.b / 255.0f;
                     }
 
                 errors[currentFrame] = predError / (reImg.getSize().x * reImg.getSize().y);
 
-                std::vector<ogmaneo::ValueField2D> inputVector = { inputFieldR, inputFieldG, inputFieldB };
+                // Step pre-encoder and hierarchy
+                enc.step(cs, { &input }, true);
 
-                h->activate(inputVector);
-                h->learn(inputVector);
-
-                predFieldR = h->getPredictions()[0];
-                predFieldG = h->getPredictions()[1];
-                predFieldB = h->getPredictions()[2];
+                h.step(cs, { &enc.getHiddenCs() }, true);
 
                 // Show progress bar
                 float ratio = static_cast<float>(currentFrame + 1) / captureLength;
@@ -411,11 +366,6 @@ int main() {
                     }
 
                     window.display();
-
-                    if (enableDebugWindow) {
-                        debugWindow.update();
-                        debugWindow.display();
-                    }
                 }
 
             } while (!frame.empty() && !quit);
@@ -432,24 +382,36 @@ int main() {
             std::cout << std::endl;
         }
 
-        if (saveArchitectAndHierarchy) {
-            std::string fileName = "VideoPrediction.ohr";
+        if (saveHierarchy) {
+            std::cout << "Saving hierarchy as " << hFileName << " and " << encFileName << std::endl;
 
-            std::cout << "Saving hierarchy to " << fileName << std::endl;
+            {
+                std::ofstream toFile(encFileName);
 
-            h->save(*res->getComputeSystem(), fileName);
+                enc.writeToStream(toFile);
+            }
+
+            {
+                std::ofstream toFile(hFileName);
+
+                h.writeToStream(toFile);
+            }
         }
     }
     else {
-        std::string fileName = "VideoPrediction.ohr";
+        std::cout << "Loading hierarchy from " << hFileName << " and " << encFileName << std::endl;
 
-        std::cout << "Reloading hierarchy from " << fileName << std::endl;
+        {
+            std::ifstream fromFile(encFileName);
 
-        h->load(*res->getComputeSystem(), fileName);
+            enc.readFromStream(fromFile);
+        }
 
-        predFieldR = h->getPredictions()[0];
-        predFieldG = h->getPredictions()[1];
-        predFieldB = h->getPredictions()[2];
+        {
+            std::ifstream fromFile(hFileName);
+
+            h.readFromStream(fromFile);
+        }
     }
 
     // ---------------------------- Presentation Simulation Loop -----------------------------
@@ -477,24 +439,23 @@ int main() {
 
         window.clear();
 
-        std::vector<ogmaneo::ValueField2D> inputVector = { predFieldR, predFieldG, predFieldB };
-        h->activate(inputVector);
+        h.step(cs, { &h.getPredictionCs(0) }, false);
 
-        predFieldR = h->getPredictions()[0];
-        predFieldG = h->getPredictions()[1];
-        predFieldB = h->getPredictions()[2];
+        enc.reconstruct(cs, &h.getPredictionCs(0));
+
+        std::vector<float> pred = enc.getVisibleLayer(0).reconActs;
 
         sf::Image img;
 
         img.create(rescaleRT.getSize().x, rescaleRT.getSize().y);
 
-        for (unsigned int x = 0; x < rescaleRT.getSize().x; x++)
-            for (unsigned int y = 0; y < rescaleRT.getSize().y; y++) {
+        for (int x = 0; x < rescaleRT.getSize().x; x++)
+            for (int y = 0; y < rescaleRT.getSize().y; y++) {
                 sf::Color c;
 
-                c.r = static_cast<sf::Uint8>(255.0f * std::min(1.0f, std::max(0.0f, predFieldR.getValue(ogmaneo::Vec2i(x, y)))));
-                c.g = static_cast<sf::Uint8>(255.0f * std::min(1.0f, std::max(0.0f, predFieldG.getValue(ogmaneo::Vec2i(x, y)))));
-                c.b = static_cast<sf::Uint8>(255.0f * std::min(1.0f, std::max(0.0f, predFieldB.getValue(ogmaneo::Vec2i(x, y)))));
+                c.r = static_cast<sf::Uint8>(255.0f * std::min(1.0f, std::max(0.0f, pred[0 + y * 3 + x * 3 * rescaleRT.getSize().y])));
+                c.g = static_cast<sf::Uint8>(255.0f * std::min(1.0f, std::max(0.0f, pred[1 + y * 3 + x * 3 * rescaleRT.getSize().y])));
+                c.b = static_cast<sf::Uint8>(255.0f * std::min(1.0f, std::max(0.0f, pred[2 + y * 3 + x * 3 * rescaleRT.getSize().y])));
 
                 img.setPixel(x, y, c);
             }
@@ -502,7 +463,7 @@ int main() {
         sf::Texture tex;
         tex.loadFromImage(img);
 
-        float scale = videoScale * std::min(static_cast<float>(window.getSize().x) / img.getSize().x, static_cast<float>(window.getSize().y) / img.getSize().y);
+        float scale = std::min(static_cast<float>(window.getSize().x) / img.getSize().x, static_cast<float>(window.getSize().y) / img.getSize().y);
 
         sf::Sprite s;
         s.setPosition(window.getSize().x * 0.5f, window.getSize().y * 0.5f);
@@ -513,12 +474,6 @@ int main() {
         window.draw(s);
 
         window.display();
-
-        if (enableDebugWindow) {
-            debugWindow.update();
-            debugWindow.display();
-        }
-
     } while (!quit);
 
     return 0;

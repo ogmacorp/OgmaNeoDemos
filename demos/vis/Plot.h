@@ -1,6 +1,6 @@
 // ----------------------------------------------------------------------------
 //  OgmaNeoDemos
-//  Copyright(c) 2016 Ogma Intelligent Systems Corp. All rights reserved.
+//  Copyright(c) 2016-2020 Ogma Intelligent Systems Corp. All rights reserved.
 //
 //  This copy of OgmaNeoDemos is licensed to you under the terms described
 //  in the OGMANEODEMOS_LICENSE.md file included in this distribution.
@@ -12,40 +12,40 @@
 
 namespace vis {
 	struct Point {
-		sf::Vector2f _position;
+		sf::Vector2f position;
 
-		sf::Color _color;
+		sf::Color color;
 
 		Point() :
-			_color(sf::Color::Black) {
+			color(sf::Color::Black) {
         }
 	};
 
 	struct Curve {
-		std::string _name;
+		std::string name;
 
-		float _shadow;
-		sf::Vector2f _shadowOffset;
+		float shadow;
+		sf::Vector2f shadowOffset;
 
-		std::vector<Point> _points;
+		std::vector<Point> points;
 
 		Curve() :
-			_shadow(0.5f), _shadowOffset(-4.0f, 4.0f) {
+			shadow(0.5f), shadowOffset(-4.0f, 4.0f) {
         }
 	};
 
 	struct Plot {
-        bool _plotXAxisTicks;        
-        sf::Color _axesColor;
+        bool plotXAxisTicks;        
+        sf::Color axesColor;
 
-        sf::Color _backgroundColor;
-        sf::Color _plotBackgroundColor;
+        sf::Color backgroundColor;
+        sf::Color plotBackgroundColor;
 
-        std::vector<Curve> _curves;
+        std::vector<Curve> curves;
 
 		Plot() :
-			_axesColor(sf::Color::Black), _backgroundColor(sf::Color::White),
-            _plotBackgroundColor(sf::Color::White), _plotXAxisTicks(false) {
+			axesColor(sf::Color::Black), backgroundColor(sf::Color::White),
+            plotBackgroundColor(sf::Color::White), plotXAxisTicks(false) {
         }
 
 		void draw(sf::RenderTarget &target, const sf::Texture &lineGradientTexture, const sf::Font &tickFont, float tickTextScale,
