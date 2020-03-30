@@ -57,7 +57,7 @@ A test to see how well the hierarchy can approximate the physics of a bouncing 2
 
 Once trained, the hierarchy receives a few of the starting frames of the ball to determine its trajectory, after which it loops on its own predictions to complete the physical interactions.
 
-Press `g` to switch between train/test modes. Press `k` to show the SDRs.
+Press `g` to switch between train/test modes.
 
 This demo uses:  
 [SFML](http://www.sfml-dev.org/) (Simple and Fast Multimedia Library, version 2.4.x).  

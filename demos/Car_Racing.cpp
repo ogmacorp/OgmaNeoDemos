@@ -99,7 +99,7 @@ int main() {
     for (int i = 0; i < lds.size(); i++) {
         lds[i].hiddenSize = Int3(4, 4, 16);
 
-        lds[i].ffRadius = lds[i].pRadius = lds[i].lRadius = 4;
+        lds[i].ffRadius = lds[i].pRadius = 4;
 
         lds[i].ticksPerUpdate = 2;
         lds[i].temporalHorizon = 4;
