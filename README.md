@@ -18,6 +18,7 @@ Current demos are:
 - Video prediction
 - Wavy Line
 - Ball Physics
+- Car Racing
 
 ### Video Prediction
 
@@ -63,6 +64,18 @@ This demo uses:
 [Box2D](http://box2d.org/) (Box2D, version 2.3.1).
 
 Makefile target for this demo: `make Ball_Physics`
+
+### Car Racing
+
+A race car must navigate a track without hitting the walls. This task requires fine motor control based on sensor "wiskers" the car has.
+
+The `t` key is used to toggle "speed mode" (or "time warp").
+Pressed the `c` key to view the checkpoints on the track.
+
+This demo uses:  
+[SFML](http://www.sfml-dev.org/) (Simple and Fast Multimedia Library, version 2.4.x).
+
+Makefile target for this demo: `make Car_Racing`
 
 ## Building
 
