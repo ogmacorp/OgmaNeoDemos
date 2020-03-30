@@ -35,12 +35,12 @@ int main() {
     unsigned int windowWidth = 1000;
     unsigned int windowHeight = 500;
 
-    sf::RenderWindow renderWindow;
+    sf::RenderWindow window;
 
-    renderWindow.create(sf::VideoMode(windowWidth, windowHeight), "Wavy Test", sf::Style::Default);
+    window.create(sf::VideoMode(windowWidth, windowHeight), "Wavy Test", sf::Style::Default);
 
-    renderWindow.setVerticalSyncEnabled(false);
-    //renderWindow.setFramerateLimit(60);
+    window.setVerticalSyncEnabled(false);
+    //window.setFramerateLimit(60);
 
     vis::Plot plot;
     //plot.backgroundColor = sf::Color(64, 64, 64, 255);
@@ -95,7 +95,6 @@ int main() {
 
     bool quit = false;
     bool autoplay = true;
-    bool sPrev = false;
     bool spacePressedPrev = false;
 
     int index = -1;
@@ -114,7 +113,7 @@ int main() {
     do {
         sf::Event event;
 
-        while (renderWindow.pollEvent(event)) {
+        while (window.pollEvent(event)) {
             switch (event.type) {
             case sf::Event::Closed:
                 quit = true;
@@ -122,13 +121,17 @@ int main() {
             }
         }
 
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
-            quit = true;
+        if (window.hasFocus()) {
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
+                quit = true;
 
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space) && !spacePressedPrev)
-            autoplay = !autoplay;
+            bool spacePressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Space);
 
-        spacePressedPrev = sf::Keyboard::isKeyPressed(sf::Keyboard::Space);
+            if (spacePressed && !spacePressedPrev)
+                autoplay = !autoplay;
+
+            spacePressedPrev = spacePressed;
+        }
 
         if (autoplay || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
             index++;
@@ -175,7 +178,7 @@ int main() {
                     (*it).position.x = (float)firstIndex;
             }
 
-            renderWindow.clear();
+            window.clear();
 
             plot.draw(plotRT, lineGradient, tickFont, 0.5f,
                 sf::Vector2f(0.0f, plot.curves[0].points.size()),
@@ -188,9 +191,9 @@ int main() {
             sf::Sprite plotSprite;
             plotSprite.setTexture(plotRT.getTexture());
 
-            renderWindow.draw(plotSprite);
+            window.draw(plotSprite);
 
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::P)) {
+            if (window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::P)) {
                 h.step(cs, { &h.getPredictionCs(0) }, false);
             }
             else {
@@ -200,7 +203,7 @@ int main() {
                 h.step(cs, { &input }, true);
             }
 
-            renderWindow.display();
+            window.display();
         }
     } while (!quit);
 

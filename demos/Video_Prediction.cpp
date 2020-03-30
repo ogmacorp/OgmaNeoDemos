@@ -74,7 +74,7 @@ int main() {
         return 1;
     }
 
-    const float videoScale = 1.0f; // Rescale ratio
+    const float videoScale = 0.25f; // Rescale ratio
     const unsigned int rescaleWidth = videoScale * movieWidth;
     const unsigned int rescaleHeight = videoScale * movieHeight;
 
@@ -282,10 +282,10 @@ int main() {
                         }
                     }
 
-                    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
-                        quit = true;
-                    if (sf::Keyboard::isKeyPressed(sf::Keyboard::G))
-                        graph = !graph;
+                    if (window.hasFocus()) {
+                        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
+                            quit = true;
+                    }
 
                     window.clear();
 
@@ -434,8 +434,10 @@ int main() {
             }
         }
 
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Q))
-            quit = true;
+        if (window.hasFocus()) {
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Q))
+                quit = true;
+        }
 
         window.clear();
 

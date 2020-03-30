@@ -164,8 +164,17 @@ int main() {
             }
         }
 
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
-            quit = true;
+        if (window.hasFocus()) {
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
+                quit = true;
+
+            bool gPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::G);
+
+            if (gPressed && !gPressedPrev)
+                genMode = !genMode;
+
+            gPressedPrev = gPressed;
+        }
 
         // If time for a new episode
         if (simFrame >= simFrames) {
@@ -181,11 +190,6 @@ int main() {
 
             window.setFramerateLimit(genMode ? 60 : 0);
         }
-
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::G) && !gPressedPrev)
-            genMode = !genMode;
-
-        gPressedPrev = sf::Keyboard::isKeyPressed(sf::Keyboard::G);
 
         simFrame++;
 
