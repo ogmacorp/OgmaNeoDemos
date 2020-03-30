@@ -85,7 +85,7 @@ int main() {
 
     int numSensors = 16;
     int rootNumSensors = std::ceil(std::sqrt(numSensors));
-    int sensorResolution = 16;
+    int sensorResolution = 32;
     int steerResolution = 9;
 
     // --------------------------- Create the Hierarchy ---------------------------
@@ -94,10 +94,10 @@ int main() {
     ComputeSystem::setNumThreads(4);
     ComputeSystem cs;
 
-    std::vector<Hierarchy::LayerDesc> lds(3);
+    std::vector<Hierarchy::LayerDesc> lds(2);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(4, 4, 32);
+        lds[i].hiddenSize = Int3(4, 4, 16);
 
         lds[i].ffRadius = lds[i].pRadius = lds[i].lRadius = 4;
 
