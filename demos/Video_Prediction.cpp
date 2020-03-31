@@ -34,9 +34,6 @@ int main() {
     // Initialize a random number generator
     std::mt19937 rng(time(nullptr));
 
-    // Uniform distribution in [0, 1]
-    std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
-
     const unsigned int windowWidth = 800;
     const unsigned int windowHeight = 600;
 
@@ -69,12 +66,7 @@ int main() {
     const int movieWidth = static_cast<int>(capture.get(CAP_PROP_FRAME_WIDTH));
     const int movieHeight = static_cast<int>(capture.get(CAP_PROP_FRAME_HEIGHT));
 
-    if (movieWidth != movieHeight) {
-        std::cerr << "Movie file " << fileName << " has non-square frame" << std::endl;
-        return 1;
-    }
-
-    const float videoScale = 0.25f; // Rescale ratio
+    const float videoScale = 0.5f; // Rescale ratio
     const unsigned int rescaleWidth = videoScale * movieWidth;
     const unsigned int rescaleHeight = videoScale * movieHeight;
 
@@ -85,26 +77,26 @@ int main() {
     // --------------------------- Create the Hierarchy ---------------------------
 
     // Create hierarchy
-    ComputeSystem::setNumThreads(8);
+    ComputeSystem::setNumThreads(16);
     ComputeSystem cs;
 
-    Int3 hiddenSize(12, 12, 16);
+    Int3 hiddenSize(8, 8, 32);
 
     ImageEncoder::VisibleLayerDesc vld;
     vld.size = Int3(rescaleRT.getSize().x, rescaleRT.getSize().y, 3);
-    vld.radius = 12;
+    vld.radius = 8;
 
     ImageEncoder enc;
 
-    std::vector<Hierarchy::LayerDesc> lds(4);
+    std::vector<Hierarchy::LayerDesc> lds(3);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(6, 6, 16);
+        lds[i].hiddenSize = Int3(4, 4, 32);
 
         lds[i].ffRadius = lds[i].pRadius = 2;
 
         lds[i].ticksPerUpdate = 2;
-        lds[i].temporalHorizon = 4;
+        lds[i].temporalHorizon = 2;
     }
 
     Hierarchy h;
@@ -128,14 +120,11 @@ int main() {
 
     std::vector<float> errors(captureLength, 0.0f);
 
-    // Unit Gaussian noise for input corruption
-    std::normal_distribution<float> noiseDist(0.0f, 1.0f);
-
     // Training time
-    const int numIter = 16;
+    const int numIter = 20;
 
     // Frame skip
-    int frameSkip = 1; // 1 means no frame skip (stride of 1)
+    int frameSkip = 4; // 1 means no frame skip (stride of 1)
 
     // UI update resolution
     const int progressBarLength = 40;
