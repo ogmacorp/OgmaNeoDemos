@@ -217,141 +217,136 @@ void VisAdapter::update(ComputeSystem &cs, const Hierarchy &h, const std::vector
 
             // Read away remaining data
             while (clients[i]->receive(data.data(), data.size(), size) == sf::Socket::Done);
+        }
 
-            // ----------------------------- Send -----------------------------
+        // ----------------------------- Send -----------------------------
 
-            data.clear();
+        data.clear();
 
-            push<sf::Uint16>(data, static_cast<sf::Uint16>(h.getNumLayers() + encs.size()));
-            push<sf::Uint16>(data, static_cast<sf::Uint16>(encs.size()));
+        push<sf::Uint16>(data, static_cast<sf::Uint16>(h.getNumLayers() + encs.size()));
+        push<sf::Uint16>(data, static_cast<sf::Uint16>(encs.size()));
 
-            // Add encoder SDRs
-            for (int j = 0; j < encs.size(); j++) {
-                Int3 s = encs[j]->getHiddenSize();
+        // Add encoder SDRs
+        for (int j = 0; j < encs.size(); j++) {
+            Int3 s = encs[j]->getHiddenSize();
 
-                push<sf::Uint16>(data, static_cast<sf::Uint16>(s.x));
-                push<sf::Uint16>(data, static_cast<sf::Uint16>(s.y));
-                push<sf::Uint16>(data, static_cast<sf::Uint16>(s.z));
+            push<sf::Uint16>(data, static_cast<sf::Uint16>(s.x));
+            push<sf::Uint16>(data, static_cast<sf::Uint16>(s.y));
+            push<sf::Uint16>(data, static_cast<sf::Uint16>(s.z));
 
-                for (int k = 0; k < encs[j]->getHiddenCs().size(); k++)
-                    push<sf::Uint16>(data, static_cast<sf::Uint16>(encs[j]->getHiddenCs()[k]));
-            }
+            for (int k = 0; k < encs[j]->getHiddenCs().size(); k++)
+                push<sf::Uint16>(data, static_cast<sf::Uint16>(encs[j]->getHiddenCs()[k]));
+        }
 
-            // Add layer SDRs
-            for (int j = 0; j < h.getNumLayers(); j++) {
-                Int3 s = h.getSCLayer(j).getHiddenSize();
+        // Add layer SDRs
+        for (int j = 0; j < h.getNumLayers(); j++) {
+            Int3 s = h.getSCLayer(j).getHiddenSize();
 
-                push<sf::Uint16>(data, static_cast<sf::Uint16>(s.x));
-                push<sf::Uint16>(data, static_cast<sf::Uint16>(s.y));
-                push<sf::Uint16>(data, static_cast<sf::Uint16>(s.z));
-                
-                for (int k = 0; k < h.getSCLayer(j).getHiddenCs().size(); k++)
-                    push<sf::Uint16>(data, static_cast<sf::Uint16>(h.getSCLayer(j).getHiddenCs()[k]));
-            }
+            push<sf::Uint16>(data, static_cast<sf::Uint16>(s.x));
+            push<sf::Uint16>(data, static_cast<sf::Uint16>(s.y));
+            push<sf::Uint16>(data, static_cast<sf::Uint16>(s.z));
+            
+            for (int k = 0; k < h.getSCLayer(j).getHiddenCs().size(); k++)
+                push<sf::Uint16>(data, static_cast<sf::Uint16>(h.getSCLayer(j).getHiddenCs()[k]));
+        }
 
-            int numFields = 0;
-            int layerIndex = 0;
+        int numFields = 0;
+        int layerIndex = 0;
 
-            // If was initialized to value value
-            if (caret.pos.x != -1) {
-                layerIndex = caret.layer;
-                
-                if (layerIndex < encs.size()) {
-                    int encIndex = layerIndex;
-
-                    const ImageEncoder* enc = encs[encIndex];
-
-                    bool inBounds = caret.pos.x >= 0 && caret.pos.y >= 0 && caret.pos.z >= 0 &&
-                        caret.pos.x < enc->getHiddenSize().x && caret.pos.y < enc->getHiddenSize().y && caret.pos.z < enc->getHiddenSize().z;
-
-                    numFields = inBounds ? enc->getNumVisibleLayers() : 0;
-                }
-                else {
-                    bool inBounds = caret.pos.x >= 0 && caret.pos.y >= 0 && caret.pos.z >= 0 &&
-                        caret.pos.x < h.getSCLayer(layerIndex - encs.size()).getHiddenSize().x && caret.pos.y < h.getSCLayer(layerIndex - encs.size()).getHiddenSize().y && caret.pos.z < h.getSCLayer(layerIndex - encs.size()).getHiddenSize().z;
-
-                    numFields = inBounds ? h.getSCLayer(layerIndex - encs.size()).getNumVisibleLayers() : 0;
-                }
-            }
-
-            push<sf::Uint16>(data, static_cast<sf::Uint16>(numFields));
-
+        // If was initialized to value value
+        if (caret.pos.x != -1) {
+            layerIndex = caret.layer;
+            
             if (layerIndex < encs.size()) {
                 int encIndex = layerIndex;
 
                 const ImageEncoder* enc = encs[encIndex];
 
-                for (int j = 0; j < numFields; j++) {
-                    std::string fieldName = "field " + std::to_string(j);
+                bool inBounds = caret.pos.x >= 0 && caret.pos.y >= 0 && caret.pos.z >= 0 &&
+                    caret.pos.x < enc->getHiddenSize().x && caret.pos.y < enc->getHiddenSize().y && caret.pos.z < enc->getHiddenSize().z;
 
-                    size_t start = data.size();
-
-                    add(data, fieldNameSize);
-
-                    for (int k = 0; k < fieldNameSize; k++)
-                        *reinterpret_cast<char*>(&data[start + k]) = (k < fieldName.length() ? fieldName[k] : '\0');
-
-                    Int3 fieldSize;
-
-                    std::vector<float> field = getReceptiveField(cs, *enc, j, Int3(caret.pos.x, caret.pos.y, caret.pos.z), fieldSize);
-
-                    push<sf::Int32>(data, static_cast<sf::Int32>(fieldSize.x));
-                    push<sf::Int32>(data, static_cast<sf::Int32>(fieldSize.y));
-                    push<sf::Int32>(data, static_cast<sf::Int32>(fieldSize.z));
-                
-                    for (int k = 0; k < field.size(); k++)
-                        push<float>(data, field[k]);
-                }
+                numFields = inBounds ? enc->getNumVisibleLayers() : 0;
             }
             else {
-                for (int j = 0; j < numFields; j++) {
-                    std::string fieldName = "field " + std::to_string(j);
+                bool inBounds = caret.pos.x >= 0 && caret.pos.y >= 0 && caret.pos.z >= 0 &&
+                    caret.pos.x < h.getSCLayer(layerIndex - encs.size()).getHiddenSize().x && caret.pos.y < h.getSCLayer(layerIndex - encs.size()).getHiddenSize().y && caret.pos.z < h.getSCLayer(layerIndex - encs.size()).getHiddenSize().z;
 
-                    size_t start = data.size();
-                    
-                    add(data, fieldNameSize);
-
-                    for (int k = 0; k < fieldNameSize; k++)
-                        *reinterpret_cast<char*>(&data[start + k]) = (k < fieldName.length() ? fieldName[k] : '\0');
-
-                    Int3 fieldSize;
-
-                    std::vector<float> field = getSCReceptiveField(cs, h, layerIndex - encs.size(), j, Int3(caret.pos.x, caret.pos.y, caret.pos.z), fieldSize);
-
-                    push<sf::Int32>(data, static_cast<sf::Int32>(fieldSize.x));
-                    push<sf::Int32>(data, static_cast<sf::Int32>(fieldSize.y));
-                    push<sf::Int32>(data, static_cast<sf::Int32>(fieldSize.z));
-                
-                    for (int k = 0; k < field.size(); k++)
-                        push<float>(data, field[k]);
-                }
+                numFields = inBounds ? h.getSCLayer(layerIndex - encs.size()).getNumVisibleLayers() : 0;
             }
+        }
 
-            size_t index = 0;
-            size_t totalSent = 0;
+        push<sf::Uint16>(data, static_cast<sf::Uint16>(numFields));
 
-            while (totalSent < data.size()) {
-                sf::TcpSocket::Status status = clients[i]->send(&data[totalSent], data.size() - totalSent, size);
+        if (layerIndex < encs.size()) {
+            int encIndex = layerIndex;
 
-                if (status != sf::Socket::Done) {
-                    std::cout << "Client disconnected." << std::endl;
+            const ImageEncoder* enc = encs[encIndex];
 
-                    clients.erase(clients.begin() + i);
+            for (int j = 0; j < numFields; j++) {
+                std::string fieldName = "field " + std::to_string(j);
 
-                    disconnected = true;
-                }
+                size_t start = data.size();
 
-                totalSent += size;
+                add(data, fieldNameSize);
+
+                for (int k = 0; k < fieldNameSize; k++)
+                    *reinterpret_cast<char*>(&data[start + k]) = (k < fieldName.length() ? fieldName[k] : '\0');
+
+                Int3 fieldSize;
+
+                std::vector<float> field = getReceptiveField(cs, *enc, j, Int3(caret.pos.x, caret.pos.y, caret.pos.z), fieldSize);
+
+                push<sf::Int32>(data, static_cast<sf::Int32>(fieldSize.x));
+                push<sf::Int32>(data, static_cast<sf::Int32>(fieldSize.y));
+                push<sf::Int32>(data, static_cast<sf::Int32>(fieldSize.z));
+            
+                for (int k = 0; k < field.size(); k++)
+                    push<float>(data, field[k]);
             }
         }
         else {
-            std::cout << "Client disconnected." << std::endl;
+            for (int j = 0; j < numFields; j++) {
+                std::string fieldName = "field " + std::to_string(j);
 
-            clients.erase(clients.begin() + i);
+                size_t start = data.size();
+                
+                add(data, fieldNameSize);
 
-            disconnected = true;
+                for (int k = 0; k < fieldNameSize; k++)
+                    *reinterpret_cast<char*>(&data[start + k]) = (k < fieldName.length() ? fieldName[k] : '\0');
+
+                Int3 fieldSize;
+
+                std::vector<float> field = getSCReceptiveField(cs, h, layerIndex - encs.size(), j, Int3(caret.pos.x, caret.pos.y, caret.pos.z), fieldSize);
+
+                push<sf::Int32>(data, static_cast<sf::Int32>(fieldSize.x));
+                push<sf::Int32>(data, static_cast<sf::Int32>(fieldSize.y));
+                push<sf::Int32>(data, static_cast<sf::Int32>(fieldSize.z));
+            
+                for (int k = 0; k < field.size(); k++)
+                    push<float>(data, field[k]);
+            }
         }
 
+        size_t index = 0;
+        size_t totalSent = 0;
+
+        while (totalSent < data.size()) {
+            sf::TcpSocket::Status status = clients[i]->send(&data[totalSent], data.size() - totalSent, size);
+
+            if (status == sf::Socket::Disconnected) {
+                std::cout << "Client disconnected." << std::endl;
+
+                clients.erase(clients.begin() + i);
+
+                disconnected = true;
+
+                break;
+            }
+
+            totalSent += size;
+        }
+        
         if (!disconnected)
             i++;
     }
