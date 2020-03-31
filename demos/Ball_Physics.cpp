@@ -17,6 +17,8 @@
 #include <ogmaneo/Hierarchy.h>
 #include <ogmaneo/ImageEncoder.h>
 
+#include "vis/NeoVis.h"
+
 using namespace ogmaneo;
 
 int main() {
@@ -147,6 +149,8 @@ int main() {
     int simFrame = simFrames;
 
     bool gPressedPrev = false;
+
+    VisAdapter va;
 
     do {
         // ----------------------------- Input -----------------------------
@@ -281,6 +285,8 @@ int main() {
 
         // Reconstruct
         enc.reconstruct(cs, &h.getPredictionCs(0));
+
+        va.update(cs, h, { &enc });
 
         // Retrieve reconstructed prediction
         std::vector<float> pred = enc.getVisibleLayer(0).reconActs;

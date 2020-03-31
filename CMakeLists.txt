@@ -15,8 +15,8 @@ set(CMAKE_VERBOSE_MAKEFILE OFF)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake")
 
 if(NOT CMAKE_BUILD_TYPE)
-    message("CMAKE_BUILD_TYPE not set, setting it to Release")
-    set(CMAKE_BUILD_TYPE Release)
+    message("CMAKE_BUILD_TYPE not set, setting it to Debug")
+    set(CMAKE_BUILD_TYPE Debug)
 endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
@@ -73,7 +73,7 @@ include_directories(${OGMANEO_INCLUDE_DIRS})
 # Find SFML include and libs
 
 #set(SFML_STATIC_LIBRARIES TRUE)
-find_package(SFML 2.4 COMPONENTS system window graphics audio)
+find_package(SFML 2.4 COMPONENTS system window graphics audio network)
 
 if(SFML_FOUND)
     #message(STATUS "Found existing SFML in ${SFML_INCLUDE_DIR}")
@@ -171,6 +171,7 @@ list(APPEND DEMO_SOURCES_LIST VIDEO_PREDICTION_SRCS)
 list(APPEND DEMO_DEPENDS_LIST VIDEO_PREDICTION_DEPS)
 
 list(APPEND BALL_PHYSICS_SRCS "demos/Ball_Physics.cpp")
+list(APPEND BALL_PHYSICS_SRCS "demos/vis/NeoVis.cpp")
 list(APPEND BALL_PHYSICS_DEPS "SFML")
 list(APPEND BALL_PHYSICS_DEPS "BOX2D")
 list(APPEND DEMO_PROJECTS_LIST "Ball_Physics")
