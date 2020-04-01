@@ -375,13 +375,13 @@ int main() {
             std::cout << "Saving hierarchy as " << hFileName << " and " << encFileName << std::endl;
 
             {
-                std::ofstream toFile(encFileName);
+                std::ofstream toFile(encFileName, std::ios::binary);
 
                 enc.writeToStream(toFile);
             }
 
             {
-                std::ofstream toFile(hFileName);
+                std::ofstream toFile(hFileName, std::ios::binary);
 
                 h.writeToStream(toFile);
             }
@@ -391,13 +391,13 @@ int main() {
         std::cout << "Loading hierarchy from " << hFileName << " and " << encFileName << std::endl;
 
         {
-            std::ifstream fromFile(encFileName);
+            std::ifstream fromFile(encFileName, std::ios::binary);
 
             enc.readFromStream(fromFile);
         }
 
         {
-            std::ifstream fromFile(hFileName);
+            std::ifstream fromFile(hFileName, std::ios::binary);
 
             h.readFromStream(fromFile);
         }

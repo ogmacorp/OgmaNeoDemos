@@ -103,7 +103,7 @@ int main() {
     bool saveHierarchy = false;
 
     if (loadHierarchy) {
-        std::ifstream fromFile(hFileName);
+        std::ifstream fromFile(hFileName, std::ios::binary);
 
         h.readFromStream(fromFile);
     }
@@ -210,7 +210,7 @@ int main() {
     if (saveHierarchy) {
         std::cout << "Saving hierarachy as " << hFileName << std::endl;
         
-        std::ofstream toFile(hFileName);
+        std::ofstream toFile(hFileName, std::ios::binary);
 
         h.writeToStream(toFile);
     }
