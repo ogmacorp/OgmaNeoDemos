@@ -81,12 +81,12 @@ int main() {
     std::vector<Hierarchy::LayerDesc> lds(6);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(4, 4, 32);
+        lds[i].hiddenSize = Int3(4, 4, 16);
 
         lds[i].ffRadius = lds[i].pRadius = 4;
 
         lds[i].ticksPerUpdate = 2;
-        lds[i].temporalHorizon = 4;
+        lds[i].temporalHorizon = 2;
     }
 
     Hierarchy h;
