@@ -1,15 +1,15 @@
 # ----------------------------------------------------------------------------
-#  OgmaNeoDemos
+#  AAOgmaNeoDemo
 #  Copyright(c) 2016-2020 Ogma Intelligent Systems Corp. All rights reserved.
 #
-#  This copy of OgmaNeoDemos is licensed to you under the terms described
-#  in the OGMANEODEMOS_LICENSE.md file included in this distribution.
+#  This copy of AOgmaNeoDemo is licensed to you under the terms described
+#  in the AOGMANEODEMOS_LICENSE.md file included in this distribution.
 # ----------------------------------------------------------------------------
 
 # CMake version 3.1+ is required to enable C++14 features cleanly
 cmake_minimum_required(VERSION 3.1)
 
-project(OgmaNeoDemos)
+project(AOgmaNeoDemo)
 
 set(CMAKE_VERBOSE_MAKEFILE OFF)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake")
@@ -44,36 +44,18 @@ include_directories(${OpenMP_CXX_NCLUDE_DIRS})
 
 
 ############################################################################
-# Find OgmaNeo include and libs
+# Find AOgmaNeo include and libs
 
-find_package(OgmaNeo)
+find_package(AOgmaNeo)
 
-if(OGMANEO_FOUND)
-    message(STATUS "Found existing OgmaNeo in ${OGMANEO_INCLUDE_DIRS}")
-else()
-    message(STATUS "-- OgmaNeo will be downloaded and built from source")
-
-    include(ExternalProject)
-    ExternalProject_Add(OgmaNeo
-        PREFIX OgmaNeo
-        UPDATE_COMMAND ""
-        GIT_REPOSITORY "https://github.com/ogmacorp/ogmaneo.git"
-        CMAKE_ARGS
-            "-DBUILD_SHARED_LIBS=OFF"
-            "-DCMAKE_INSTALL_PREFIX=${3RDPARTY_PATH}"
-    )
-    set(OGMANEO_INCLUDE_DIRS "${3RDPARTY_PATH}/include/ogmaneo")
-    set(OGMANEO_LIBRARY "${3RDPARTY_PATH}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}OgmaNeo${CMAKE_STATIC_LIBRARY_SUFFIX}")
-endif()
-
-include_directories(${OGMANEO_INCLUDE_DIRS})
+include_directories(${AOGMANEO_INCLUDE_DIRS})
 
 
 ############################################################################
 # Find SFML include and libs
 
 #set(SFML_STATIC_LIBRARIES TRUE)
-find_package(SFML 2.4 COMPONENTS system window graphics audio network)
+find_package(SFML 2.5 COMPONENTS system window graphics audio network)
 
 if(SFML_FOUND)
     #message(STATUS "Found existing SFML in ${SFML_INCLUDE_DIR}")
@@ -163,33 +145,46 @@ endif()
 
 include_directories("${PROJECT_SOURCE_DIR}/demos")
 
-list(APPEND VIDEO_PREDICTION_SRCS "demos/Video_Prediction.cpp")
-list(APPEND VIDEO_PREDICTION_DEPS "SFML")
-list(APPEND VIDEO_PREDICTION_DEPS "OPENCV")
-list(APPEND DEMO_PROJECTS_LIST "Video_Prediction")
-list(APPEND DEMO_SOURCES_LIST VIDEO_PREDICTION_SRCS)
-list(APPEND DEMO_DEPENDS_LIST VIDEO_PREDICTION_DEPS)
+#list(APPEND VIDEO_PREDICTION_SRCS "demos/Video_Prediction.cpp")
+#list(APPEND VIDEO_PREDICTION_DEPS "SFML")
+#list(APPEND VIDEO_PREDICTION_DEPS "OPENCV")
+#list(APPEND DEMO_PROJECTS_LIST "Video_Prediction")
+#list(APPEND DEMO_SOURCES_LIST VIDEO_PREDICTION_SRCS)
+#list(APPEND DEMO_DEPENDS_LIST VIDEO_PREDICTION_DEPS)
 
-list(APPEND BALL_PHYSICS_SRCS "demos/Ball_Physics.cpp")
-list(APPEND BALL_PHYSICS_SRCS "demos/vis/NeoVis.cpp")
-list(APPEND BALL_PHYSICS_DEPS "SFML")
-list(APPEND BALL_PHYSICS_DEPS "BOX2D")
-list(APPEND DEMO_PROJECTS_LIST "Ball_Physics")
-list(APPEND DEMO_SOURCES_LIST BALL_PHYSICS_SRCS)
-list(APPEND DEMO_DEPENDS_LIST BALL_PHYSICS_DEPS)
+#list(APPEND BALL_PHYSICS_SRCS "demos/Ball_Physics.cpp")
+#list(APPEND BALL_PHYSICS_DEPS "SFML")
+#list(APPEND BALL_PHYSICS_DEPS "BOX2D")
+#list(APPEND DEMO_PROJECTS_LIST "Ball_Physics")
+#list(APPEND DEMO_SOURCES_LIST BALL_PHYSICS_SRCS)
+#list(APPEND DEMO_DEPENDS_LIST BALL_PHYSICS_DEPS)
+#
+#list(APPEND VISUAL_MATH_SRCS "demos/Visual_Math.cpp")
+#list(APPEND VISUAL_MATH_DEPS "SFML")
+#list(APPEND VISUAL_MATH_DEPS "BOX2D")
+#list(APPEND DEMO_PROJECTS_LIST "Visual_Math")
+#list(APPEND DEMO_SOURCES_LIST VISUAL_MATH_SRCS)
+#list(APPEND DEMO_DEPENDS_LIST VISUAL_MATH_DEPS)
 
-list(APPEND WAVY_LINE_SRCS "demos/Wavy_Line.cpp")
-list(APPEND WAVY_LINE_SRCS "demos/vis/Plot.cpp")
-list(APPEND WAVY_LINE_DEPS "SFML")
-list(APPEND DEMO_PROJECTS_LIST "Wavy_Line")
-list(APPEND DEMO_SOURCES_LIST WAVY_LINE_SRCS)
-list(APPEND DEMO_DEPENDS_LIST WAVY_LINE_DEPS)
+list(APPEND GRID_CELLS_SRCS "demos/Grid_Cells.cpp")
+list(APPEND GRID_CELLS_DEPS "SFML")
+list(APPEND GRID_CELLS_DEPS "BOX2D")
+list(APPEND DEMO_PROJECTS_LIST "Grid_Cells")
+list(APPEND DEMO_SOURCES_LIST GRID_CELLS_SRCS)
+list(APPEND DEMO_DEPENDS_LIST GRID_CELLS_DEPS)
 
-list(APPEND CAR_RACING_SRCS "demos/Car_Racing.cpp")
-list(APPEND CAR_RACING_DEPS "SFML")
-list(APPEND DEMO_PROJECTS_LIST "Car_Racing")
-list(APPEND DEMO_SOURCES_LIST CAR_RACING_SRCS)
-list(APPEND DEMO_DEPENDS_LIST CAR_RACING_DEPS)
+#list(APPEND WAVY_LINE_SRCS "demos/Wavy_Line.cpp")
+#list(APPEND WAVY_LINE_SRCS "demos/vis/Plot.cpp")
+#list(APPEND WAVY_LINE_DEPS "SFML")
+#list(APPEND DEMO_PROJECTS_LIST "Wavy_Line")
+#list(APPEND DEMO_SOURCES_LIST WAVY_LINE_SRCS)
+#list(APPEND DEMO_DEPENDS_LIST WAVY_LINE_DEPS)
+
+#list(APPEND CAR_RACING_SRCS "demos/Car_Racing.cpp")
+#list(APPEND CAR_RACING_DEPS "SFML")
+#list(APPEND DEMO_PROJECTS_LIST "Car_Racing")
+#list(APPEND DEMO_SOURCES_LIST CAR_RACING_SRCS)
+#list(APPEND DEMO_DEPENDS_LIST CAR_RACING_DEPS)
 
 list(LENGTH DEMO_PROJECTS_LIST num_demos)
 message(STATUS "Demos to build: ${DEMO_PROJECTS_LIST}")
@@ -209,14 +204,16 @@ foreach(i RANGE ${num_demos})
     set_property(TARGET ${DEMO_PROJECT} PROPERTY CXX_STANDARD 14)
     set_property(TARGET ${DEMO_PROJECT} PROPERTY CXX_STANDARD_REQUIRED ON)
 
-    if(NOT OGMANEO_FOUND)
-        add_dependencies(${DEMO_PROJECT} OgmaNeo)
+    if(NOT AOGMANEO_FOUND)
+        add_dependencies(${DEMO_PROJECT} AOgmaNeo)
     endif()
     find_package(OpenMP REQUIRED)
 
     target_link_libraries(${DEMO_PROJECT} ${OpenMP_CXX_LIBRARIES})
 
-    target_link_libraries(${DEMO_PROJECT} ${OGMANEO_LIBRARY})
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -fPIC") # This links -fopenmp
+
+    target_link_libraries(${DEMO_PROJECT} ${AOGMANEO_LIBRARY})
 
     # Does this demo require SFML?
     list(FIND ${DEMO_DEPENDS} "SFML" _sfml_depends_index)

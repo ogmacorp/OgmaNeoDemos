@@ -9,7 +9,7 @@
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 
-#include <ogmaneo/Hierarchy.h>
+#include <aogmaneo/Sheet.h>
 
 #include <vis/Plot.h>
 
@@ -21,7 +21,7 @@
 #define M_PI 3.141596f
 #endif
 
-using namespace ogmaneo;
+using namespace aon;
 
 float sigmoid(float x) {
     return 1.0f / (1.0f + std::exp(-x));

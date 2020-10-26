@@ -14,15 +14,15 @@
 #include <iostream>
 #include <random>
 
-#include <ogmaneo/Hierarchy.h>
-#include <ogmaneo/ImageEncoder.h>
+#include <aogmaneo/Sheet.h>
+#include <aogmaneo/ImageEncoder.h>
 
-#include "vis/NeoVis.h"
-
-using namespace ogmaneo;
+using namespace aon;
 
 int main() {
     std::mt19937 generator(time(nullptr));
+
+    setNumThreads(8);
 
     std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
 
@@ -34,35 +34,68 @@ int main() {
     // Render target for scene
     sf::RenderTexture rescaleRT;
     rescaleRT.create(32, 32);
+   
+    //Int3 actorSize(4, 4, 8);
+
+    //// First test
+    //Array<Sheet::InputDesc> iDescs(2);
+    //Array<Sheet::OutputDesc> oDescs(1);
+
+    //iDescs[0].size = Int3(1, 1, 2);
+    //iDescs[0].radius = 0;
+
+    //iDescs[1].size = actorSize;
+    //iDescs[1].radius = 1;
+
+    //oDescs[0].size = Int3(1, 1, 2);
+    //oDescs[0].radius = 4;
+
+    //Sheet s;
+    //s.initRandom(iDescs, 1, oDescs, actorSize);
+
+    //for (int t = 0; t < 1000000; t++) {
+    //    IntBuffer inputCsBacking(1);
+    //    inputCsBacking[0] = (t % 25 == 0) ? 1 : 0;
+
+    //    IntBuffer actorCsPrev = s.actor.getHiddenCs();
+
+    //    Array<const IntBuffer*> inputCs(2);
+    //    inputCs[0] = &inputCsBacking;
+    //    inputCs[1] = &actorCsPrev;
+
+    //    s.step(inputCs, inputCs, 1, true);
+
+    //    std::cout << inputCsBacking[0] << " " << s.getPredictionCs(0)[0] << " " << s.actor.getHiddenCs()[0] << std::endl;
+    //}
+    //
+    //return 0;
 
     // --------------------------- Create the Hierarchy ---------------------------
 
     // Create hierarchy
-    ComputeSystem::setNumThreads(4);
-    ComputeSystem cs;
 
     Int3 hiddenSize(8, 8, 16);
 
-    ImageEncoder::VisibleLayerDesc vld;
-    vld.size = Int3(rescaleRT.getSize().x, rescaleRT.getSize().y, 1);
-    vld.radius = 9;
+    Array<ImageEncoder::VisibleLayerDesc> vlds(1);
+    vlds[0].size = Int3(rescaleRT.getSize().x, rescaleRT.getSize().y, 1);
+    vlds[0].radius = 8;
 
     ImageEncoder enc;
-    enc.initRandom(cs, hiddenSize, { vld });
+    enc.initRandom(hiddenSize, vlds);
 
-    std::vector<Hierarchy::LayerDesc> lds(3);
+    Array<Sheet::InputDesc> inputDescs(1);
+    Array<Sheet::OutputDesc> outputDescs(1);
 
-    for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(4, 4, 16);
+    inputDescs[0].size = hiddenSize;
+    inputDescs[0].radius = 2;
 
-        lds[i].ffRadius = lds[i].pRadius = 2;
+    outputDescs[0].size = hiddenSize;
+    outputDescs[0].radius = 2;
 
-        lds[i].ticksPerUpdate = 2;
-        lds[i].temporalHorizon = 4;
-    }
+    Sheet sheet;
+    sheet.initRandom(inputDescs, 1, outputDescs, Int3(8, 8, 16));
 
-    Hierarchy h;
-    h.initRandom(cs, { hiddenSize }, { prediction }, lds);
+    sheet.actor.alpha = 0.1f;
 
     // ----------------------------- Physics ------------------------------
 
@@ -149,8 +182,6 @@ int main() {
     int simFrame = simFrames;
 
     bool gPressedPrev = false;
-
-    VisAdapter va;
 
     do {
         // ----------------------------- Input -----------------------------
@@ -262,7 +293,7 @@ int main() {
 
         sf::Image rescaleImg = rescaleRT.getTexture().copyToImage();
 
-        std::vector<float> imagef(rescaleRT.getSize().x * rescaleRT.getSize().y);
+        Array<float> imagef(rescaleRT.getSize().x * rescaleRT.getSize().y);
 
         // Load into input field
         for (int x = 0; x < rescaleRT.getSize().x; x++)
@@ -275,21 +306,29 @@ int main() {
             }
 
         // Feed first 5 frames from image, even when generating ("seed" sequence)
-        if (simFrame > 5 && genMode)
-            h.step(cs, { &h.getPredictionCs(0) }, false);
+        if (simFrame > 5 && genMode) {
+            Array<const IntBuffer*> inputCs(1);
+            inputCs[0] = &sheet.getPredictionCs(0);
+            
+            sheet.step(inputCs, inputCs, 1, false, false);
+        }
         else {
-            enc.step(cs, { &imagef }, true);
+            Array<const FloatBuffer*> images(1);
+            images[0] = &imagef;
 
-            h.step(cs, { &enc.getHiddenCs() }, true);
+            enc.step(images, true);
+
+            Array<const IntBuffer*> inputCs(1);
+            inputCs[0] = &enc.getHiddenCs();
+
+            sheet.step(inputCs, inputCs, 2, true, false);
         }
 
         // Reconstruct
-        enc.reconstruct(cs, &h.getPredictionCs(0));
-
-        va.update(cs, h, { &enc });
+        enc.reconstruct(&sheet.getPredictionCs(0));
 
         // Retrieve reconstructed prediction
-        std::vector<float> pred = enc.getVisibleLayer(0).reconActs;
+        FloatBuffer pred = enc.getVisibleLayer(0).reconstruction;
 
         // Display prediction
         sf::Image img;
@@ -301,7 +340,7 @@ int main() {
             for (int y = 0; y < rescaleRT.getSize().y; y++) {
                 sf::Color c;
 
-                c.r = c.g = c.b = 255.0f * std::min(1.0f, std::max(0.0f, pred[y + x * rescaleRT.getSize().y]));
+                c.r = c.g = c.b = 255.0f * pred[y + x * rescaleRT.getSize().y];
 
                 img.setPixel(x, y, c);
             }
