@@ -18,11 +18,37 @@
 #include <fstream>
 #include <random>
 
-#include <ogmaneo/Hierarchy.h>
-#include <ogmaneo/ImageEncoder.h>
+#include <aogmaneo/Hierarchy.h>
+#include <aogmaneo/Helpers.h>
+#include <aogmaneo/ImageEncoder.h>
+#include <cmath>
 
-using namespace ogmaneo;
+using namespace aon;
 using namespace cv;
+
+class CustomStreamReader : public aon::StreamReader {
+public:
+    std::ifstream ins;
+
+    void read(
+        void* data,
+        int len
+    ) override {
+        ins.read(static_cast<char*>(data), len);
+    }
+};
+
+class CustomStreamWriter : public aon::StreamWriter {
+public:
+    std::ofstream outs;
+
+    void write(
+        const void* data,
+        int len
+    ) override {
+        outs.write(static_cast<const char*>(data), len);
+    }
+};
 
 int main() {
     // Capture file name
@@ -45,14 +71,7 @@ int main() {
     window.setFramerateLimit(0);
 
     sf::Font font;
-
-#if defined(_WINDOWS)
-    font.loadFromFile("C:/Windows/Fonts/Arial.ttf");
-#elif defined(__APPLE__)
-    font.loadFromFile("/Library/Fonts/Courier New.ttf");
-#else
-    font.loadFromFile("/usr/share/fonts/TTF/VeraMono.ttf");
-#endif
+    font.loadFromFile("resources/Hack-Regular.ttf");
 
     // Open the video file
     VideoCapture capture(fileName);
@@ -77,30 +96,34 @@ int main() {
     // --------------------------- Create the Hierarchy ---------------------------
 
     // Create hierarchy
-    ComputeSystem::setNumThreads(16);
-    ComputeSystem cs;
+    aon::setNumThreads(8);
 
-    Int3 hiddenSize(8, 8, 32);
-
-    ImageEncoder::VisibleLayerDesc vld;
-    vld.size = Int3(rescaleRT.getSize().x, rescaleRT.getSize().y, 3);
-    vld.radius = 8;
-
-    ImageEncoder enc;
-
-    std::vector<Hierarchy::LayerDesc> lds(3);
+    Array<Hierarchy::LayerDesc> lds(8);
 
     for (int i = 0; i < lds.size(); i++) {
         lds[i].hiddenSize = Int3(4, 4, 32);
 
-        lds[i].ffRadius = lds[i].pRadius = 2;
+        lds[i].ffRadius = 2;
+        lds[i].pRadius = 2;
 
         lds[i].ticksPerUpdate = 2;
         lds[i].temporalHorizon = 2;
     }
 
+    Int3 hiddenSize(8, 8, 32);
+
+    Array<ImageEncoder::VisibleLayerDesc> vlds(1);
+
+    vlds[0].size = Int3(rescaleRT.getSize().x, rescaleRT.getSize().y, 3);
+    vlds[0].radius = 8;
+
+    Array<Hierarchy::IODesc> ioDescs(1);
+    ioDescs[0] = Hierarchy::IODesc(hiddenSize, IOType::prediction, 2, 2, 2);
+
+    // Forward declare
+    ImageEncoder imgEnc;
     Hierarchy h;
-    
+
     std::cout << "Running through capture: " << fileName << std::endl;
 
     int captureLength = static_cast<int>(capture.get(CAP_PROP_FRAME_COUNT));
@@ -140,8 +163,8 @@ int main() {
 
     if (!loadHierarchy) {
         // Initialize hierarchy randomly
-        enc.initRandom(cs, hiddenSize, { vld });
-        h.initRandom(cs, { hiddenSize }, { prediction }, lds);
+        imgEnc.initRandom(hiddenSize, vlds);
+        h.initRandom(ioDescs, lds);
 
         // Train for a bit
         for (int iter = 0; iter < numIter && !quit; iter++) {
@@ -206,35 +229,39 @@ int main() {
                 sf::Image reImg = rescaleRT.getTexture().copyToImage();
 
                 // Reconstruct last prediction
-                enc.reconstruct(cs, &h.getPredictionCs(0));
+                imgEnc.reconstruct(&h.getPredictionCIs(0));
 
-                std::vector<float> pred = enc.getVisibleLayer(0).reconActs;
-                std::vector<float> input(pred.size());
+                ByteBuffer pred = imgEnc.getReconstruction(0);
 
                 float predError = 0.0f;
 
                 // Get input buffers
+                Array<const ByteBuffer*> inputs(1);
+                ByteBuffer input(pred.size());
                 for (int x = 0; x < reImg.getSize().x; x++)
                     for (int y = 0; y < reImg.getSize().y; y++) {
                         sf::Color c = reImg.getPixel(x, y);
 
-                        float errR = c.r / 255.0f - pred[0 + y * 3 + x * 3 * rescaleRT.getSize().y];
-                        float errG = c.g / 255.0f - pred[1 + y * 3 + x * 3 * rescaleRT.getSize().y];
-                        float errB = c.b / 255.0f - pred[2 + y * 3 + x * 3 * rescaleRT.getSize().y];
+                        float errR = (c.r - static_cast<float>(pred[0 + y * 3 + x * 3 * rescaleRT.getSize().y])) / 255.0f;
+                        float errG = (c.g - static_cast<float>(pred[1 + y * 3 + x * 3 * rescaleRT.getSize().y])) / 255.0f;
+                        float errB = (c.b - static_cast<float>(pred[2 + y * 3 + x * 3 * rescaleRT.getSize().y])) / 255.0f;
 
                         predError += ((errR * errR) + (errG * errG) + (errB * errB)) / 3.0f;
 
-                        input[0 + y * 3 + x * 3 * rescaleRT.getSize().y] = c.r / 255.0f;
-                        input[1 + y * 3 + x * 3 * rescaleRT.getSize().y] = c.g / 255.0f;
-                        input[2 + y * 3 + x * 3 * rescaleRT.getSize().y] = c.b / 255.0f;
+                        input[0 + y * 3 + x * 3 * rescaleRT.getSize().y] = c.r;
+                        input[1 + y * 3 + x * 3 * rescaleRT.getSize().y] = c.g;
+                        input[2 + y * 3 + x * 3 * rescaleRT.getSize().y] = c.b;
                     }
 
                 errors[currentFrame] = predError / (reImg.getSize().x * reImg.getSize().y);
 
                 // Step pre-encoder and hierarchy
-                enc.step(cs, { &input }, true);
+                inputs[0] = &input;
+                imgEnc.step(inputs, true);
 
-                h.step(cs, { &enc.getHiddenCs() }, true);
+                Array<const IntBuffer*> inputCIs(1);
+                inputCIs[0] = &imgEnc.getHiddenCIs();
+                h.step(inputCIs, true);
 
                 // Show progress bar
                 float ratio = static_cast<float>(currentFrame + 1) / captureLength;
@@ -300,8 +327,8 @@ int main() {
 
                         // Vertical error bars
                         for (int i = 0; i < captureLength; i++) {
-                            rs.setPosition(8.0f + graphScaleX * i, windowHeight - 16.0f - graphScaleY * 10.0f * errors[i]);
-                            rs.setSize(sf::Vector2f(graphScaleX, graphScaleY * 10.0f * errors[i]));
+                            rs.setPosition(8.0f + graphScaleX * i, windowHeight - 16.0f - graphScaleY * 100.0f * errors[i]);
+                            rs.setSize(sf::Vector2f(graphScaleX, graphScaleY * 100.0f * errors[i]));
 
                             if (i <= currentFrame)
                                 rs.setFillColor(sf::Color::Red);
@@ -341,7 +368,7 @@ int main() {
                     t.setCharacterSize(16);
                     t.setString(st);
                     t.setPosition(144.0f, 12.0f);
-                    t.setColor(sf::Color::White);
+                    t.setFillColor(sf::Color::White);
 
                     window.draw(t);
 
@@ -353,7 +380,7 @@ int main() {
 
                         window.draw(t);
                     }
-
+                    
                     window.display();
                 }
 
@@ -375,15 +402,15 @@ int main() {
             std::cout << "Saving hierarchy as " << hFileName << " and " << encFileName << std::endl;
 
             {
-                std::ofstream toFile(encFileName, std::ios::binary);
-
-                enc.writeToStream(toFile);
+                CustomStreamWriter writer;
+                writer.outs.open(encFileName.c_str(), std::ios::out | std::ios::binary);
+                imgEnc.write(writer);
             }
 
             {
-                std::ofstream toFile(hFileName, std::ios::binary);
-
-                h.writeToStream(toFile);
+                CustomStreamWriter writer;
+                writer.outs.open(hFileName.c_str(), std::ios::out | std::ios::binary);
+                h.write(writer);
             }
         }
     }
@@ -391,15 +418,15 @@ int main() {
         std::cout << "Loading hierarchy from " << hFileName << " and " << encFileName << std::endl;
 
         {
-            std::ifstream fromFile(encFileName, std::ios::binary);
-
-            enc.readFromStream(fromFile);
+            CustomStreamReader reader;
+            reader.ins.open(encFileName.c_str(), std::ios::binary);
+            imgEnc.read(reader);
         }
 
         {
-            std::ifstream fromFile(hFileName, std::ios::binary);
-
-            h.readFromStream(fromFile);
+            CustomStreamReader reader;
+            reader.ins.open(hFileName.c_str(), std::ios::binary);
+            h.read(reader);
         }
     }
 
@@ -418,8 +445,6 @@ int main() {
             case sf::Event::Closed:
                 quit = true;
                 break;
-            default:
-                break;
             }
         }
 
@@ -430,11 +455,13 @@ int main() {
 
         window.clear();
 
-        h.step(cs, { &h.getPredictionCs(0) }, false);
+        Array<const IntBuffer*> inputCIs(1);
+        inputCIs[0] = &h.getPredictionCIs(0);
+        h.step(inputCIs, false);
 
-        enc.reconstruct(cs, &h.getPredictionCs(0));
+        imgEnc.reconstruct(&h.getPredictionCIs(0));
 
-        std::vector<float> pred = enc.getVisibleLayer(0).reconActs;
+        ByteBuffer pred = imgEnc.getReconstruction(0);
 
         sf::Image img;
 
@@ -444,9 +471,9 @@ int main() {
             for (int y = 0; y < rescaleRT.getSize().y; y++) {
                 sf::Color c;
 
-                c.r = static_cast<sf::Uint8>(255.0f * std::min(1.0f, std::max(0.0f, pred[0 + y * 3 + x * 3 * rescaleRT.getSize().y])));
-                c.g = static_cast<sf::Uint8>(255.0f * std::min(1.0f, std::max(0.0f, pred[1 + y * 3 + x * 3 * rescaleRT.getSize().y])));
-                c.b = static_cast<sf::Uint8>(255.0f * std::min(1.0f, std::max(0.0f, pred[2 + y * 3 + x * 3 * rescaleRT.getSize().y])));
+                c.r = static_cast<sf::Uint8>(pred[0 + y * 3 + x * 3 * rescaleRT.getSize().y]);
+                c.g = static_cast<sf::Uint8>(pred[1 + y * 3 + x * 3 * rescaleRT.getSize().y]);
+                c.b = static_cast<sf::Uint8>(pred[2 + y * 3 + x * 3 * rescaleRT.getSize().y]);
 
                 img.setPixel(x, y, c);
             }

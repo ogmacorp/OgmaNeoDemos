@@ -2,13 +2,40 @@
 #include <SFML/Graphics.hpp>
 
 #include <aogmaneo/Hierarchy.h>
-#include <aogmaneo/ImageEncoder.h>
+#include <aogmaneo/Helpers.h>
+//#include <aogmaneo/ImageEncoder.h>
+#include <cmath>
 
 #include <time.h>
 #include <iostream>
+#include <fstream>
 #include <random>
 
 using namespace aon;
+
+class CustomStreamReader : public aon::StreamReader {
+public:
+    std::ifstream ins;
+
+    void read(
+        void* data,
+        int len
+    ) override {
+        ins.read(static_cast<char*>(data), len);
+    }
+};
+
+class CustomStreamWriter : public aon::StreamWriter {
+public:
+    std::ofstream outs;
+
+    void write(
+        const void* data,
+        int len
+    ) override {
+        outs.write(static_cast<const char*>(data), len);
+    }
+};
 
 struct Car {
     sf::Vector2f position;
@@ -30,6 +57,8 @@ float magnitude(const sf::Vector2f &v) {
     return std::sqrt(d);
 }
 
+// Calculate the maximal distance from the begin point "start" to the road boundary in the direction
+// defined by a ray from "start" to "end" point
 float rayCast(const sf::Image &mask, const sf::Vector2f &start, const sf::Vector2f &end) {
     const float castIncrement = 2.0f;
 
@@ -44,7 +73,6 @@ float rayCast(const sf::Image &mask, const sf::Vector2f &start, const sf::Vector
     float d = 0.0f;
 
     for (int i = 0; i < steps; i++) {
-        
         sf::Color c = mask.getPixel(point.x, point.y);
 
         if (c == sf::Color::White)
@@ -57,6 +85,7 @@ float rayCast(const sf::Image &mask, const sf::Vector2f &start, const sf::Vector
     return d;
 }
 
+// checkPoints is a list of points in image, which have c.a != 0, the 1st point is starting and the last is for the routing end
 void getCheckpoints(const sf::Image &checkpointsImg, std::vector<sf::Vector2f> &checkpoints) {
     for (int x = 0; x < checkpointsImg.getSize().x; x++)
         for (int y = 0; y < checkpointsImg.getSize().y; y++) {
@@ -83,6 +112,9 @@ int main() {
     window.setFramerateLimit(60);
     window.setVerticalSyncEnabled(true);
 
+    std::string encFileName = "Car_Racing.oenc";
+    std::string hFileName = "Car_Racing.ohr";
+
     int numSensors = 16;
     int rootNumSensors = std::ceil(std::sqrt(numSensors));
     int sensorResolution = 32;
@@ -90,31 +122,22 @@ int main() {
 
     // --------------------------- Create the Hierarchy ---------------------------
 
+    // Create hierarchy
     setNumThreads(8);
 
-    // Create hierarchy
     Array<Hierarchy::LayerDesc> lds(2);
 
-    for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(4, 4, 16);
+    for (int i = 0; i < lds.size(); i++)
+        lds[i].hiddenSize = Int3(4, 4, 32);
 
-        lds[i].ffRadius = lds[i].pRadius = 4;
-
-        lds[i].ticksPerUpdate = 2;
-        lds[i].temporalHorizon = 4;
-    }
+    // Two IODescs, for sensors and for actions
+    // types none and action (no prediction and reinforcement learning)
+    Array<Hierarchy::IODesc> ioDescs(2);
+    ioDescs[0] = Hierarchy::IODesc(Int3(rootNumSensors, rootNumSensors, sensorResolution), IOType::none, 4, 2, 2);
+    ioDescs[1] = Hierarchy::IODesc(Int3(1, 1, steerResolution), IOType::action, 2, 2, 2);
 
     Hierarchy h;
-
-    Array<Int3> inputSizes(2);
-    inputSizes[0] = Int3(rootNumSensors, rootNumSensors, sensorResolution);
-    inputSizes[1] = Int3(1, 1, steerResolution);
-
-    Array<InputType> inputTypes(2);
-    inputTypes[0] = none;
-    inputTypes[1] = action;
-
-    h.initRandom(inputSizes, inputTypes, lds);
+    h.initRandom(ioDescs, lds);
 
     // -------------------------- Game Resources --------------------------
 
@@ -125,10 +148,10 @@ int main() {
     foregroundTex.loadFromFile("resources/racingForeground.png");
 
     sf::Image collisionImg;
-    collisionImg.loadFromFile("resources/racingCollision.png");
+    collisionImg.loadFromFile("resources/racingCollision.png"); // Driving route to navigate (racing path with defined street boundaries / lane)
 
     sf::Image checkpointsImg;
-    checkpointsImg.loadFromFile("resources/racingCheckpoints.png");
+    checkpointsImg.loadFromFile("resources/racingCheckpoints.png"); // Points of the lane middle
 
     std::vector<sf::Vector2f> checkpoints;
 
@@ -155,6 +178,7 @@ int main() {
 
     bool speedMode = false;
     int tPressedPrev = false;
+    bool sPressedPrev = false;
 
     sf::Clock clock;
 
@@ -170,6 +194,9 @@ int main() {
 
     sf::Texture whitenedTex;
 
+    // Used for speed mode to render slower
+    int renderCounter = 0;
+
     do {
         clock.restart();
 
@@ -177,10 +204,8 @@ int main() {
 
         sf::Event windowEvent;
 
-        while (window.pollEvent(windowEvent))
-        {
-            switch (windowEvent.type)
-            {
+        while (window.pollEvent(windowEvent)) {
+            switch (windowEvent.type) {
             case sf::Event::Closed:
                 quit = true;
                 break;
@@ -197,6 +222,16 @@ int main() {
                 speedMode = !speedMode;
 
             tPressedPrev = tPressed;
+
+            bool sPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::S);
+
+            if (sPressed && !sPressedPrev) {
+                CustomStreamWriter writer;
+                writer.outs.open(hFileName.c_str(), std::ios::out | std::ios::binary);
+                h.write(writer);
+            }
+
+            sPressedPrev =  sPressed;
         }
 
         window.clear();
@@ -205,15 +240,16 @@ int main() {
         const float accel = 0.1f;
         const float spinRate = 0.16f;
 
-        Array<int> actions = h.getPredictionCs(1);
+        // Get action prediction
+        int actionIndex = h.getPredictionCIs(1)[0];
 
-        if (dist01(rng) < 0.01f) {
-            std::uniform_int_distribution<int> steerDist(0, steerResolution - 1);
+        //if (dist01(rng) < 0.03f) {
+        //    std::uniform_int_distribution<int> steerDist(0, steerResolution - 1);
+        //    actionIndex = steerDist(rng);
+        //}
 
-            actions[0] = steerDist(rng);
-        }
-
-        float steer = static_cast<float>(actions[0]) / static_cast<float>(steerResolution - 1) * 2.0f - 1.0f;
+        // Tranformation action (column index) -> steering value
+        float steer = static_cast<float>(actionIndex) / static_cast<float>(steerResolution - 1) * 2.0f - 1.0f;
 
         // Physics update
         sf::Vector2f prevPosition = car.position;
@@ -221,7 +257,7 @@ int main() {
         car.position += sf::Vector2f(std::cos(car.rotation), std::sin(car.rotation)) * car.speed;
         car.speed *= 0.95f;
 
-        car.speed = std::min(maxSpeed, std::max(-maxSpeed, car.speed + accel));
+        car.speed = std::min(maxSpeed, std::max(-maxSpeed, car.speed + accel));// * (actionIndex * 0.5f + 0.5f)
         car.rotation = std::fmod(car.rotation + steer * spinRate, 3.141596f * 2.0f);
 
         sf::Color curColor = collisionImg.getPixel(car.position.x, car.position.y);
@@ -303,9 +339,12 @@ int main() {
         sf::Vector2f trackDir = vec / magnitude(vec);
         sf::Vector2f trackPerp(-trackDir.y, trackDir.x);
 
+        // Define reward as orientation difference between 2 vectors: car direction and road direction
+        // because they are already normalized, so that cos(alpha) = carDir.x * trackDir.x + carDir.y * trackDir.y
+        // this reward will be higher by higher speed
         float reward = 0.1f * std::abs(car.speed) * (carDir.x * trackDir.x + carDir.y * trackDir.y) + (reset ? -50.0f : 0.0f);
 
-        // Sensors
+        // Sensors as laser multiple beams (number of beams = numSensors) for checking collision
         std::vector<float> sensors(numSensors);
 
         const float sensorAngle = 0.16f;
@@ -324,7 +363,9 @@ int main() {
             sensors[s] = v / sensorRange;
         }
 
-        if (!speedMode) {
+        if (!speedMode || renderCounter >= 100) {
+            renderCounter = 0;
+
             sf::Sprite backgroundS;
             backgroundS.setTexture(backgroundTex);
 
@@ -363,9 +404,8 @@ int main() {
                 ar.setPrimitiveType(sf::LinesStrip);
                 ar.resize(checkpoints.size() + 1);
 
-                for (int i = 0; i < checkpoints.size(); i++) {
+                for (int i = 0; i < checkpoints.size(); i++)
                     ar[i] = sf::Vertex(checkpoints[i], sf::Color::Green);
-                }
 
                 ar[checkpoints.size()] = sf::Vertex(checkpoints.front(), sf::Color::Green);
 
@@ -374,22 +414,29 @@ int main() {
 
             sf::Sprite foregroundS;
             foregroundS.setTexture(foregroundTex);
-            //foregroundS.setColor(sf::Color::Red);
             window.draw(foregroundS);
 
             window.display();
         }
 
-        Array<int> inputs(rootNumSensors * rootNumSensors, 0);
+        renderCounter++;
+
+        Array<const IntBuffer*> inputCIs(ioDescs.size());
+
+        IntBuffer sensorCIs(rootNumSensors * rootNumSensors, 0);
 
         for (int i = 0; i < sensors.size(); i++)
-            inputs[i] = static_cast<int>(std::min(1.0f, std::max(0.0f, sensors[i] * sensors[i])) * (sensorResolution - 1) + 0.5f);
+            sensorCIs[i] = static_cast<int>(std::min(1.0f, std::max(0.0f, sensors[i])) * (sensorResolution - 1) + 0.5f);
 
-        Array<const IntBuffer*> allInputs(2);
-        allInputs[0] = &inputs;
-        allInputs[1] = &actions;
-        
-        h.step(allInputs, true, reward);
+        inputCIs[0] = &sensorCIs;
+
+        IntBuffer actionCIs(1);
+        actionCIs[0] = actionIndex;
+
+        inputCIs[1] = &actionCIs;
+
+        h.step(inputCIs, true, reward);
+
     } while (!quit);
 
     return 0;

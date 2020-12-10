@@ -9,17 +9,17 @@
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 
-#include <aogmaneo/Sheet.h>
+#include <aogmaneo/Hierarchy.h>
+#include <aogmaneo/Helpers.h>
 
 #include <vis/Plot.h>
 
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <cmath>
 
-#if !defined(M_PI)
-#define M_PI 3.141596f
-#endif
+const float pi = 3.141596f;
 
 using namespace aon;
 
@@ -27,7 +27,8 @@ float sigmoid(float x) {
     return 1.0f / (1.0f + std::exp(-x));
 }
 
-int main() {
+int main() 
+{
     std::string hFileName = "wavyLine.ohr";
 
     // --------------------------- Create the window(s) ---------------------------
@@ -46,8 +47,8 @@ int main() {
     //plot.backgroundColor = sf::Color(64, 64, 64, 255);
     plot.plotXAxisTicks = false;
     plot.curves.resize(2);
-    plot.curves[0].shadow = 0.1f; // Input
-    plot.curves[1].shadow = 0.1f; // Predict
+    plot.curves[0].shadow = 0.0f; // Input
+    plot.curves[1].shadow = 0.0f; // Prediction
 
     float minCurve = -1.25f;
     float maxCurve = 1.25f;
@@ -61,36 +62,25 @@ int main() {
     lineGradient.loadFromFile("resources/lineGradient.png");
 
     sf::Font tickFont;
-
-#if defined(_WINDOWS)
-    tickFont.loadFromFile("C:/Windows/Fonts/Arial.ttf");
-#elif defined(__APPLE__)
-    tickFont.loadFromFile("/Library/Fonts/Courier New.ttf");
-#else
-    tickFont.loadFromFile("/usr/share/fonts/TTF/VeraMono.ttf");
-#endif
+    tickFont.loadFromFile("resources/Hack-Regular.ttf");
 
     // --------------------------- Create the Hierarchy ---------------------------
 
     const int inputColumnSize = 32;
 
-    // Create hierarchy
-    ComputeSystem::setNumThreads(4);
-    ComputeSystem cs;
+    setNumThreads(8);
 
-    std::vector<Hierarchy::LayerDesc> lds(6);
+    Array<Hierarchy::LayerDesc> lds(8);
 
-    for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(4, 4, 16);
+    for (int i = 0; i < lds.size(); i++)
+        lds[i].hiddenSize = Int3(4, 4, 32);
 
-        lds[i].ffRadius = lds[i].pRadius = 4;
-
-        lds[i].ticksPerUpdate = 2;
-        lds[i].temporalHorizon = 2;
-    }
+    Array<Hierarchy::IODesc> ioDescs(1);
+    ioDescs[0] = Hierarchy::IODesc(Int3(1, 1, inputColumnSize), IOType::prediction, 2, 2, 2);
 
     Hierarchy h;
-    
+    h.initRandom(ioDescs, lds);
+
     const int maxBufferSize = 300;
 
     bool quit = false;
@@ -102,13 +92,7 @@ int main() {
     bool loadHierarchy = false;
     bool saveHierarchy = false;
 
-    if (loadHierarchy) {
-        std::ifstream fromFile(hFileName, std::ios::binary);
-
-        h.readFromStream(fromFile);
-    }
-    else // Random init
-        h.initRandom(cs, { Int3(1, 1, inputColumnSize) }, { prediction }, lds);
+    int predIndex;
 
     do {
         sf::Event event;
@@ -139,14 +123,31 @@ int main() {
             if (index % 1000 == 0)
                 std::cout << "Step: " << index << std::endl;
 
-            float value = std::sin(0.0125f * M_PI * index + 0.25f) * 
-                std::sin(0.03f * M_PI * index + 1.5f) *
-                std::sin(0.025f * M_PI * index - 0.1f);
+            float value = std::sin(0.0125f * pi * index + 0.25f) * 
+                std::sin(0.03f * pi * index + 1.5f) *
+                std::sin(0.025f * pi * index - 0.1f);
 
-            int predIndex = h.getPredictionCs(0)[0];
+            Array<const IntBuffer*> inputCIs(1);
+
+            IntBuffer input = IntBuffer(1, static_cast<int>((value - minCurve) / (maxCurve - minCurve) * (inputColumnSize - 1) + 0.5f));
+
+            inputCIs[0] = &input;
+            
+            if (window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::P))
+            {
+                // Prediction mode
+                inputCIs[0] = &h.getPredictionCIs(0);
+                h.step(inputCIs, false);
+            }
+            else {
+                // training mode
+                h.step(inputCIs, true);
+            }
+
+            predIndex = h.getPredictionCIs(0)[0];
 
             // Un-bin
-            float predValue = static_cast<float>(predIndex) / static_cast<float>(inputColumnSize - 1) * 2.0f - 1.0f;
+            float predValue = static_cast<float>(predIndex) / static_cast<float>(inputColumnSize - 1) * (maxCurve - minCurve) + minCurve;
 
             // Plot target data
             vis::Point p;
@@ -168,23 +169,25 @@ int main() {
                 int firstIndex = 0;
 
                 for (std::vector<vis::Point>::iterator it = plot.curves[0].points.begin(); it != plot.curves[0].points.end(); it++, firstIndex++)
-                    (*it).position.x = (float)firstIndex;
+                    (*it).position.x = static_cast<float>(firstIndex);
 
                 plot.curves[1].points.erase(plot.curves[1].points.begin());
 
                 firstIndex = 0;
 
                 for (std::vector<vis::Point>::iterator it = plot.curves[1].points.begin(); it != plot.curves[1].points.end(); it++, firstIndex++)
-                    (*it).position.x = (float)firstIndex;
+                    (*it).position.x = static_cast<float>(firstIndex);
             }
 
             window.clear();
 
-            plot.draw(plotRT, lineGradient, tickFont, 0.5f,
+            plot.draw(
+                plotRT, lineGradient, tickFont, 0.5f,
                 sf::Vector2f(0.0f, plot.curves[0].points.size()),
                 sf::Vector2f(minCurve, maxCurve), sf::Vector2f(48.0f, 48.0f),
                 sf::Vector2f(plot.curves[0].points.size() / 10.0f, (maxCurve - minCurve) / 10.0f),
-                2.0f, 4.0f, 2.0f, 6.0f, 2.0f, 4);
+                2.0f, 4.0f, 2.0f, 6.0f, 2.0f, 4
+            );
 
             plotRT.display();
 
@@ -193,27 +196,9 @@ int main() {
 
             window.draw(plotSprite);
 
-            if (window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::P)) {
-                h.step(cs, { &h.getPredictionCs(0) }, false);
-            }
-            else {
-                // Bin
-                std::vector<int> input = { static_cast<int>((value * 0.5f + 0.5f) * (inputColumnSize - 1) + 0.5f) };
-
-                h.step(cs, { &input }, true);
-            }
-
             window.display();
         }
     } while (!quit);
-
-    if (saveHierarchy) {
-        std::cout << "Saving hierarachy as " << hFileName << std::endl;
-        
-        std::ofstream toFile(hFileName, std::ios::binary);
-
-        h.writeToStream(toFile);
-    }
 
     return 0;
 }

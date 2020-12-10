@@ -122,21 +122,6 @@ Matrix3x3f Matrix3x3f::identityMatrix() {
     return identity;
 }
 
-void Matrix3x3f::getUBOPadded(std::array<float, 12> &data) const {
-    data[0] = elements[0];
-    data[1] = elements[1];
-    data[2] = elements[2];
-    data[3] = 0.0f;
-    data[4] = elements[3];
-    data[5] = elements[4];
-    data[6] = elements[5];
-    data[7] = 0.0f;
-    data[8] = elements[6];
-    data[9] = elements[7];
-    data[10] = elements[8];
-    data[11] = 0.0f;
-}
-
 Vec3f Matrix3x3f::operator*(const Vec3f &vec) const {
     Vec3f result;
     

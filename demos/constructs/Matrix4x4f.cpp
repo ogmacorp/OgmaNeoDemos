@@ -304,7 +304,7 @@ Matrix4x4f Matrix4x4f::directionMatrixAutoUp(const Vec3f &direction) {
     Vec3f tangent_0 = direction.cross(Vec3f(1.0f, 0.0f, 0.0f)); // Try x as up vector
 
     if (tangent_0.magnitudeSquared() < 0.00001f) // x up vector didn't work (the direction is too close along x axis, cannot cross parallel vecs), try another
-            tangent_0 = direction.cross(Vec3f(0.0f, 1.0f, 0.0f));
+        tangent_0 = direction.cross(Vec3f(0.0f, 1.0f, 0.0f));
 
     tangent_0.normalize();
 
@@ -371,7 +371,7 @@ Matrix4x4f Matrix4x4f::cameraDirectionMatrixAutoUp(const Vec3f &direction) {
     Vec3f tangent_0 = direction.cross(Vec3f(1.0f, 0.0f, 0.0f)); // Try x as up vector
 
     if (tangent_0.magnitudeSquared() < 0.001f) // x up vector didn't work (the direction is too close along x axis, cannot cross parallel vecs), try another
-            tangent_0 = direction.cross(Vec3f(0.0f, 1.0f, 0.0f));
+        tangent_0 = direction.cross(Vec3f(0.0f, 1.0f, 0.0f));
 
     tangent_0.normalize();
 

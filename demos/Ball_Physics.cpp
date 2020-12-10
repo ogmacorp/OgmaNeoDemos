@@ -14,7 +14,7 @@
 #include <iostream>
 #include <random>
 
-#include <aogmaneo/Sheet.h>
+#include <aogmaneo/Hierarchy.h>
 #include <aogmaneo/ImageEncoder.h>
 
 using namespace aon;
@@ -35,46 +35,10 @@ int main() {
     sf::RenderTexture rescaleRT;
     rescaleRT.create(32, 32);
    
-    //Int3 actorSize(4, 4, 8);
-
-    //// First test
-    //Array<Sheet::InputDesc> iDescs(2);
-    //Array<Sheet::OutputDesc> oDescs(1);
-
-    //iDescs[0].size = Int3(1, 1, 2);
-    //iDescs[0].radius = 0;
-
-    //iDescs[1].size = actorSize;
-    //iDescs[1].radius = 1;
-
-    //oDescs[0].size = Int3(1, 1, 2);
-    //oDescs[0].radius = 4;
-
-    //Sheet s;
-    //s.initRandom(iDescs, 1, oDescs, actorSize);
-
-    //for (int t = 0; t < 1000000; t++) {
-    //    IntBuffer inputCsBacking(1);
-    //    inputCsBacking[0] = (t % 25 == 0) ? 1 : 0;
-
-    //    IntBuffer actorCsPrev = s.actor.getHiddenCs();
-
-    //    Array<const IntBuffer*> inputCs(2);
-    //    inputCs[0] = &inputCsBacking;
-    //    inputCs[1] = &actorCsPrev;
-
-    //    s.step(inputCs, inputCs, 1, true);
-
-    //    std::cout << inputCsBacking[0] << " " << s.getPredictionCs(0)[0] << " " << s.actor.getHiddenCs()[0] << std::endl;
-    //}
-    //
-    //return 0;
-
     // --------------------------- Create the Hierarchy ---------------------------
 
     // Create hierarchy
-
-    Int3 hiddenSize(8, 8, 16);
+    Int3 hiddenSize(8, 8, 32);
 
     Array<ImageEncoder::VisibleLayerDesc> vlds(1);
     vlds[0].size = Int3(rescaleRT.getSize().x, rescaleRT.getSize().y, 1);
@@ -83,19 +47,28 @@ int main() {
     ImageEncoder enc;
     enc.initRandom(hiddenSize, vlds);
 
-    Array<Sheet::InputDesc> inputDescs(1);
-    Array<Sheet::OutputDesc> outputDescs(1);
+    // Create hierarchy
+    Array<Hierarchy::LayerDesc> lds(3);
 
-    inputDescs[0].size = hiddenSize;
-    inputDescs[0].radius = 2;
+    for (int i = 0; i < lds.size(); i++) {
+        lds[i].hiddenSize = Int3(4, 4, 32);
 
-    outputDescs[0].size = hiddenSize;
-    outputDescs[0].radius = 2;
+        lds[i].ffRadius = 2;
+        lds[i].pRadius = 2;
 
-    Sheet sheet;
-    sheet.initRandom(inputDescs, 1, outputDescs, Int3(8, 8, 16));
+        lds[i].ticksPerUpdate = 2;
+        lds[i].temporalHorizon = 2;
+    }
 
-    sheet.actor.alpha = 0.1f;
+    Hierarchy h;
+
+    Array<Hierarchy::IODesc> ioDescs(1);
+    ioDescs[0] = Hierarchy::IODesc(hiddenSize, IOType::prediction, 2, 2, 2);
+
+    Array<const IntBuffer*> inputCIs(1);
+    inputCIs[0] = &enc.getHiddenCIs();
+
+    h.initRandom(ioDescs, lds);
 
     // ----------------------------- Physics ------------------------------
 
@@ -293,7 +266,7 @@ int main() {
 
         sf::Image rescaleImg = rescaleRT.getTexture().copyToImage();
 
-        Array<float> imagef(rescaleRT.getSize().x * rescaleRT.getSize().y);
+        ByteBuffer image(rescaleRT.getSize().x * rescaleRT.getSize().y);
 
         // Load into input field
         for (int x = 0; x < rescaleRT.getSize().x; x++)
@@ -302,33 +275,29 @@ int main() {
 
                 float mono = 0.333f * (c.r / 255.0f + c.g / 255.0f + c.b / 255.0f);
 
-                imagef[y + x * rescaleRT.getSize().y] = mono;
+                image[y + x * rescaleRT.getSize().y] = mono * 255.0f;
             }
 
         // Feed first 5 frames from image, even when generating ("seed" sequence)
         if (simFrame > 5 && genMode) {
-            Array<const IntBuffer*> inputCs(1);
-            inputCs[0] = &sheet.getPredictionCs(0);
-            
-            sheet.step(inputCs, inputCs, 1, false, false);
+            inputCIs[0] = &h.getPredictionCIs(0);
+            h.step(inputCIs, false);
+            inputCIs[0] = &enc.getHiddenCIs();
         }
         else {
-            Array<const FloatBuffer*> images(1);
-            images[0] = &imagef;
+            Array<const ByteBuffer*> images(1);
+            images[0] = &image;
 
             enc.step(images, true);
 
-            Array<const IntBuffer*> inputCs(1);
-            inputCs[0] = &enc.getHiddenCs();
-
-            sheet.step(inputCs, inputCs, 2, true, false);
+            h.step(inputCIs, true);
         }
 
         // Reconstruct
-        enc.reconstruct(&sheet.getPredictionCs(0));
+        enc.reconstruct(&h.getPredictionCIs(0));
 
         // Retrieve reconstructed prediction
-        FloatBuffer pred = enc.getVisibleLayer(0).reconstruction;
+        ByteBuffer pred = enc.getVisibleLayer(0).reconstruction;
 
         // Display prediction
         sf::Image img;
@@ -340,7 +309,7 @@ int main() {
             for (int y = 0; y < rescaleRT.getSize().y; y++) {
                 sf::Color c;
 
-                c.r = c.g = c.b = 255.0f * pred[y + x * rescaleRT.getSize().y];
+                c.r = c.g = c.b = pred[y + x * rescaleRT.getSize().y];
 
                 img.setPixel(x, y, c);
             }

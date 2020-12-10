@@ -1,7 +1,5 @@
 #include "Vec3f.h"
 
-using namespace pge;
-
 const Vec3f &Vec3f::operator*=(float scale)  {
     x *= scale;
     y *= scale;
@@ -75,7 +73,7 @@ Vec3f Vec3f::project(const Vec3f &other) const {
     return (dot(other) / other.magnitudeSquared()) * other;
 }
 
-std::ostream &pge::operator<<(std::ostream &output, const Vec3f &v) {
+std::ostream &operator<<(std::ostream &output, const Vec3f &v) {
     std::cout << '(' << v.x << ", " << v.y << ", " << v.z << ')';
     return output;
 }
