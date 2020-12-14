@@ -19,16 +19,71 @@
 #include <iostream>
 #include <cmath>
 
+const int numAdditionalStepsAhead = 3;
+
 const float pi = 3.141596f;
 
 using namespace aon;
+
+class BufferReader : public aon::StreamReader {
+public:
+    int start;
+    const std::vector<unsigned char>* buffer;
+
+    BufferReader()
+    :
+    start(0),
+    buffer(nullptr)
+    {}
+
+    void read(
+        void* data,
+        int len
+    ) override;
+};
+
+class BufferWriter : public aon::StreamWriter {
+public:
+    int start;
+
+    std::vector<unsigned char> buffer;
+
+    BufferWriter(
+        int size
+    )
+    :
+    start(0)
+    {
+        buffer.resize(size);
+    }
+
+    void write(
+        const void* data,
+        int len
+    ) override;
+};
+
+void BufferReader::read(void* data, int len) {
+    for (int i = 0; i < len; i++)
+        static_cast<unsigned char*>(data)[i] = (*buffer)[start + i];
+
+    start += len;
+}
+
+void BufferWriter::write(const void* data, int len) {
+    assert(buffer.size() >= start + len);
+
+    for (int i = 0; i < len; i++)
+        buffer[start + i] = static_cast<const unsigned char*>(data)[i];
+
+    start += len;
+}
 
 float sigmoid(float x) {
     return 1.0f / (1.0f + std::exp(-x));
 }
 
-int main() 
-{
+int main() {
     std::string hFileName = "wavyLine.ohr";
 
     // --------------------------- Create the window(s) ---------------------------
@@ -76,10 +131,12 @@ int main()
         lds[i].hiddenSize = Int3(4, 4, 32);
 
     Array<Hierarchy::IODesc> ioDescs(1);
-    ioDescs[0] = Hierarchy::IODesc(Int3(1, 1, inputColumnSize), IOType::prediction, 2, 2, 2);
+    ioDescs[0] = Hierarchy::IODesc(Int3(1, 1, inputColumnSize), IOType::prediction, 2, 2, 2, 64);
 
     Hierarchy h;
     h.initRandom(ioDescs, lds);
+
+    int hStateSize = h.stateSize();
 
     const int maxBufferSize = 300;
 
@@ -143,8 +200,20 @@ int main()
                 // training mode
                 h.step(inputCIs, true);
             }
+            
+            inputCIs[0] = &h.getPredictionCIs(0);
+
+            BufferWriter writer(hStateSize);
+            h.writeState(writer);
+
+            for (int step = 0; step < numAdditionalStepsAhead; step++)
+                h.step(inputCIs, false);
 
             predIndex = h.getPredictionCIs(0)[0];
+
+            BufferReader reader;
+            reader.buffer = &writer.buffer;
+            h.readState(reader);
 
             // Un-bin
             float predValue = static_cast<float>(predIndex) / static_cast<float>(inputColumnSize - 1) * (maxCurve - minCurve) + minCurve;

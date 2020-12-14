@@ -118,7 +118,7 @@ int main() {
     vlds[0].radius = 8;
 
     Array<Hierarchy::IODesc> ioDescs(1);
-    ioDescs[0] = Hierarchy::IODesc(hiddenSize, IOType::prediction, 2, 2, 2);
+    ioDescs[0] = Hierarchy::IODesc(hiddenSize, IOType::prediction, 2, 2, 2, 64);
 
     // Forward declare
     ImageEncoder imgEnc;
