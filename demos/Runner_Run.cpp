@@ -80,13 +80,13 @@ int main() {
     // Create the agent
     setNumThreads(8);
 
-    Array<Hierarchy::LayerDesc> lds(5);
+    Array<Hierarchy::LayerDesc> lds(4);
 
     for (int i = 0; i < lds.size(); i++)
         lds[i].hiddenSize = Int3(4, 4, 16);
 
-    const int sensorResolution = 32;
-    const int actionResolution = 16;
+    const int sensorResolution = 17;
+    const int actionResolution = 9;
 
     Array<Hierarchy::IODesc> ioDescs(2);
     ioDescs[0] = Hierarchy::IODesc(Int3(3, 5, sensorResolution), IOType::none, 3, 2, 2, 64);
@@ -145,16 +145,18 @@ int main() {
         const float runnerBodyAngleStab = 10.0f;
 
         {
-            // Reward is velocity (flipped direction if K is pressed)
-            if (!kDownPrev && sf::Keyboard::isKeyPressed(sf::Keyboard::K))
-                runBackwards = !runBackwards;
+            if (window.hasFocus()) {
+                // Reward is velocity (flipped direction if K is pressed)
+                if (!kDownPrev && sf::Keyboard::isKeyPressed(sf::Keyboard::K))
+                    runBackwards = !runBackwards;
 
-            kDownPrev = sf::Keyboard::isKeyPressed(sf::Keyboard::K);
+                kDownPrev = sf::Keyboard::isKeyPressed(sf::Keyboard::K);
 
-            if (!tDownPrev && sf::Keyboard::isKeyPressed(sf::Keyboard::T))
-                speedMode = !speedMode;
+                if (!tDownPrev && sf::Keyboard::isKeyPressed(sf::Keyboard::T))
+                    speedMode = !speedMode;
 
-            tDownPrev = sf::Keyboard::isKeyPressed(sf::Keyboard::T);
+                tDownPrev = sf::Keyboard::isKeyPressed(sf::Keyboard::T);
+            }
 
             // Retrieve the sensor states
             std::vector<float> state;

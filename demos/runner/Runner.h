@@ -33,9 +33,9 @@ public:
         :
         relativeAngle(0.0f),
         thickness(0.03f), length(0.125f),
-        minAngle(-0.5f), maxAngle(0.5f),
-        maxTorque(100.0f),
-        maxSpeed(1000.0f),
+        minAngle(-0.6f), maxAngle(0.6f),
+        maxTorque(300.0f),
+        maxSpeed(2000.0f),
         density(2.0f),
         friction(2.0f),
         restitution(0.01f),
@@ -91,5 +91,5 @@ public:
     void renderDefault(sf::RenderTarget &rt, const sf::Color &color, float metersToPixels);
 
     void getStateVector(std::vector<float> &state);
-    void motorUpdate(const std::vector<float> &action, float interpolateFactor = 12.0f, float smoothIn = 0.0f, float minSmooth = 1.0f);
+    void motorUpdate(const std::vector<float> &action, float interpolateFactor = 10.0f, float smoothIn = 0.0f, float minSmooth = 1.0f);
 };
