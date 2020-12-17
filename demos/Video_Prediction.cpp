@@ -62,8 +62,8 @@ int main() {
     // Initialize a random number generator
     std::mt19937 rng(time(nullptr));
 
-    const unsigned int windowWidth = 800;
-    const unsigned int windowHeight = 600;
+    const unsigned int windowWidth = 1200;
+    const unsigned int windowHeight = 900;
 
     sf::RenderWindow window;
 

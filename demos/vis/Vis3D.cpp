@@ -40,7 +40,7 @@ Vis3D::Vis3D(
 
     InitWindow(winWidth, winHeight, title.c_str());
 
-    camera.position = (Vector3){ 20.0f, 20.0f, 20.0f };
+    camera.position = (Vector3){ 30.0f, 30.0f, 30.0f };
     camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
     camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
     camera.fovy = 70.0f;
@@ -153,7 +153,7 @@ void Vis3D::update(
         aon::IntBuffer csdr = hist[0];
         aon::IntBuffer pcsdr;
         
-        if (h.getPLayers(0)[i] == nullptr || h.getALayers()[i] != nullptr)
+        if (h.getPLayers(0)[i] != nullptr || h.getALayers()[i] != nullptr)
             pcsdr = h.getPredictionCIs(i);
         
         Vector3 offset = (Vector3){ -h.getInputSizes()[i].x * 0.5f + h.getInputSizes()[i].x * 0.5f + xOffset, -h.getInputSizes()[i].y * 0.5f, -h.getInputSizes()[i].z * 0.5f + zOffset - layerDelta - maxInputHeight * 0.5f};
