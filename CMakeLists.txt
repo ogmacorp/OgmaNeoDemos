@@ -139,6 +139,15 @@ if(OpenCV_FOUND)
     include_directories(${OpenCV_INCLUDE_DIRS})
 endif()
 
+############################################################################
+# Find Raylib
+
+find_package(raylib REQUIRED)
+
+if(raylib_FOUND)
+    message(STATUS "Found existing Raylib in ${raylib_INCLUDE_DIRS}")
+    include_directories(${raylib_INCLUDE_DIRS})
+endif()
 
 ############################################################################
 # Define experiments to build
@@ -146,8 +155,10 @@ endif()
 include_directories("${PROJECT_SOURCE_DIR}/demos")
 
 list(APPEND VIDEO_PREDICTION_SRCS "demos/Video_Prediction.cpp")
+list(APPEND VIDEO_PREDICTION_SRCS "demos/vis/Vis3D.cpp")
 list(APPEND VIDEO_PREDICTION_DEPS "SFML")
 list(APPEND VIDEO_PREDICTION_DEPS "OPENCV")
+list(APPEND VIDEO_PREDICTION_DEPS "RAYLIB")
 list(APPEND DEMO_PROJECTS_LIST "Video_Prediction")
 list(APPEND DEMO_SOURCES_LIST VIDEO_PREDICTION_SRCS)
 list(APPEND DEMO_DEPENDS_LIST VIDEO_PREDICTION_DEPS)
@@ -226,5 +237,11 @@ foreach(i RANGE ${num_demos})
     list(FIND ${DEMO_DEPENDS} "OPENCV" _opencv_depends_index)
     if (${_opencv_depends_index} GREATER -1)
         target_link_libraries(${DEMO_PROJECT} ${OpenCV_LIBS})
+    endif()
+
+    # Does this demo require Raylib?
+    list(FIND ${DEMO_DEPENDS} "RAYLIB" _raylib_depends_index)
+    if (${_raylib_depends_index} GREATER -1)
+        target_link_libraries(${DEMO_PROJECT} ${raylib_LIBRARIES})
     endif()
 endforeach()

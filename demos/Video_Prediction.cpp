@@ -23,6 +23,8 @@
 #include <aogmaneo/ImageEncoder.h>
 #include <cmath>
 
+#include <vis/Vis3D.h>
+
 using namespace aon;
 using namespace cv;
 
@@ -98,19 +100,19 @@ int main() {
     // Create hierarchy
     aon::setNumThreads(8);
 
-    Array<Hierarchy::LayerDesc> lds(8);
+    Array<Hierarchy::LayerDesc> lds(4);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(4, 4, 32);
+        lds[i].hiddenSize = Int3(4, 4, 16);
 
-        lds[i].ffRadius = 2;
-        lds[i].pRadius = 2;
+        lds[i].ffRadius = 4;
+        lds[i].pRadius = 4;
 
         lds[i].ticksPerUpdate = 2;
         lds[i].temporalHorizon = 2;
     }
 
-    Int3 hiddenSize(8, 8, 32);
+    Int3 hiddenSize(8, 8, 16);
 
     Array<ImageEncoder::VisibleLayerDesc> vlds(1);
 
@@ -118,7 +120,7 @@ int main() {
     vlds[0].radius = 8;
 
     Array<Hierarchy::IODesc> ioDescs(1);
-    ioDescs[0] = Hierarchy::IODesc(hiddenSize, IOType::prediction, 2, 2, 2, 64);
+    ioDescs[0] = Hierarchy::IODesc(hiddenSize, IOType::prediction, 4, 4, 4, 64);
 
     // Forward declare
     ImageEncoder imgEnc;
@@ -435,6 +437,8 @@ int main() {
     window.setVerticalSyncEnabled(true);
     quit = false;
 
+    Vis3D v(600, 800, "Test");
+
     do {
         // ----------------------------- Input -----------------------------
 
@@ -462,6 +466,18 @@ int main() {
         imgEnc.reconstruct(&h.getPredictionCIs(0));
 
         ByteBuffer pred = imgEnc.getReconstruction(0);
+
+        std::vector<Vis3D::ImgEncDesc> descs(1);
+        descs[0].enc = &imgEnc;
+        descs[0].imgs.resize(1);
+
+        descs[0].imgs[0].resize(pred.size());
+        
+        for (int i = 0; i < pred.size(); i++)
+            descs[0].imgs[0][i] = pred[i];
+
+        v.update(h, descs);
+        v.render();
 
         sf::Image img;
 
