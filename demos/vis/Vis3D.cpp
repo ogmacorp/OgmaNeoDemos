@@ -353,14 +353,13 @@ void Vis3D::update(
 
             int k = 0;
 
-            image.data = (unsigned char *)RL_MALLOC(image.width*image.height*4*sizeof(unsigned char));
+            image.data = (unsigned char*)RL_MALLOC(image.width * image.height * 4 * sizeof(unsigned char));
 
-            for (int i = 0; i < image.width*image.height*4; i += 4)
-            {
-                ((unsigned char *)image.data)[i] = colors[k].r;
-                ((unsigned char *)image.data)[i + 1] = colors[k].g;
-                ((unsigned char *)image.data)[i + 2] = colors[k].b;
-                ((unsigned char *)image.data)[i + 3] = colors[k].a;
+            for (int i = 0; i < image.width * image.height * 4; i += 4) {
+                ((unsigned char*)image.data)[i] = colors[k].r;
+                ((unsigned char*)image.data)[i + 1] = colors[k].g;
+                ((unsigned char*)image.data)[i + 2] = colors[k].b;
+                ((unsigned char*)image.data)[i + 3] = colors[k].a;
                 k++;
             }
 
@@ -462,14 +461,13 @@ void Vis3D::update(
 
                 int k = 0;
 
-                image.data = (unsigned char *)RL_MALLOC(image.width*image.height*4*sizeof(unsigned char));
+                image.data = (unsigned char*)RL_MALLOC(image.width * image.height * 4 * sizeof(unsigned char));
 
-                for (int i = 0; i < image.width*image.height*4; i += 4)
-                {
-                    ((unsigned char *)image.data)[i] = colors[k].r;
-                    ((unsigned char *)image.data)[i + 1] = colors[k].g;
-                    ((unsigned char *)image.data)[i + 2] = colors[k].b;
-                    ((unsigned char *)image.data)[i + 3] = colors[k].a;
+                for (int i = 0; i < image.width * image.height * 4; i += 4) {
+                    ((unsigned char*)image.data)[i] = colors[k].r;
+                    ((unsigned char*)image.data)[i + 1] = colors[k].g;
+                    ((unsigned char*)image.data)[i + 2] = colors[k].b;
+                    ((unsigned char*)image.data)[i + 3] = colors[k].a;
                     k++;
                 }
 

@@ -29,7 +29,7 @@ public:
 
         aon::ImageEncoder* enc;
 
-        std::vector<std::vector<unsigned char>> imgs;
+        std::vector<aon::ByteBuffer> imgs;
 
         ImgEncDesc()
         :

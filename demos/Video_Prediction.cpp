@@ -62,8 +62,8 @@ int main() {
     // Initialize a random number generator
     std::mt19937 rng(time(nullptr));
 
-    const unsigned int windowWidth = 1200;
-    const unsigned int windowHeight = 900;
+    const unsigned int windowWidth = 800;
+    const unsigned int windowHeight = 600;
 
     sf::RenderWindow window;
 
@@ -437,7 +437,7 @@ int main() {
     window.setVerticalSyncEnabled(true);
     quit = false;
 
-    Vis3D v(600, 800, "Test");
+    Vis3D v(900, 1200, "Test");
 
     do {
         // ----------------------------- Input -----------------------------
@@ -471,10 +471,7 @@ int main() {
         descs[0].enc = &imgEnc;
         descs[0].imgs.resize(1);
 
-        descs[0].imgs[0].resize(pred.size());
-        
-        for (int i = 0; i < pred.size(); i++)
-            descs[0].imgs[0][i] = pred[i];
+        descs[0].imgs[0] = pred;
 
         v.update(h, descs);
         v.render();
