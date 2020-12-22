@@ -17,6 +17,8 @@
 #include <iostream>
 #include <fstream>
 #include <random>
+#include <thread>
+#include <mutex>
 
 #include <aogmaneo/Hierarchy.h>
 #include <aogmaneo/Helpers.h>
@@ -437,7 +439,20 @@ int main() {
     window.setVerticalSyncEnabled(true);
     quit = false;
 
-    Vis3D v(900, 1200, "Test");
+    std::vector<Vis3D::ImgEncDesc> descs(1);
+
+    std::mutex mut;
+
+    std::thread th([&]{
+        Vis3D v(900, 1200, "Test");
+
+        while (!quit) {
+            mut.lock();
+            v.update(h, descs);
+            mut.unlock();
+            v.render();
+        }
+    });
 
     do {
         // ----------------------------- Input -----------------------------
@@ -459,6 +474,8 @@ int main() {
 
         window.clear();
 
+        mut.lock();
+
         Array<const IntBuffer*> inputCIs(1);
         inputCIs[0] = &h.getPredictionCIs(0);
         h.step(inputCIs, false);
@@ -467,14 +484,12 @@ int main() {
 
         ByteBuffer pred = imgEnc.getReconstruction(0);
 
-        std::vector<Vis3D::ImgEncDesc> descs(1);
         descs[0].enc = &imgEnc;
         descs[0].imgs.resize(1);
 
         descs[0].imgs[0] = pred;
 
-        v.update(h, descs);
-        v.render();
+        mut.unlock();
 
         sf::Image img;
 
@@ -506,6 +521,9 @@ int main() {
 
         window.display();
     } while (!quit);
+
+    quit = true;
+    th.join();
 
     return 0;
 }

@@ -179,14 +179,14 @@ int main() {
             else
                 reward = runner0.body->GetLinearVelocity().x;
 
-            reward *= 10.0f;
+            reward *= 1.0f;
 
             h.step(inputCIs, true, reward);
 
             actionCIs = h.getPredictionCIs(1);
 
             for (int i = 0; i < actionCIs.size(); i++) {
-                if (dist01(rng) < 0.3f)
+                if (dist01(rng) < 0.1f)
                     actionCIs[i] = actionDist(rng);
             }
 
