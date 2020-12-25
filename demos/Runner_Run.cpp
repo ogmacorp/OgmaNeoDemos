@@ -40,7 +40,7 @@ int main() {
 
     const float pixelsPerMeter = 256.0f;
 
-    const float groundWidth = 5000.0f;
+    const float groundWidth = 20000.0f;
     const float groundHeight = 5.0f;
 
     // Create ground body
@@ -83,7 +83,7 @@ int main() {
     Array<Hierarchy::LayerDesc> lds(4);
 
     for (int i = 0; i < lds.size(); i++)
-        lds[i].hiddenSize = Int3(4, 4, 16);
+        lds[i].hiddenSize = Int3(4, 4, 32);
 
     const int sensorResolution = 17;
     const int actionResolution = 9;
@@ -185,10 +185,10 @@ int main() {
 
             actionCIs = h.getPredictionCIs(1);
 
-            for (int i = 0; i < actionCIs.size(); i++) {
-                if (dist01(rng) < 0.1f)
-                    actionCIs[i] = actionDist(rng);
-            }
+            //for (int i = 0; i < actionCIs.size(); i++) {
+            //    if (dist01(rng) < 0.3f)
+            //        actionCIs[i] = actionDist(rng);
+            //}
 
             // Go through tiles
             std::vector<float> rescaledActions(outputCount);

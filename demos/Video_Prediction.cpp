@@ -105,16 +105,16 @@ int main() {
     Array<Hierarchy::LayerDesc> lds(4);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(4, 4, 16);
+        lds[i].hiddenSize = Int3(4, 4, 32);
 
-        lds[i].ffRadius = 4;
-        lds[i].pRadius = 4;
+        lds[i].ffRadius = 2;
+        lds[i].pRadius = 2;
 
         lds[i].ticksPerUpdate = 2;
         lds[i].temporalHorizon = 2;
     }
 
-    Int3 hiddenSize(8, 8, 16);
+    Int3 hiddenSize(8, 8, 32);
 
     Array<ImageEncoder::VisibleLayerDesc> vlds(1);
 
@@ -148,7 +148,7 @@ int main() {
     std::vector<float> errors(captureLength, 0.0f);
 
     // Training time
-    const int numIter = 20;
+    const int numIter = 30;
 
     // Frame skip
     int frameSkip = 4; // 1 means no frame skip (stride of 1)

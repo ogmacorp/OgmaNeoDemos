@@ -338,7 +338,7 @@ void Vis3D::update(
 
                     aon::Int2 offset(ix - fieldLowerBound.x, iy - fieldLowerBound.y);
 
-                    unsigned char c = vl.weights[ffZ + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
+                    unsigned char c = aon::sigmoid(vl.weights[ffZ + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))]) * 255 + 0.5f;
 
                     colors[offset.y + offset.x * diam] = (Color){ c, c, c, 255 };
                 }

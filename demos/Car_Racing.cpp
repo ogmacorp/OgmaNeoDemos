@@ -128,7 +128,7 @@ int main() {
     Array<Hierarchy::LayerDesc> lds(2);
 
     for (int i = 0; i < lds.size(); i++)
-        lds[i].hiddenSize = Int3(4, 4, 32);
+        lds[i].hiddenSize = Int3(4, 4, 16);
 
     // Two IODescs, for sensors and for actions
     // types none and action (no prediction and reinforcement learning)
@@ -247,7 +247,7 @@ int main() {
         // Get action prediction
         int actionIndex = h.getPredictionCIs(1)[0];
 
-        if (dist01(rng) < 0.2f) {
+        if (dist01(rng) < 0.1f) {
             std::uniform_int_distribution<int> steerDist(0, steerResolution - 1);
             actionIndex = steerDist(rng);
         }
