@@ -55,6 +55,14 @@ public:
 };
 
 int main() {
+    // Test
+    Hierarchy h2;
+    CustomStreamReader reader;
+    reader.ins.open("H.OHR", std::ios::binary);
+    h2.read(reader);
+
+    std::cout << h2.getNumLayers() << std::endl;
+
     // Capture file name
     std::string fileName = "resources/Bullfinch192.mp4";
 
@@ -263,7 +271,7 @@ int main() {
                 inputs[0] = &input;
                 imgEnc.step(inputs, true);
 
-                Array<const IntBuffer*> inputCIs(1);
+                Array<const ByteBuffer*> inputCIs(1);
                 inputCIs[0] = &imgEnc.getHiddenCIs();
                 h.step(inputCIs, true);
 
@@ -476,7 +484,7 @@ int main() {
 
         mut.lock();
 
-        Array<const IntBuffer*> inputCIs(1);
+        Array<const ByteBuffer*> inputCIs(1);
         inputCIs[0] = &h.getPredictionCIs(0);
         h.step(inputCIs, false);
 

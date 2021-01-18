@@ -33,19 +33,19 @@ public:
         :
         relativeAngle(0.0f),
         thickness(0.03f), length(0.125f),
-        minAngle(-0.6f), maxAngle(0.6f),
-        maxTorque(300.0f),
-        maxSpeed(4000.0f),
+        minAngle(-0.7f), maxAngle(0.7f),
+        maxTorque(1.0f),
+        maxSpeed(10000.0f),
         density(2.0f),
-        friction(2.0f),
+        friction(5.0f),
         restitution(0.01f),
         motorEnabled(true)
         {}
     };
 
     struct LimbSegment {
-        b2Body* body;
         b2PolygonShape bodyShape;
+        b2Body* body;
         b2RevoluteJoint* joint;
 
         float maxSpeed;
@@ -60,9 +60,16 @@ public:
         void remove(b2World* world);
     };
 private:
-    std::shared_ptr<b2World> world;
+    b2World* world;
+    std::vector<float> whiskerResults;
+    b2Vec2 lVelPrev;
+    float rVelPrev;
 
+    std::vector<float> integrals;
+    std::vector<float> prevs;
+    
 public:
+
     static sf::Color mulColors(const sf::Color &c1, const sf::Color &c2) {
         const float byteInv = 1.0f / 255.0f;
 
@@ -71,8 +78,8 @@ public:
             c1.b * c2.b * byteInv);
     }
 
-    b2Body* body;
     b2PolygonShape bodyShape;
+    b2Body* body;
 
     Limb leftBackLimb;
     Limb leftFrontLimb;
@@ -80,16 +87,20 @@ public:
     Limb rightFrontLimb;
 
     Runner()
-    :
-    world(nullptr)
+    : world(nullptr)
     {}
 
-    ~Runner();
+    void createDefault(b2World* world, const b2Vec2 &position, float angle, int layer);
+    void destroy();
 
-    void createDefault(const std::shared_ptr<b2World> &world, const b2Vec2 &position, float angle, int layer);
+    ~Runner();
 
     void renderDefault(sf::RenderTarget &rt, const sf::Color &color, float metersToPixels);
 
     void getStateVector(std::vector<float> &state);
-    void motorUpdate(const std::vector<float> &action, float interpolateFactor = 16.0f, float smoothIn = 0.0f, float minSmooth = 1.0f);
+    void motorUpdate(const std::vector<float> &action, float prop = 6.0f, float integral = 1.0f, float deriv = 1.0f);
+
+    bool infrontOfWall() const {
+        return whiskerResults[0] < 0.01f;
+    }
 };

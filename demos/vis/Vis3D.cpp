@@ -90,6 +90,8 @@ void Vis3D::update(
     const aon::Hierarchy &h,
     const std::vector<ImgEncDesc> &imgEncDescs
 ) {
+    bottomMost = 0.0f;
+
     int oldColumnSize = columns.size();
     int oldCellsSize = cells.size();
     int oldLinesSize = lines.size();
@@ -148,15 +150,18 @@ void Vis3D::update(
     float xOffset = -inputWidthTotal * 0.5f;
 
     for (int i = 0; i < h.getInputSizes().size(); i++) {
-        const aon::CircleBuffer<aon::IntBuffer> &hist = h.getHistories(0)[i];
+        const aon::CircleBuffer<aon::ByteBuffer> &hist = h.getHistories(0)[i];
 
-        aon::IntBuffer csdr = hist[0];
-        aon::IntBuffer pcsdr;
+        aon::ByteBuffer csdr = hist[0];
+        aon::ByteBuffer pcsdr;
         
         if (h.getPLayers(0)[i] != nullptr || h.getALayers()[i] != nullptr)
             pcsdr = h.getPredictionCIs(i);
         
         Vector3 offset = (Vector3){ -h.getInputSizes()[i].x * 0.5f + h.getInputSizes()[i].x * 0.5f + xOffset, -h.getInputSizes()[i].y * 0.5f, -h.getInputSizes()[i].z * 0.5f + zOffset - layerDelta - maxInputHeight * 0.5f};
+
+        // Update bottom-most
+        bottomMost = aon::min<float>(bottomMost, offset.z);
 
         // Construct columns
         for (int cx = 0; cx < h.getInputSizes()[i].x; cx++)
@@ -218,8 +223,8 @@ void Vis3D::update(
     }
 
     for (int l = 0; l < h.getNumLayers(); l++) {
-        aon::IntBuffer csdr = h.getSCLayer(l).getHiddenCIs();
-        aon::IntBuffer pcsdr;
+        aon::ByteBuffer csdr = h.getSCLayer(l).getHiddenCIs();
+        aon::ByteBuffer pcsdr;
         
         if (l < h.getNumLayers() - 1)
             pcsdr = h.getPLayers(l + 1)[h.getTicksPerUpdate(l + 1) - 1 - h.getTicks(l + 1)]->getHiddenCIs();
@@ -338,7 +343,7 @@ void Vis3D::update(
 
                     aon::Int2 offset(ix - fieldLowerBound.x, iy - fieldLowerBound.y);
 
-                    unsigned char c = aon::sigmoid(vl.weights[ffZ + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))]) * 255 + 0.5f;
+                    unsigned char c = (int)(vl.protos[offset.y + diam * (offset.x + diam * hiddenIndex)]) + 127;
 
                     colors[offset.y + offset.x * diam] = (Color){ c, c, c, 255 };
                 }
@@ -607,7 +612,7 @@ void Vis3D::render() {
 
             if (hasImgs) {
                 for (int ii = 0; ii < imgEncTextures.size(); ii++)
-                    DrawModel(imgEncPlanes[ii], (Vector3){ static_cast<float>(ii - imgEncTextures.size() / 2) * 60.0f, -80.0f, 0.0f }, 1.0f, (Color){ 255, 255, 255, 255 });
+                    DrawModel(imgEncPlanes[ii], (Vector3){ static_cast<float>(ii - imgEncTextures.size() / 2) * 60.0f, bottomMost - 10.0f, 0.0f }, 1.0f, (Color){ 255, 255, 255, 255 });
             }
 
         EndMode3D();

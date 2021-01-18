@@ -36,23 +36,46 @@ int main() {
     window.setVerticalSyncEnabled(true);
 
     // Physics
-    std::shared_ptr<b2World> world = std::make_shared<b2World>(b2Vec2(0.0f, -9.81f));
+    b2World world(b2Vec2(0.0f, -9.81f));
 
     const float pixelsPerMeter = 256.0f;
 
     const float groundWidth = 20000.0f;
     const float groundHeight = 5.0f;
 
+    const float hurdleWidth = 0.15f;
+    const float hurdleHeight = 0.15f;
+    const float hurdleHeightInc = 0.03f;
+    const float hurdleOffset = 5.0f;
+    const float hurdleStart = 10.0f;
+
     // Create ground body
     b2BodyDef groundBodyDef;
     groundBodyDef.position.Set(0.0f, 0.0f);
 
-    b2Body* groundBody = world->CreateBody(&groundBodyDef);
+    b2Body* groundBody = world.CreateBody(&groundBodyDef);
 
     b2PolygonShape groundBox;
     groundBox.SetAsBox(groundWidth * 0.5f, groundHeight * 0.5f);
 
     groundBody->CreateFixture(&groundBox, 0.0f); // 0 density (static)
+
+    // Spawn some hurdles
+    std::vector<b2Body*> hurdles(100);
+
+    for (int i = 0; i < hurdles.size(); i++) {
+        b2BodyDef hurdleBodyDef;
+        hurdleBodyDef.position.Set(i * hurdleOffset + hurdleStart, groundHeight * 0.5f + (hurdleHeight + hurdleHeightInc * i) * 0.5f);
+
+        b2Body* hurdleBody = world.CreateBody(&hurdleBodyDef);
+
+        b2PolygonShape hurdleBox;
+        hurdleBox.SetAsBox(hurdleWidth * 0.5f, (hurdleHeight + hurdleHeightInc * i) * 0.5f);
+
+        hurdleBody->CreateFixture(&hurdleBox, 0.0f); // 0 density (static)
+
+        hurdles[i] = hurdleBody;
+    }
 
     // Background image
     sf::Texture skyTexture;
@@ -70,27 +93,30 @@ int main() {
     floorTexture.setSmooth(true);
 
     // Create a runner
-    Runner runner0;
+    const float runnerSpawnHeight = 2.762f;
 
-    runner0.createDefault(world, b2Vec2(0.0f, 2.762f), 0.0f, 1);
+    Runner runner;
+    runner.createDefault(&world, b2Vec2(0.0f, runnerSpawnHeight), 0.0f, 1);
 
-    const int inputCount = 3 + 3 + 2 + 2 + 1 + 4; // 3 inputs for hind legs, 2 for front, body angle, contacts for each leg
-    const int outputCount = 3 + 3 + 2 + 2; // Motor output for each joint
+    const int inputCount = 2 + 2 + 2 + 2 + 1 + 4 + 6 + 3 + 1; // 3 inputs for hind legs, 2 for front, body angle, contacts for each leg, 6 whiskers, IMU (lAccel, rAccel), distance to next hurdle
+    const int outputCount = 2 + 2 + 2 + 2; // Motor output for each joint
 
     // Create the agent
     setNumThreads(8);
 
-    Array<Hierarchy::LayerDesc> lds(4);
+    Array<Hierarchy::LayerDesc> lds(5);
 
-    for (int i = 0; i < lds.size(); i++)
+    for (int i = 0; i < lds.size(); i++) {
         lds[i].hiddenSize = Int3(4, 4, 32);
+        lds[i].ffRadius = lds[i].pRadius = 2;
+    }
 
-    const int sensorResolution = 17;
+    const int sensorResolution = 31;
     const int actionResolution = 9;
 
     Array<Hierarchy::IODesc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IODesc(Int3(3, 5, sensorResolution), IOType::none, 3, 2, 2, 64);
-    ioDescs[1] = Hierarchy::IODesc(Int3(2, 5, actionResolution), IOType::action, 3, 2, 2, 64);
+    ioDescs[0] = Hierarchy::IODesc(Int3(4, 6, sensorResolution), IOType::prediction, 2, 2, 2, 32);
+    ioDescs[1] = Hierarchy::IODesc(Int3(2, 4, actionResolution), IOType::action, 2, 2, 2, 32);
 
     Hierarchy h;
     h.initRandom(ioDescs, lds);
@@ -117,7 +143,13 @@ int main() {
     bool kDownPrev = false;
     bool tDownPrev = false;
 
-    IntBuffer actionCIs(outputCount, 0);
+    bool reset = false;
+    float stuckTimer = 0.0f;
+    const float stuckTime = 5.0f;
+    float averageVel = 0.0f;
+    float velPrev = 0.0f;
+
+    ByteBuffer actionCIs(outputCount, 0);
 
     std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
     std::uniform_int_distribution<int> actionDist(0, actionResolution - 1);
@@ -137,15 +169,17 @@ int main() {
             }
         }
 
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
-            quit = true;
+        const float maxRunnerBodyAngle = 2.0f;
 
-        // Stabilization (keep runner from tipping over) parameters
-        const float maxRunnerBodyAngle = 0.3f;
-        const float runnerBodyAngleStab = 10.0f;
+        world.ClearForces();
+
+        std::vector<float> rescaledActions(outputCount, 0.5f);
 
         {
             if (window.hasFocus()) {
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
+                    quit = true;
+
                 // Reward is velocity (flipped direction if K is pressed)
                 if (!kDownPrev && sf::Keyboard::isKeyPressed(sf::Keyboard::K))
                     runBackwards = !runBackwards;
@@ -161,56 +195,100 @@ int main() {
             // Retrieve the sensor states
             std::vector<float> state;
 
-            runner0.getStateVector(state);
+            runner.getStateVector(state);
 
-            IntBuffer sensorCIs(inputCount);
+            ByteBuffer sensorCIs(inputCount, 0);
 
             for (int i = 0; i < state.size(); i++)
                 sensorCIs[i] = sigmoid(state[i] * 2.0f) * (sensorResolution - 1) + 0.5f;
 
-            Array<const IntBuffer*> inputCIs(2);
+            int nextHurdleIndex = 0;
+
+            for (; nextHurdleIndex < hurdles.size(); nextHurdleIndex++) {
+                if (hurdles[nextHurdleIndex]->GetPosition().x > runner.body->GetPosition().x) {
+                    break;
+                }
+            }
+
+            if (nextHurdleIndex == hurdles.size())
+                sensorCIs[state.size()] = sensorResolution - 1;
+            else {
+                float dist = hurdles[nextHurdleIndex]->GetPosition().x - runner.body->GetPosition().x;
+
+                sensorCIs[state.size()] = min(1.0f, 0.5f * dist / hurdleOffset) * (sensorResolution - 1) + 0.5f;
+            }
+
+            Array<const ByteBuffer*> inputCIs(2);
             inputCIs[0] = &sensorCIs;
             inputCIs[1] = &actionCIs;
 
-            float reward;
+            float vel = runner.body->GetLinearVelocity().x;
 
-            if (runBackwards)
-                reward = -runner0.body->GetLinearVelocity().x;
-            else
-                reward = runner0.body->GetLinearVelocity().x;
+            float accel = (vel - velPrev) / max(0.0001f, dt);
 
-            reward *= 1.0f;
+            velPrev = vel;
+
+            std::normal_distribution<float> noiseDist(0.0f, 0.1f);
+
+            float reward = accel;// * (1.0f + noiseDist(rng));
+
+            reward *= 0.04f;
+
+            if (reset)
+                reward -= 10.0f;
 
             h.step(inputCIs, true, reward);
 
             actionCIs = h.getPredictionCIs(1);
 
             //for (int i = 0; i < actionCIs.size(); i++) {
-            //    if (dist01(rng) < 0.3f)
+            //    if (dist01(rng) < 1.0f)
             //        actionCIs[i] = actionDist(rng);
             //}
 
             // Go through tiles
-            std::vector<float> rescaledActions(outputCount);
 
             for (int i = 0; i < rescaledActions.size(); i++)
                 rescaledActions[i] = actionCIs[i] / static_cast<float>(actionResolution - 1);
-
-            // Update motors with actions
-            runner0.motorUpdate(rescaledActions);
-
-            // Keep upright (prevent from tipping over)
-            if (std::abs(runner0.body->GetAngle()) > maxRunnerBodyAngle)
-                runner0.body->SetAngularVelocity(-runnerBodyAngleStab * runner0.body->GetAngle());
         }
 
         // Step the physics simulation
         int subSteps = 1;
 
         for (int ss = 0; ss < subSteps; ss++) {
-            world->ClearForces();
+            runner.motorUpdate(rescaledActions);
+            world.Step(1.0f / 60.0f / subSteps, 8, 8);
+        }
 
-            world->Step(1.0f / 60.0f / subSteps, 24, 24);
+        averageVel = 0.99f * averageVel + 0.01f * runner.body->GetLinearVelocity().x;
+
+        if (std::abs(averageVel) < 0.1f)
+            stuckTimer += dt;
+        else
+            stuckTimer = std::max(0.0f, stuckTimer - dt * 2.0f);
+
+        reset = false;
+
+        if (std::abs(runner.body->GetAngle()) > maxRunnerBodyAngle) {
+            std::cout << "Reset due to flip." << std::endl;
+            reset = true;
+        }
+
+        if (runner.infrontOfWall()) {
+            std::cout << "Reset due to wall collision." << std::endl;
+            reset = true;
+        }
+
+        if (stuckTimer >= stuckTime) {
+            std::cout << "Reset due to stuck timer." << std::endl;
+            reset = true;
+        }
+
+        // Keep upright (prevent from tipping over)
+        if (reset) {
+            stuckTimer = 0.0f;
+            runner.createDefault(&world, b2Vec2(0.0f, runnerSpawnHeight), 0.0f, 1);
+            velPrev = 0.0f;
         }
 
         // Display every 200 timesteps, or if not in speed mode
@@ -218,7 +296,7 @@ int main() {
             // -------------------------------------------------------------------
 
             // Center view on the runner
-            view.setCenter(runner0.body->GetPosition().x * pixelsPerMeter, -runner0.body->GetPosition().y * pixelsPerMeter);
+            view.setCenter(runner.body->GetPosition().x * pixelsPerMeter, -runner.body->GetPosition().y * pixelsPerMeter);
 
             // Draw sky
             sf::Sprite skySprite;
@@ -241,8 +319,21 @@ int main() {
 
             window.draw(floorShape);
 
+            // Draw hurdles
+            for (int i = 0; i < hurdles.size(); i++) {
+                sf::RectangleShape rs;
+                rs.setSize(sf::Vector2f(hurdleWidth * pixelsPerMeter, (hurdleHeight + hurdleHeightInc * i) * pixelsPerMeter));
+                rs.setTexture(&floorTexture);
+                rs.setPosition(sf::Vector2f((i * hurdleOffset + hurdleStart) * pixelsPerMeter, -(groundHeight * 0.5f + (hurdleHeight + hurdleHeightInc * i) * 0.5f) * pixelsPerMeter));
+                rs.setTextureRect(sf::IntRect((i * hurdleOffset + hurdleStart) * pixelsPerMeter, (groundHeight * 0.5f + (hurdleHeight + hurdleHeightInc * i) * 0.5f) * pixelsPerMeter, hurdleWidth * pixelsPerMeter, (hurdleHeight + hurdleHeightInc * i) * pixelsPerMeter));
+
+                rs.setOrigin(sf::Vector2f(hurdleWidth * pixelsPerMeter * 0.5f, (hurdleHeight + hurdleHeightInc * i) * pixelsPerMeter * 0.5f));
+
+                window.draw(rs);
+            }
+
             // Draw the runner
-            runner0.renderDefault(window, sf::Color::Red, pixelsPerMeter);
+            runner.renderDefault(window, sf::Color::Red, pixelsPerMeter);
 
             window.setView(window.getDefaultView());
 
@@ -253,13 +344,11 @@ int main() {
 
         // Show distance traveled
         if (steps % 100 == 0)
-            std::cout << "Steps: " << steps << " Distance: " << runner0.body->GetPosition().x << std::endl;
+            std::cout << "Steps: " << steps << " Distance: " << runner.body->GetPosition().x << std::endl;
 
         steps++;
 
     } while (!quit);
-
-    world->DestroyBody(groundBody);
 
     return 0;
 }

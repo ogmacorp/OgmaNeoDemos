@@ -52,6 +52,7 @@ private:
     bool hasImgs;
     std::vector<Texture2D> imgEncTextures;
     std::vector<Model> imgEncPlanes;
+    float bottomMost;
 
     // Selection
     int selectLayer;
