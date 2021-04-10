@@ -127,11 +127,18 @@ int main() {
 
     Array<Hierarchy::LayerDesc> lds(8);
 
-    for (int i = 0; i < lds.size(); i++)
+    for (int i = 0; i < lds.size(); i++) {
         lds[i].hiddenSize = Int3(4, 4, 32);
+        lds[i].errorSize = Int3(4, 4, 32);
+
+        lds[i].hRadius = 2;
+        lds[i].eRadius = 2;
+        lds[i].dRadius = 2;
+        lds[i].bRadius = 2;
+    }
 
     Array<Hierarchy::IODesc> ioDescs(1);
-    ioDescs[0] = Hierarchy::IODesc(Int3(1, 1, inputColumnSize), IOType::prediction, 2, 2, 2, 64);
+    ioDescs[0] = Hierarchy::IODesc(Int3(1, 1, inputColumnSize), IOType::prediction, 2, 2, 2, 2, 32);
 
     Hierarchy h;
     h.initRandom(ioDescs, lds);

@@ -44,8 +44,8 @@ int main() {
     const float groundHeight = 5.0f;
 
     const float hurdleWidth = 0.15f;
-    const float hurdleHeight = 0.15f;
-    const float hurdleHeightInc = 0.03f;
+    const float hurdleHeight = 0.1f;
+    const float hurdleHeightInc = 0.02f;
     const float hurdleOffset = 5.0f;
     const float hurdleStart = 10.0f;
 
@@ -107,16 +107,16 @@ int main() {
     Array<Hierarchy::LayerDesc> lds(5);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(4, 4, 32);
-        lds[i].ffRadius = lds[i].pRadius = 2;
+        lds[i].hiddenSize = Int3(4, 4, 16);
+        lds[i].hRadius = lds[i].eRadius = lds[i].dRadius = lds[i].bRadius = 2;
     }
 
     const int sensorResolution = 31;
-    const int actionResolution = 9;
+    const int actionResolution = 13;
 
     Array<Hierarchy::IODesc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IODesc(Int3(4, 6, sensorResolution), IOType::prediction, 2, 2, 2, 32);
-    ioDescs[1] = Hierarchy::IODesc(Int3(2, 4, actionResolution), IOType::action, 2, 2, 2, 32);
+    ioDescs[0] = Hierarchy::IODesc(Int3(4, 6, sensorResolution), IOType::prediction, 2, 2, 2, 2, 64);
+    ioDescs[1] = Hierarchy::IODesc(Int3(2, 4, actionResolution), IOType::action, 2, 2, 2, 2, 64);
 
     Hierarchy h;
     h.initRandom(ioDescs, lds);
@@ -149,7 +149,7 @@ int main() {
     float averageVel = 0.0f;
     float velPrev = 0.0f;
 
-    ByteBuffer actionCIs(outputCount, 0);
+    IntBuffer actionCIs(outputCount, 0);
 
     std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
     std::uniform_int_distribution<int> actionDist(0, actionResolution - 1);
@@ -197,7 +197,7 @@ int main() {
 
             runner.getStateVector(state);
 
-            ByteBuffer sensorCIs(inputCount, 0);
+            IntBuffer sensorCIs(inputCount, 0);
 
             for (int i = 0; i < state.size(); i++)
                 sensorCIs[i] = sigmoid(state[i] * 2.0f) * (sensorResolution - 1) + 0.5f;
@@ -218,7 +218,7 @@ int main() {
                 sensorCIs[state.size()] = min(1.0f, 0.5f * dist / hurdleOffset) * (sensorResolution - 1) + 0.5f;
             }
 
-            Array<const ByteBuffer*> inputCIs(2);
+            Array<const IntBuffer*> inputCIs(2);
             inputCIs[0] = &sensorCIs;
             inputCIs[1] = &actionCIs;
 
@@ -230,32 +230,33 @@ int main() {
 
             std::normal_distribution<float> noiseDist(0.0f, 0.1f);
 
-            float reward = accel;// * (1.0f + noiseDist(rng));
+            float reward = vel;// * (1.0f + noiseDist(rng));
 
-            reward *= 0.04f;
+            reward *= 1.0f;
 
             if (reset)
-                reward -= 10.0f;
+                reward -= 100.0f;
 
             h.step(inputCIs, true, reward);
 
             actionCIs = h.getPredictionCIs(1);
 
             //for (int i = 0; i < actionCIs.size(); i++) {
-            //    if (dist01(rng) < 1.0f)
+            //    if (dist01(rng) < 0.02f)
             //        actionCIs[i] = actionDist(rng);
             //}
 
             // Go through tiles
-
-            for (int i = 0; i < rescaledActions.size(); i++)
+            for (int i = 0; i < rescaledActions.size(); i++) {
                 rescaledActions[i] = actionCIs[i] / static_cast<float>(actionResolution - 1);
+            }
         }
 
         // Step the physics simulation
-        int subSteps = 1;
+        int subSteps = 3;
 
         for (int ss = 0; ss < subSteps; ss++) {
+            world.ClearForces();
             runner.motorUpdate(rescaledActions);
             world.Step(1.0f / 60.0f / subSteps, 8, 8);
         }

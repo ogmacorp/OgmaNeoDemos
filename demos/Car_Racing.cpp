@@ -127,14 +127,21 @@ int main() {
 
     Array<Hierarchy::LayerDesc> lds(2);
 
-    for (int i = 0; i < lds.size(); i++)
+    for (int i = 0; i < lds.size(); i++) {
         lds[i].hiddenSize = Int3(4, 4, 16);
+        lds[i].errorSize = Int3(4, 4, 16);
+
+        lds[i].hRadius = 2;
+        lds[i].eRadius = 2;
+        lds[i].dRadius = 2;
+        lds[i].bRadius = 2;
+    }
 
     // Two IODescs, for sensors and for actions
     // types none and action (no prediction and reinforcement learning)
     Array<Hierarchy::IODesc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IODesc(Int3(rootNumSensors, rootNumSensors, sensorResolution), IOType::prediction, 4, 2, 2, 32);
-    ioDescs[1] = Hierarchy::IODesc(Int3(1, 1, steerResolution), IOType::action, 2, 2, 2, 32);
+    ioDescs[0] = Hierarchy::IODesc(Int3(rootNumSensors, rootNumSensors, sensorResolution), IOType::prediction, 4, 4, 2, 2, 32);
+    ioDescs[1] = Hierarchy::IODesc(Int3(1, 1, steerResolution), IOType::action, 2, 2, 2, 2, 32);
 
     Hierarchy h;
     h.initRandom(ioDescs, lds);

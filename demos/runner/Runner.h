@@ -33,9 +33,9 @@ public:
         :
         relativeAngle(0.0f),
         thickness(0.03f), length(0.125f),
-        minAngle(-0.7f), maxAngle(0.7f),
-        maxTorque(1.0f),
-        maxSpeed(10000.0f),
+        minAngle(-0.9f), maxAngle(0.9f),
+        maxTorque(0.6f),
+        maxSpeed(30.0f),
         density(2.0f),
         friction(5.0f),
         restitution(0.01f),
@@ -65,8 +65,8 @@ private:
     b2Vec2 lVelPrev;
     float rVelPrev;
 
-    std::vector<float> integrals;
-    std::vector<float> prevs;
+    std::vector<float> positions;
+    std::vector<float> speeds;
     
 public:
 
@@ -98,7 +98,7 @@ public:
     void renderDefault(sf::RenderTarget &rt, const sf::Color &color, float metersToPixels);
 
     void getStateVector(std::vector<float> &state);
-    void motorUpdate(const std::vector<float> &action, float prop = 6.0f, float integral = 1.0f, float deriv = 1.0f);
+    void motorUpdate(const std::vector<float> &actions, float propPos = 0.4f, float propSpeed = 0.15f);
 
     bool infrontOfWall() const {
         return whiskerResults[0] < 0.01f;

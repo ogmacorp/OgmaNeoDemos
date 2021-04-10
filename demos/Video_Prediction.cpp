@@ -55,16 +55,8 @@ public:
 };
 
 int main() {
-    // Test
-    Hierarchy h2;
-    CustomStreamReader reader;
-    reader.ins.open("H.OHR", std::ios::binary);
-    h2.read(reader);
-
-    std::cout << h2.getNumLayers() << std::endl;
-
     // Capture file name
-    std::string fileName = "resources/Bullfinch192.mp4";
+    std::string fileName = "resources/Tesseract.wmv";
 
     std::string encFileName = "videoPrediction.oenc";
     std::string hFileName = "videoPrediction.ohr";
@@ -72,8 +64,8 @@ int main() {
     // Initialize a random number generator
     std::mt19937 rng(time(nullptr));
 
-    const unsigned int windowWidth = 800;
-    const unsigned int windowHeight = 600;
+    const unsigned int windowWidth = 1200;
+    const unsigned int windowHeight = 800;
 
     sf::RenderWindow window;
 
@@ -97,7 +89,7 @@ int main() {
     const int movieWidth = static_cast<int>(capture.get(CAP_PROP_FRAME_WIDTH));
     const int movieHeight = static_cast<int>(capture.get(CAP_PROP_FRAME_HEIGHT));
 
-    const float videoScale = 0.5f; // Rescale ratio
+    const float videoScale = 0.125f; // Rescale ratio
     const unsigned int rescaleWidth = videoScale * movieWidth;
     const unsigned int rescaleHeight = videoScale * movieHeight;
 
@@ -110,27 +102,30 @@ int main() {
     // Create hierarchy
     aon::setNumThreads(8);
 
-    Array<Hierarchy::LayerDesc> lds(4);
+    Array<Hierarchy::LayerDesc> lds(2);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(4, 4, 32);
+        lds[i].hiddenSize = Int3(8, 8, 16);
+        lds[i].errorSize = Int3(8, 8, 16);
 
-        lds[i].ffRadius = 2;
-        lds[i].pRadius = 2;
+        lds[i].hRadius = 2;
+        lds[i].eRadius = 2;
+        lds[i].dRadius = 2;
+        lds[i].bRadius = 2;
 
         lds[i].ticksPerUpdate = 2;
         lds[i].temporalHorizon = 2;
     }
 
-    Int3 hiddenSize(8, 8, 32);
+    Int3 hiddenSize(8, 8, 16);
 
     Array<ImageEncoder::VisibleLayerDesc> vlds(1);
 
     vlds[0].size = Int3(rescaleRT.getSize().x, rescaleRT.getSize().y, 3);
-    vlds[0].radius = 8;
+    vlds[0].radius = 10;
 
     Array<Hierarchy::IODesc> ioDescs(1);
-    ioDescs[0] = Hierarchy::IODesc(hiddenSize, IOType::prediction, 4, 4, 4, 64);
+    ioDescs[0] = Hierarchy::IODesc(hiddenSize, IOType::prediction, 2, 2, 2, 2, 64);
 
     // Forward declare
     ImageEncoder imgEnc;
@@ -159,7 +154,7 @@ int main() {
     const int numIter = 30;
 
     // Frame skip
-    int frameSkip = 4; // 1 means no frame skip (stride of 1)
+    int frameSkip = 3; // 1 means no frame skip (stride of 1)
 
     // UI update resolution
     const int progressBarLength = 40;
@@ -170,8 +165,8 @@ int main() {
     bool loadHierarchy = false;
     bool saveHierarchy = true;
 
-    const float graphScaleX = 1.0f;
-    const float graphScaleY = 25.0f;
+    const float graphScaleX = 0.3f;
+    const float graphScaleY = 20.0f;
 
     if (!loadHierarchy) {
         // Initialize hierarchy randomly
@@ -271,7 +266,7 @@ int main() {
                 inputs[0] = &input;
                 imgEnc.step(inputs, true);
 
-                Array<const ByteBuffer*> inputCIs(1);
+                Array<const IntBuffer*> inputCIs(1);
                 inputCIs[0] = &imgEnc.getHiddenCIs();
                 h.step(inputCIs, true);
 
@@ -340,7 +335,7 @@ int main() {
                         // Vertical error bars
                         for (int i = 0; i < captureLength; i++) {
                             rs.setPosition(8.0f + graphScaleX * i, windowHeight - 16.0f - graphScaleY * 100.0f * errors[i]);
-                            rs.setSize(sf::Vector2f(graphScaleX, graphScaleY * 100.0f * errors[i]));
+                            rs.setSize(sf::Vector2f(1.0f, graphScaleY * 100.0f * errors[i]));
 
                             if (i <= currentFrame)
                                 rs.setFillColor(sf::Color::Red);
@@ -430,12 +425,14 @@ int main() {
         std::cout << "Loading hierarchy from " << hFileName << " and " << encFileName << std::endl;
 
         {
+            imgEnc = ImageEncoder();
             CustomStreamReader reader;
             reader.ins.open(encFileName.c_str(), std::ios::binary);
             imgEnc.read(reader);
         }
 
         {
+            h = Hierarchy();
             CustomStreamReader reader;
             reader.ins.open(hFileName.c_str(), std::ios::binary);
             h.read(reader);
@@ -484,7 +481,7 @@ int main() {
 
         mut.lock();
 
-        Array<const ByteBuffer*> inputCIs(1);
+        Array<const IntBuffer*> inputCIs(1);
         inputCIs[0] = &h.getPredictionCIs(0);
         h.step(inputCIs, false);
 

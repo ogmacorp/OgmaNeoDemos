@@ -17,7 +17,8 @@
 #include <unordered_map>
 #include <iostream>
 
-const Color cellActiveColor = (Color){ 255, 64, 64, 255 };
+const Color hcellActiveColor = (Color){ 255, 64, 64, 255 };
+const Color ecellActiveColor = (Color){ 64, 64, 255, 255 };
 const Color cellPredictedColor = (Color){ 64, 255, 64, 255 };
 const Color cellOffColor = (Color){ 192, 192, 192, 255 };
 const Color cellSelectColor = (Color){ 64, 64, 255, 255 };
@@ -27,6 +28,10 @@ const float columnRadius = 0.3f;
 const float layerDelta = 6.0f;
 const float weightScaling = 1.0f;
 const float textureScaling = 8.0f;
+
+bool operator==(const aon::Int3 &left, const aon::Int3 &right) {
+    return left.x == right.x && left.y == right.y && left.z == right.z;
+}
 
 Vis3D::Vis3D(
     int winWidth,
@@ -132,7 +137,7 @@ void Vis3D::update(
     float hierarchyHeight = 0.0f;
 
     for (int l = 0; l < h.getNumLayers(); l++)
-        hierarchyHeight += (l < h.getNumLayers() - 1 ? layerDelta : 0) + h.getSCLayer(l).getHiddenSize().z;
+        hierarchyHeight += (l < h.getNumLayers() - 1 ? layerDelta : 0) + h.getEncLayer(l).hidden.getHiddenSize().z;
 
     // Find total input layer width
     float inputWidthTotal = 0.0f;
@@ -150,13 +155,10 @@ void Vis3D::update(
     float xOffset = -inputWidthTotal * 0.5f;
 
     for (int i = 0; i < h.getInputSizes().size(); i++) {
-        const aon::CircleBuffer<aon::ByteBuffer> &hist = h.getHistories(0)[i];
+        const aon::CircleBuffer<aon::IntBuffer> &hist = h.getHistories(0)[i];
 
-        aon::ByteBuffer csdr = hist[0];
-        aon::ByteBuffer pcsdr;
-        
-        if (h.getPLayers(0)[i] != nullptr || h.getALayers()[i] != nullptr)
-            pcsdr = h.getPredictionCIs(i);
+        aon::IntBuffer csdr = hist[0];
+        aon::IntBuffer pcsdr = h.getPredictionCIs(i);
         
         Vector3 offset = (Vector3){ -h.getInputSizes()[i].x * 0.5f + h.getInputSizes()[i].x * 0.5f + xOffset, -h.getInputSizes()[i].y * 0.5f, -h.getInputSizes()[i].z * 0.5f + zOffset - layerDelta - maxInputHeight * 0.5f};
 
@@ -168,7 +170,7 @@ void Vis3D::update(
             for (int cy = 0; cy < h.getInputSizes()[i].y; cy++) {
                 int columnIndex = aon::address2(aon::Int2(cx, cy), aon::Int2(h.getInputSizes()[i].x, h.getInputSizes()[i].y));
 
-                unsigned char c = csdr[columnIndex];
+                int c = csdr[columnIndex];
                 
                 columns.push_back(std::tuple<Vector3, Vector3, Color>((Vector3){ cx + offset.x + 0.5f, offset.z + h.getInputSizes()[i].z * 0.5f - columnRadius, cy + offset.y + 0.5f }, (Vector3){ columnRadius * 2.0f, h.getInputSizes()[i].z + columnRadius * 2.0f, columnRadius * 2.0f }, (Color){0, 0, 0, 64}));
                 
@@ -212,7 +214,15 @@ void Vis3D::update(
 
                     bool isSelected = cellCollision || (selectLayer == -1 && selectInput == i && selectX == cx && selectY == cy && selectZ == cz);
 
-                    cells.push_back(std::tuple<Vector3, Color>(position, (isSelected ? cellSelectColor : (cz == c ? cellActiveColor : (pcsdr.size() != 0 && cz == pcsdr[columnIndex] ? cellPredictedColor : cellOffColor)))));
+                    Color color = cellOffColor;
+
+                    if (cz == c)
+                        color = (Color){ std::max(color.r, hcellActiveColor.r), std::max(color.g, hcellActiveColor.g), std::max(color.b, hcellActiveColor.b), std::max(color.a, hcellActiveColor.a) };
+
+                    if (cz == pcsdr[columnIndex])
+                        color = (Color){ std::max(color.r, cellPredictedColor.r), std::max(color.g, cellPredictedColor.g), std::max(color.b, cellPredictedColor.b), std::max(color.a, cellPredictedColor.a) };
+
+                    cells.push_back(std::tuple<Vector3, Color>(position, (isSelected ? cellSelectColor : color)));
                 }
             }
 
@@ -223,29 +233,31 @@ void Vis3D::update(
     }
 
     for (int l = 0; l < h.getNumLayers(); l++) {
-        aon::ByteBuffer csdr = h.getSCLayer(l).getHiddenCIs();
-        aon::ByteBuffer pcsdr;
+        aon::IntBuffer hcsdr = h.getEncLayer(l).hidden.getHiddenCIs();
+        aon::IntBuffer ecsdr = h.getEncLayer(l).error.getHiddenCIs();
+        aon::IntBuffer pcsdr;
         
         if (l < h.getNumLayers() - 1)
-            pcsdr = h.getPLayers(l + 1)[h.getTicksPerUpdate(l + 1) - 1 - h.getTicks(l + 1)]->getHiddenCIs();
+            pcsdr = h.getDLayers(l + 1)[0][h.getTicksPerUpdate(l + 1) - 1 - h.getTicks(l + 1)].getHiddenCIs();
 
-        Vector3 offset = (Vector3){ -h.getSCLayer(l).getHiddenSize().x * 0.5f, -h.getSCLayer(l).getHiddenSize().y * 0.5f, zOffset };
+        Vector3 offset = (Vector3){ -h.getEncLayer(l).hidden.getHiddenSize().x * 0.5f, -h.getEncLayer(l).hidden.getHiddenSize().y * 0.5f, zOffset };
 
         // Construct columns
-        for (int cx = 0; cx < h.getSCLayer(l).getHiddenSize().x; cx++)
-            for (int cy = 0; cy < h.getSCLayer(l).getHiddenSize().y; cy++) {
-                int columnIndex = aon::address2(aon::Int2(cx, cy), aon::Int2(h.getSCLayer(l).getHiddenSize().x, h.getSCLayer(l).getHiddenSize().y));
+        for (int cx = 0; cx < h.getEncLayer(l).hidden.getHiddenSize().x; cx++)
+            for (int cy = 0; cy < h.getEncLayer(l).hidden.getHiddenSize().y; cy++) {
+                int columnIndex = aon::address2(aon::Int2(cx, cy), aon::Int2(h.getEncLayer(l).hidden.getHiddenSize().x, h.getEncLayer(l).hidden.getHiddenSize().y));
 
-                unsigned char c = csdr[columnIndex];
+                int hc = hcsdr[columnIndex];
+                int ec = (h.getEncLayer(l).error.getHiddenSize() == h.getEncLayer(l).hidden.getHiddenSize() ? ecsdr[columnIndex] : -1);
 
-                columns.push_back(std::tuple<Vector3, Vector3, Color>((Vector3){ cx + offset.x + 0.5f, offset.z + h.getSCLayer(l).getHiddenSize().z * 0.5f - columnRadius, cy + offset.y + 0.5f }, (Vector3){ columnRadius * 2.0f, h.getSCLayer(l).getHiddenSize().z + columnRadius * 2.0f, columnRadius * 2.0f }, (Color){0, 0, 0, 64}));
+                columns.push_back(std::tuple<Vector3, Vector3, Color>((Vector3){ cx + offset.x + 0.5f, offset.z + h.getEncLayer(l).hidden.getHiddenSize().z * 0.5f - columnRadius, cy + offset.y + 0.5f }, (Vector3){ columnRadius * 2.0f, h.getEncLayer(l).hidden.getHiddenSize().z + columnRadius * 2.0f, columnRadius * 2.0f }, (Color){0, 0, 0, 64}));
                 
                 Vector3 lowerBound = (Vector3){ std::get<0>(columns.back()).x - std::get<1>(columns.back()).x * 0.5f, std::get<0>(columns.back()).y - std::get<1>(columns.back()).y * 0.5f, std::get<0>(columns.back()).z - std::get<1>(columns.back()).z * 0.5f };
                 Vector3 upperBound = (Vector3){ std::get<0>(columns.back()).x + std::get<1>(columns.back()).x * 0.5f, std::get<0>(columns.back()).y + std::get<1>(columns.back()).y * 0.5f, std::get<0>(columns.back()).z + std::get<1>(columns.back()).z * 0.5f };
                 
                 bool columnCollision = select ? CheckCollisionRayBox(ray, (BoundingBox){ lowerBound, upperBound }) : false;
                 
-                for (int cz = 0; cz < h.getSCLayer(l).getHiddenSize().z; cz++) {
+                for (int cz = 0; cz < h.getEncLayer(l).hidden.getHiddenSize().z; cz++) {
                     Vector3 position = (Vector3){ cx + offset.x + 0.5f, cz + offset.z, cy + offset.y + 0.5f };
 
                     bool cellCollision = columnCollision ? CheckCollisionRaySphere(ray, position, cellRadius) : false;
@@ -280,14 +292,25 @@ void Vis3D::update(
 
                     bool isSelected = cellCollision || (selectLayer == l && selectInput == 0 && selectX == cx && selectY == cy && selectZ == cz);
 
-                    cells.push_back(std::tuple<Vector3, Color>(position, (isSelected ? cellSelectColor : (cz == c ? cellActiveColor : (pcsdr.size() != 0 && cz == pcsdr[columnIndex] ? cellPredictedColor : cellOffColor)))));
+                    Color color = cellOffColor;
+
+                    if (cz == hc)
+                        color = (Color){ std::max(color.r, hcellActiveColor.r), std::max(color.g, hcellActiveColor.g), std::max(color.b, hcellActiveColor.b), std::max(color.a, hcellActiveColor.a) };
+
+                    if (cz == ec)
+                        color = (Color){ std::max(color.r, ecellActiveColor.r), std::max(color.g, ecellActiveColor.g), std::max(color.b, ecellActiveColor.b), std::max(color.a, ecellActiveColor.a) };
+
+                    if (l < h.getNumLayers() - 1 && cz == pcsdr[columnIndex])
+                        color = (Color){ std::max(color.r, cellPredictedColor.r), std::max(color.g, cellPredictedColor.g), std::max(color.b, cellPredictedColor.b), std::max(color.a, cellPredictedColor.a) };
+
+                    cells.push_back(std::tuple<Vector3, Color>(position, (isSelected ? cellSelectColor : color)));
                 }
             }
 
         if (l < h.getNumLayers() - 1)
-            lines.push_back(std::tuple<Vector3, Vector3, Color>((Vector3){ 0.0f, zOffset + h.getSCLayer(l).getHiddenSize().z, 0.0f }, (Vector3){ 0.0f, zOffset + h.getSCLayer(l).getHiddenSize().z + layerDelta, 0.0f }, (Color){ 0, 0, 0, 128 }));
+            lines.push_back(std::tuple<Vector3, Vector3, Color>((Vector3){ 0.0f, zOffset + h.getEncLayer(l).hidden.getHiddenSize().z, 0.0f }, (Vector3){ 0.0f, zOffset + h.getEncLayer(l).hidden.getHiddenSize().z + layerDelta, 0.0f }, (Color){ 0, 0, 0, 128 }));
 
-        zOffset += layerDelta + h.getSCLayer(l).getHiddenSize().z;
+        zOffset += layerDelta + h.getEncLayer(l).hidden.getHiddenSize().z;
     }
 
     // Display active cell receptive fields
@@ -301,36 +324,44 @@ void Vis3D::update(
     if (refreshTextures) {
         // FF
         if (selectLayer >= 0) {
-            ffVliRange = h.getSCLayer(selectLayer).getNumVisibleLayers();
+            ffVliRange = h.getEncLayer(selectLayer).hidden.getNumVisibleLayers();
 
             // Clamp
             ffVli = aon::min(ffVli, ffVliRange - 1);
 
-            const aon::SparseCoder::VisibleLayer &vl = h.getSCLayer(selectLayer).getVisibleLayer(ffVli);
-            const aon::SparseCoder::VisibleLayerDesc &vld = h.getSCLayer(selectLayer).getVisibleLayerDesc(ffVli);
+            const aon::HiddenEncoder::VisibleLayer &hvl = h.getEncLayer(selectLayer).hidden.getVisibleLayer(ffVli);
+            const aon::HiddenEncoder::VisibleLayerDesc &hvld = h.getEncLayer(selectLayer).hidden.getVisibleLayerDesc(ffVli);
 
-            aon::Int3 hiddenSize = h.getSCLayer(selectLayer).getHiddenSize();
+            const aon::ErrorEncoder::VisibleLayer* evl = nullptr;
+            const aon::ErrorEncoder::VisibleLayerDesc* evld = nullptr;
+
+            if (h.getEncLayer(selectLayer).error.getHiddenSize() == h.getEncLayer(selectLayer).hidden.getHiddenSize()) {
+                evl = &h.getEncLayer(selectLayer).error.getVisibleLayer(ffVli);
+                evld = &h.getEncLayer(selectLayer).error.getVisibleLayerDesc(ffVli);
+            }
+
+            aon::Int3 hiddenSize = h.getEncLayer(selectLayer).hidden.getHiddenSize();
             int hiddenIndex = aon::address3(aon::Int3(selectX, selectY, selectZ), hiddenSize);
 
-            ffZRange = vld.size.z;
+            ffZRange = hvld.size.z;
 
             // Clamp
             ffZ = aon::min(ffZ, ffZRange - 1);
 
-            int diam = vld.radius * 2 + 1;
+            int diam = hvld.radius * 2 + 1;
 
             // Projection
-            aon::Float2 hToV = aon::Float2(static_cast<float>(vld.size.x) / static_cast<float>(hiddenSize.x),
-                static_cast<float>(vld.size.y) / static_cast<float>(hiddenSize.y));
+            aon::Float2 hToV = aon::Float2(static_cast<float>(hvld.size.x) / static_cast<float>(hiddenSize.x),
+                static_cast<float>(hvld.size.y) / static_cast<float>(hiddenSize.y));
 
             aon::Int2 visibleCenter = project(aon::Int2(selectX, selectY), hToV);
 
             // Lower corner
-            aon::Int2 fieldLowerBound(visibleCenter.x - vld.radius, visibleCenter.y - vld.radius);
+            aon::Int2 fieldLowerBound(visibleCenter.x - hvld.radius, visibleCenter.y - hvld.radius);
 
             // Bounds of receptive field, clamped to input size
             aon::Int2 iterLowerBound(aon::max(0, fieldLowerBound.x), aon::max(0, fieldLowerBound.y));
-            aon::Int2 iterUpperBound(aon::min(vld.size.x - 1, visibleCenter.x + vld.radius), aon::min(vld.size.y - 1, visibleCenter.y + vld.radius));
+            aon::Int2 iterUpperBound(aon::min(hvld.size.x - 1, visibleCenter.x + hvld.radius), aon::min(hvld.size.y - 1, visibleCenter.y + hvld.radius));
 
             int width = diam;
             int height = diam;
@@ -339,13 +370,17 @@ void Vis3D::update(
 
             for (int ix = iterLowerBound.x; ix <= iterUpperBound.x; ix++)
                 for (int iy = iterLowerBound.y; iy <= iterUpperBound.y; iy++) {
-                    int visibleColumnIndex = aon::address2(aon::Int2(ix, iy), aon::Int2(vld.size.x,  vld.size.y));
+                    int visibleColumnIndex = aon::address2(aon::Int2(ix, iy), aon::Int2(hvld.size.x, hvld.size.y));
 
                     aon::Int2 offset(ix - fieldLowerBound.x, iy - fieldLowerBound.y);
 
-                    unsigned char c = (int)(vl.protos[offset.y + diam * (offset.x + diam * hiddenIndex)]) + 127;
+                    unsigned char hc = (int)(aon::sigmoid(hvl.weights[ffZ + hvld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))]) * weightScaling * 255.0f);
+                    unsigned char ec = 0;
 
-                    colors[offset.y + offset.x * diam] = (Color){ c, c, c, 255 };
+                    if (evl != nullptr)
+                        ec = (int)(aon::sigmoid(evl->weights[ffZ + hvld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))]) * weightScaling * 255.0f);
+
+                    colors[offset.y + offset.x * diam] = (Color){ hc, ec, 0, 255 };
                 }
 
             // Load image

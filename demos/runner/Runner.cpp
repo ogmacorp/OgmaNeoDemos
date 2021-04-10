@@ -95,7 +95,7 @@ void Runner::Limb::create(b2World* world, const std::vector<LimbSegmentDesc> &de
         jointDef.upperAngle = descs[si].maxAngle;
         jointDef.enableLimit = true;
         jointDef.maxMotorTorque = descs[si].maxTorque;
-        jointDef.motorSpeed = descs[si].maxSpeed;
+        //jointDef.motorSpeed = descs[si].maxSpeed;
         jointDef.enableMotor = descs[si].motorEnabled;
 
         segments[si].maxSpeed = descs[si].maxSpeed;
@@ -195,11 +195,8 @@ void Runner::createDefault(b2World* world, const b2Vec2 &position, float angle, 
     lVelPrev = b2Vec2(0.0f, 0.0f);
     rVelPrev = 0.0f;
 
-    integrals.resize(8);
-    std::fill(integrals.begin(), integrals.end(), 0.0f);
-
-    prevs.resize(8);
-    std::fill(prevs.begin(), prevs.end(), 0.0f);
+    positions = std::vector<float>(8, 0.0f);
+    speeds = std::vector<float>(8, 0.0f);
 }
 
 void Runner::renderDefault(sf::RenderTarget &rt, const sf::Color &color, float metersToPixels) {
@@ -442,72 +439,76 @@ void Runner::getStateVector(std::vector<float> &state) {
     state[si++] = rAccel;
 }
 
-void Runner::motorUpdate(const std::vector<float> &action, float prop, float integral, float deriv) {
+void Runner::motorUpdate(const std::vector<float> &actions, float propPos, float propSpeed) {
     assert(world != nullptr);
 
     int ai = 0;
 
     for (int i = 0; i < 2; i++) {
-        float target = action[ai++] * (leftBackLimb.segments[i].maxAngle - leftBackLimb.segments[i].minAngle) + leftBackLimb.segments[i].minAngle;
+        Limb &limb = leftBackLimb;
+        LimbSegment &seg = limb.segments[i];
 
-        int l = 0;
+        float pos = actions[ai] * (seg.maxAngle - seg.minAngle) + seg.minAngle;
 
-        float err = target - leftBackLimb.segments[i].joint->GetJointAngle();
+        positions[ai] += propPos * (pos - positions[ai]);
+        
+        float speed = positions[ai] - seg.joint->GetJointAngle();
 
-        integrals[2 * l + i] += err;
+        speeds[ai] += propSpeed * (speed - speeds[ai]);
 
-        float control = prop * err + integral * integrals[2 * l + i] + deriv * (err - prevs[2 * l + i]);
+        seg.joint->SetMotorSpeed(speeds[ai] * leftBackLimb.segments[i].maxSpeed);
 
-        prevs[2 * l + i] = err;
-
-        leftBackLimb.segments[i].joint->SetMotorSpeed(control);
+        ai++;
     }
 
     for (int i = 0; i < 2; i++) {
-        float target = action[ai++] * (leftFrontLimb.segments[i].maxAngle - leftFrontLimb.segments[i].minAngle) + leftFrontLimb.segments[i].minAngle;
+        Limb &limb = leftFrontLimb;
+        LimbSegment &seg = limb.segments[i];
 
-        int l = 1;
+        float pos = actions[ai] * (seg.maxAngle - seg.minAngle) + seg.minAngle;
 
-        float err = target - leftFrontLimb.segments[i].joint->GetJointAngle();
+        positions[ai] += propPos * (pos - positions[ai]);
+        
+        float speed = positions[ai] - seg.joint->GetJointAngle();
 
-        integrals[2 * l + i] += err;
+        speeds[ai] += propSpeed * (speed - speeds[ai]);
 
-        float control = prop * err + integral * integrals[2 * l + i] + deriv * (err - prevs[2 * l + i]);
+        seg.joint->SetMotorSpeed(speeds[ai] * leftBackLimb.segments[i].maxSpeed);
 
-        prevs[2 * l + i] = err;
-
-        leftFrontLimb.segments[i].joint->SetMotorSpeed(control);
+        ai++;
     }
 
     for (int i = 0; i < 2; i++) {
-        float target = action[ai++] * (rightBackLimb.segments[i].maxAngle - rightBackLimb.segments[i].minAngle) + rightBackLimb.segments[i].minAngle;
+        Limb &limb = rightBackLimb;
+        LimbSegment &seg = limb.segments[i];
 
-        int l = 2;
+        float pos = actions[ai] * (seg.maxAngle - seg.minAngle) + seg.minAngle;
 
-        float err = target - rightBackLimb.segments[i].joint->GetJointAngle();
+        positions[ai] += propPos * (pos - positions[ai]);
+        
+        float speed = positions[ai] - seg.joint->GetJointAngle();
 
-        integrals[2 * l + i] += err;
+        speeds[ai] += propSpeed * (speed - speeds[ai]);
 
-        float control = prop * err + integral * integrals[2 * l + i] + deriv * (err - prevs[2 * l + i]);
+        seg.joint->SetMotorSpeed(speeds[ai] * leftBackLimb.segments[i].maxSpeed);
 
-        prevs[2 * l + i] = err;
-
-        rightBackLimb.segments[i].joint->SetMotorSpeed(control);
+        ai++;
     }
 
     for (int i = 0; i < 2; i++) {
-        float target = action[ai++] * (rightFrontLimb.segments[i].maxAngle - rightFrontLimb.segments[i].minAngle) + rightFrontLimb.segments[i].minAngle;
+        Limb &limb = rightFrontLimb;
+        LimbSegment &seg = limb.segments[i];
 
-        int l = 3;
+        float pos = actions[ai] * (seg.maxAngle - seg.minAngle) + seg.minAngle;
 
-        float err = target - rightFrontLimb.segments[i].joint->GetJointAngle();
+        positions[ai] += propPos * (pos - positions[ai]);
+        
+        float speed = positions[ai] - seg.joint->GetJointAngle();
 
-        integrals[2 * l + i] += err;
+        speeds[ai] += propSpeed * (speed - speeds[ai]);
 
-        float control = prop * err + integral * integrals[2 * l + i] + deriv * (err - prevs[2 * l + i]);
+        seg.joint->SetMotorSpeed(speeds[ai] * leftBackLimb.segments[i].maxSpeed);
 
-        prevs[2 * l + i] = err;
-
-        rightFrontLimb.segments[i].joint->SetMotorSpeed(control);
+        ai++;
     }
 }
