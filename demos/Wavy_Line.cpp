@@ -96,7 +96,7 @@ int main() {
     window.create(sf::VideoMode(windowWidth, windowHeight), "Wavy Test", sf::Style::Default);
 
     window.setVerticalSyncEnabled(false);
-    //window.setFramerateLimit(60);
+    window.setFramerateLimit(0);
 
     vis::Plot plot;
     //plot.backgroundColor = sf::Color(64, 64, 64, 255);
@@ -138,7 +138,7 @@ int main() {
     }
 
     Array<Hierarchy::IODesc> ioDescs(1);
-    ioDescs[0] = Hierarchy::IODesc(Int3(1, 1, inputColumnSize), IOType::prediction, 2, 2, 2, 2, 32);
+    ioDescs[0] = Hierarchy::IODesc(Int3(1, 1, inputColumnSize), IOType::prediction, 2, 2, 2, 2, 64);
 
     Hierarchy h;
     h.initRandom(ioDescs, lds);

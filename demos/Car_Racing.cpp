@@ -140,8 +140,8 @@ int main() {
     // Two IODescs, for sensors and for actions
     // types none and action (no prediction and reinforcement learning)
     Array<Hierarchy::IODesc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IODesc(Int3(rootNumSensors, rootNumSensors, sensorResolution), IOType::prediction, 4, 4, 2, 2, 32);
-    ioDescs[1] = Hierarchy::IODesc(Int3(1, 1, steerResolution), IOType::action, 2, 2, 2, 2, 32);
+    ioDescs[0] = Hierarchy::IODesc(Int3(rootNumSensors, rootNumSensors, sensorResolution), IOType::prediction, 4, 4, 2, 2, 64);
+    ioDescs[1] = Hierarchy::IODesc(Int3(1, 1, steerResolution), IOType::action, 2, 2, 2, 2, 64);
 
     Hierarchy h;
     h.initRandom(ioDescs, lds);
@@ -254,10 +254,10 @@ int main() {
         // Get action prediction
         int actionIndex = h.getPredictionCIs(1)[0];
 
-        if (dist01(rng) < 0.1f) {
-            std::uniform_int_distribution<int> steerDist(0, steerResolution - 1);
-            actionIndex = steerDist(rng);
-        }
+        //if (dist01(rng) < 0.1f) {
+        //    std::uniform_int_distribution<int> steerDist(0, steerResolution - 1);
+        //    actionIndex = steerDist(rng);
+        //}
 
         // Tranformation action (column index) -> steering value
         float steer = static_cast<float>(actionIndex) / static_cast<float>(steerResolution - 1) * 2.0f - 1.0f;
