@@ -19,7 +19,7 @@
 #include <iostream>
 #include <cmath>
 
-const int numAdditionalStepsAhead = 3;
+const int numAdditionalStepsAhead = 0;
 
 const float pi = 3.141596f;
 
@@ -125,20 +125,14 @@ int main() {
 
     setNumThreads(8);
 
-    Array<Hierarchy::LayerDesc> lds(8);
+    Array<Hierarchy::LayerDesc> lds(5);
 
     for (int i = 0; i < lds.size(); i++) {
         lds[i].hiddenSize = Int3(4, 4, 32);
-        lds[i].errorSize = Int3(4, 4, 32);
-
-        lds[i].hRadius = 2;
-        lds[i].eRadius = 2;
-        lds[i].dRadius = 2;
-        lds[i].bRadius = 2;
     }
 
     Array<Hierarchy::IODesc> ioDescs(1);
-    ioDescs[0] = Hierarchy::IODesc(Int3(1, 1, inputColumnSize), IOType::prediction, 2, 2, 2, 2, 64);
+    ioDescs[0] = Hierarchy::IODesc(Int3(1, 1, inputColumnSize), IOType::prediction, 0, 2);
 
     Hierarchy h;
     h.initRandom(ioDescs, lds);

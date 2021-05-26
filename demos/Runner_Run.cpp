@@ -108,15 +108,14 @@ int main() {
 
     for (int i = 0; i < lds.size(); i++) {
         lds[i].hiddenSize = Int3(4, 4, 16);
-        lds[i].hRadius = lds[i].eRadius = lds[i].dRadius = lds[i].bRadius = 2;
     }
 
     const int sensorResolution = 31;
     const int actionResolution = 13;
 
     Array<Hierarchy::IODesc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IODesc(Int3(4, 6, sensorResolution), IOType::prediction, 2, 2, 2, 2, 64);
-    ioDescs[1] = Hierarchy::IODesc(Int3(2, 4, actionResolution), IOType::action, 2, 2, 2, 2, 64);
+    ioDescs[0] = Hierarchy::IODesc(Int3(4, 6, sensorResolution), IOType::prediction, 2, 2, 64);
+    ioDescs[1] = Hierarchy::IODesc(Int3(2, 4, actionResolution), IOType::action, 2, 2, 64);
 
     Hierarchy h;
     h.initRandom(ioDescs, lds);

@@ -106,12 +106,12 @@ int main() {
 
     for (int i = 0; i < lds.size(); i++) {
         lds[i].hiddenSize = Int3(8, 8, 16);
-        lds[i].errorSize = Int3(8, 8, 16);
+        //lds[i].errorSize = Int3(8, 8, 16);
 
-        lds[i].hRadius = 2;
-        lds[i].eRadius = 2;
-        lds[i].dRadius = 2;
-        lds[i].bRadius = 2;
+        //lds[i].hRadius = 2;
+        //lds[i].eRadius = 2;
+        //lds[i].dRadius = 2;
+        //lds[i].bRadius = 2;
 
         lds[i].ticksPerUpdate = 2;
         lds[i].temporalHorizon = 2;
@@ -125,7 +125,7 @@ int main() {
     vlds[0].radius = 10;
 
     Array<Hierarchy::IODesc> ioDescs(1);
-    ioDescs[0] = Hierarchy::IODesc(hiddenSize, IOType::prediction, 2, 2, 2, 2, 64);
+    ioDescs[0] = Hierarchy::IODesc(hiddenSize, IOType::prediction, 2, 2, 2, 64);
 
     // Forward declare
     ImageEncoder imgEnc;

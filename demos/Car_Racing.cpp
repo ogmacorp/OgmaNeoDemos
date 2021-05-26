@@ -128,20 +128,14 @@ int main() {
     Array<Hierarchy::LayerDesc> lds(2);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(4, 4, 16);
-        lds[i].errorSize = Int3(4, 4, 16);
-
-        lds[i].hRadius = 2;
-        lds[i].eRadius = 2;
-        lds[i].dRadius = 2;
-        lds[i].bRadius = 2;
+        lds[i].hiddenSize = Int3(4, 4, 32);
     }
 
     // Two IODescs, for sensors and for actions
     // types none and action (no prediction and reinforcement learning)
     Array<Hierarchy::IODesc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IODesc(Int3(rootNumSensors, rootNumSensors, sensorResolution), IOType::prediction, 4, 4, 2, 2, 64);
-    ioDescs[1] = Hierarchy::IODesc(Int3(1, 1, steerResolution), IOType::action, 2, 2, 2, 2, 64);
+    ioDescs[0] = Hierarchy::IODesc(Int3(rootNumSensors, rootNumSensors, sensorResolution), IOType::prediction, 4, 2, 64);
+    ioDescs[1] = Hierarchy::IODesc(Int3(1, 1, steerResolution), IOType::action, 2, 2, 64);
 
     Hierarchy h;
     h.initRandom(ioDescs, lds);
@@ -254,7 +248,7 @@ int main() {
         // Get action prediction
         int actionIndex = h.getPredictionCIs(1)[0];
 
-        //if (dist01(rng) < 0.1f) {
+        //if (dist01(rng) < 0.01f) {
         //    std::uniform_int_distribution<int> steerDist(0, steerResolution - 1);
         //    actionIndex = steerDist(rng);
         //}
@@ -446,7 +440,7 @@ int main() {
 
         inputCIs[1] = &actionCIs;
 
-        h.step(inputCIs, true, reward);
+        h.step(inputCIs, true, reward * 100.0f);
 
     } while (!quit);
 
