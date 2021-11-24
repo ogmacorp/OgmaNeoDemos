@@ -79,6 +79,7 @@ private:
     Texture2D ffTexture;
     int ffWidth;
     int ffHeight;
+    std::vector<float> ffWeights;
 
     // FB
 

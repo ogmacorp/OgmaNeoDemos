@@ -9,8 +9,7 @@
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 
-#include <aogmaneo/Hierarchy.h>
-#include <aogmaneo/Helpers.h>
+#include <ogmaneo/Hierarchy.h>
 
 #include <vis/Plot.h>
 
@@ -18,74 +17,30 @@
 #include <sstream>
 #include <iostream>
 #include <cmath>
+#include <random>
 
 const int numAdditionalStepsAhead = 0;
 
 const float pi = 3.141596f;
 
-using namespace aon;
-
-class BufferReader : public aon::StreamReader {
-public:
-    int start;
-    const std::vector<unsigned char>* buffer;
-
-    BufferReader()
-    :
-    start(0),
-    buffer(nullptr)
-    {}
-
-    void read(
-        void* data,
-        int len
-    ) override;
-};
-
-class BufferWriter : public aon::StreamWriter {
-public:
-    int start;
-
-    std::vector<unsigned char> buffer;
-
-    BufferWriter(
-        int size
-    )
-    :
-    start(0)
-    {
-        buffer.resize(size);
-    }
-
-    void write(
-        const void* data,
-        int len
-    ) override;
-};
-
-void BufferReader::read(void* data, int len) {
-    for (int i = 0; i < len; i++)
-        static_cast<unsigned char*>(data)[i] = (*buffer)[start + i];
-
-    start += len;
-}
-
-void BufferWriter::write(const void* data, int len) {
-    assert(buffer.size() >= start + len);
-
-    for (int i = 0; i < len; i++)
-        buffer[start + i] = static_cast<const unsigned char*>(data)[i];
-
-    start += len;
-}
+using namespace ogmaneo;
 
 float sigmoid(float x) {
     return 1.0f / (1.0f + std::exp(-x));
 }
 
-int main() {
+int main(int argc, char *argv[])
+{
+    std::mt19937 rng(time(nullptr));
+
+    std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
+
     std::string hFileName = "wavyLine.ohr";
 
+    bool loadHierarchy  = true;
+    if (argc > 1) loadHierarchy = atoi(argv[1]);
+
+    bool saveHierarchy  = !loadHierarchy;
     // --------------------------- Create the window(s) ---------------------------
 
     unsigned int windowWidth = 1000;
@@ -96,7 +51,7 @@ int main() {
     window.create(sf::VideoMode(windowWidth, windowHeight), "Wavy Test", sf::Style::Default);
 
     window.setVerticalSyncEnabled(false);
-    window.setFramerateLimit(0);
+    //window.setFramerateLimit(60);
 
     vis::Plot plot;
     //plot.backgroundColor = sf::Color(64, 64, 64, 255);
@@ -123,21 +78,19 @@ int main() {
 
     const int inputColumnSize = 32;
 
-    setNumThreads(8);
+    ComputeSystem cs;
+    cs.setNumThreads(8);
 
-    Array<Hierarchy::LayerDesc> lds(5);
+    std::vector<Hierarchy::LayerDesc> lds(7);
 
     for (int i = 0; i < lds.size(); i++) {
         lds[i].hiddenSize = Int3(4, 4, 32);
     }
 
-    Array<Hierarchy::IODesc> ioDescs(1);
-    ioDescs[0] = Hierarchy::IODesc(Int3(1, 1, inputColumnSize), IOType::prediction, 0, 2);
-
     Hierarchy h;
-    h.initRandom(ioDescs, lds);
+    bool learnFlag = true;
 
-    int hStateSize = h.stateSize();
+    h.initRandom(cs, { Int3(1, 1, inputColumnSize) }, { prediction }, lds);
 
     const int maxBufferSize = 300;
 
@@ -146,9 +99,6 @@ int main() {
     bool spacePressedPrev = false;
 
     int index = -1;
-
-    bool loadHierarchy = false;
-    bool saveHierarchy = false;
 
     int predIndex;
 
@@ -182,39 +132,28 @@ int main() {
                 std::cout << "Step: " << index << std::endl;
 
             float value = std::sin(0.0125f * pi * index + 0.25f) * 
-                std::sin(0.03f * pi * index + 1.5f) *
-                std::sin(0.025f * pi * index - 0.1f);
+            std::sin(0.03f * pi * index + 1.5f) *
+            std::sin(0.025f * pi * index - 0.1f);
 
-            Array<const IntBuffer*> inputCIs(1);
+            if (dist01(rng) < 0.004f) {
+                std::uniform_int_distribution<int> indexDist(0, 1000);
+                index = indexDist(rng);
+            }
 
-            IntBuffer input = IntBuffer(1, static_cast<int>((value - minCurve) / (maxCurve - minCurve) * (inputColumnSize - 1) + 0.5f));
+            std::vector<int> input = { static_cast<int>((value - minCurve) / (maxCurve - minCurve) * (inputColumnSize - 1) + 0.5f) };
 
-            inputCIs[0] = &input;
-            
-            if (window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::P))
+            if (!learnFlag || (window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::P)))
             {
                 // Prediction mode
-                inputCIs[0] = &h.getPredictionCIs(0);
-                h.step(inputCIs, false);
+                //inputCIs[0] = &h.getPredictionCIs(0);
+                h.step(cs, { &input }, false);
             }
             else {
                 // training mode
-                h.step(inputCIs, true);
+                h.step(cs, { &input }, true);
             }
             
-            inputCIs[0] = &h.getPredictionCIs(0);
-
-            BufferWriter writer(hStateSize);
-            h.writeState(writer);
-
-            for (int step = 0; step < numAdditionalStepsAhead; step++)
-                h.step(inputCIs, false);
-
-            predIndex = h.getPredictionCIs(0)[0];
-
-            BufferReader reader;
-            reader.buffer = &writer.buffer;
-            h.readState(reader);
+            predIndex = h.getPredictionCs(0)[0];
 
             // Un-bin
             float predValue = static_cast<float>(predIndex) / static_cast<float>(inputColumnSize - 1) * (maxCurve - minCurve) + minCurve;
@@ -270,5 +209,120 @@ int main() {
         }
     } while (!quit);
 
+    quit = false;
+    autoplay = true;
+    spacePressedPrev = false;
+
+    index = -1;
+
+    sf::sleep(sf::seconds(2.0f));
+
+    do {
+        sf::Event event;
+
+        while (window.pollEvent(event)) {
+            switch (event.type) {
+            case sf::Event::Closed:
+                quit = true;
+                break;
+            }
+        }
+
+        if (window.hasFocus()) {
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
+                quit = true;
+
+            bool spacePressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Space);
+
+            if (spacePressed && !spacePressedPrev)
+                autoplay = !autoplay;
+
+            spacePressedPrev = spacePressed;
+        }
+
+        if (autoplay || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
+            index++;
+
+            if (index % 1000 == 0)
+                std::cout << "Step: " << index << std::endl;
+
+            float value = std::sin(0.0125f * pi * index + 0.25f) * 
+            std::sin(0.03f * pi * index + 1.5f) *
+            std::sin(0.025f * pi * index - 0.1f);
+
+            //if (dist01(rng) < 0.004f) {
+            //    std::uniform_int_distribution<int> indexDist(0, 1000);
+            //    index = indexDist(rng);
+            //}
+
+            std::vector<int> input = { static_cast<int>((value - minCurve) / (maxCurve - minCurve) * (inputColumnSize - 1) + 0.5f) };
+
+            if (!learnFlag || (window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::P)))
+            {
+                // Prediction mode
+                //inputCIs[0] = &h.getPredictionCIs(0);
+                h.step(cs, { &input }, false);
+            }
+            else {
+                // training mode
+                h.step(cs, { &input }, true);
+            }
+            
+            predIndex = h.getPredictionCs(0)[0];
+
+            // Un-bin
+            float predValue = static_cast<float>(predIndex) / static_cast<float>(inputColumnSize - 1) * (maxCurve - minCurve) + minCurve;
+
+            // Plot target data
+            vis::Point p;
+            p.position.x = index;
+            p.position.y = value;
+            p.color = sf::Color::Red;
+            plot.curves[0].points.push_back(p);
+
+            // Plot predicted data
+            vis::Point p1;
+            p1.position.x = index;
+            p1.position.y = predValue;
+            p1.color = sf::Color::Blue;
+            plot.curves[1].points.push_back(p1);
+
+            if (plot.curves[0].points.size() > maxBufferSize) {
+                plot.curves[0].points.erase(plot.curves[0].points.begin());
+
+                int firstIndex = 0;
+
+                for (std::vector<vis::Point>::iterator it = plot.curves[0].points.begin(); it != plot.curves[0].points.end(); it++, firstIndex++)
+                    (*it).position.x = static_cast<float>(firstIndex);
+
+                plot.curves[1].points.erase(plot.curves[1].points.begin());
+
+                firstIndex = 0;
+
+                for (std::vector<vis::Point>::iterator it = plot.curves[1].points.begin(); it != plot.curves[1].points.end(); it++, firstIndex++)
+                    (*it).position.x = static_cast<float>(firstIndex);
+            }
+
+            window.clear();
+
+            plot.draw(
+                plotRT, lineGradient, tickFont, 0.5f,
+                sf::Vector2f(0.0f, plot.curves[0].points.size()),
+                sf::Vector2f(minCurve, maxCurve), sf::Vector2f(48.0f, 48.0f),
+                sf::Vector2f(plot.curves[0].points.size() / 10.0f, (maxCurve - minCurve) / 10.0f),
+                2.0f, 4.0f, 2.0f, 6.0f, 2.0f, 4
+            );
+
+            plotRT.display();
+
+            sf::Sprite plotSprite;
+            plotSprite.setTexture(plotRT.getTexture());
+
+            window.draw(plotSprite);
+
+            window.display();
+        }
+    } while (!quit);
     return 0;
 }
+

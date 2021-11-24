@@ -7,12 +7,10 @@
 // ----------------------------------------------------------------------------
 
 #include "Vis3D.h"
+#include <raylib.h>
 
 #define RAYGUI_IMPLEMENTATION
-
 #include "raygui/raygui.h"
-
-#undef RAYGUI_IMPLEMENTATION
 
 #include <unordered_map>
 #include <iostream>
@@ -123,11 +121,11 @@ void Vis3D::update(
     if (select) {
         ray = GetMouseRay(GetMousePosition(), camera);
 
-        selectLayer = -1;
-        selectInput = -1;
-        selectX = -1;
-        selectY = -1;
-        selectZ = -1;
+        //selectLayer = -1;
+        //selectInput = -1;
+        //selectX = -1;
+        //selectY = -1;
+        //selectZ = -1;
     }
 
     // Generate necessary geometry
@@ -136,7 +134,7 @@ void Vis3D::update(
     float hierarchyHeight = 0.0f;
 
     for (int l = 0; l < h.getNumLayers(); l++)
-        hierarchyHeight += (l < h.getNumLayers() - 1 ? layerDelta : 0) + h.getSCLayer(l).getHiddenSize().z;
+        hierarchyHeight += (l < h.getNumLayers() - 1 ? layerDelta : 0) + h.getELayer(l).getHiddenSize().z;
 
     // Find total input layer width
     float inputWidthTotal = 0.0f;
@@ -232,29 +230,29 @@ void Vis3D::update(
     }
 
     for (int l = 0; l < h.getNumLayers(); l++) {
-        aon::IntBuffer hcsdr = h.getSCLayer(l).getHiddenCIs();
+        aon::IntBuffer hcsdr = h.getELayer(l).getHiddenCIs();
         aon::IntBuffer pcsdr;
         
         if (l < h.getNumLayers() - 1)
-            pcsdr = h.getPLayers(l + 1)[h.getTicksPerUpdate(l + 1) - 1 - h.getTicks(l + 1)]->getHiddenCIs();
+            pcsdr = h.getDLayers(l + 1)[0][h.getTicksPerUpdate(l + 1) - 1 - h.getTicks(l + 1)].getHiddenCIs();
 
-        Vector3 offset = (Vector3){ -h.getSCLayer(l).getHiddenSize().x * 0.5f, -h.getSCLayer(l).getHiddenSize().y * 0.5f, zOffset };
+        Vector3 offset = (Vector3){ -h.getELayer(l).getHiddenSize().x * 0.5f, -h.getELayer(l).getHiddenSize().y * 0.5f, zOffset };
 
         // Construct columns
-        for (int cx = 0; cx < h.getSCLayer(l).getHiddenSize().x; cx++)
-            for (int cy = 0; cy < h.getSCLayer(l).getHiddenSize().y; cy++) {
-                int columnIndex = aon::address2(aon::Int2(cx, cy), aon::Int2(h.getSCLayer(l).getHiddenSize().x, h.getSCLayer(l).getHiddenSize().y));
+        for (int cx = 0; cx < h.getELayer(l).getHiddenSize().x; cx++)
+            for (int cy = 0; cy < h.getELayer(l).getHiddenSize().y; cy++) {
+                int columnIndex = aon::address2(aon::Int2(cx, cy), aon::Int2(h.getELayer(l).getHiddenSize().x, h.getELayer(l).getHiddenSize().y));
 
                 int hc = hcsdr[columnIndex];
 
-                columns.push_back(std::tuple<Vector3, Vector3, Color>((Vector3){ cx + offset.x + 0.5f, offset.z + h.getSCLayer(l).getHiddenSize().z * 0.5f - columnRadius, cy + offset.y + 0.5f }, (Vector3){ columnRadius * 2.0f, h.getSCLayer(l).getHiddenSize().z + columnRadius * 2.0f, columnRadius * 2.0f }, (Color){0, 0, 0, 64}));
+                columns.push_back(std::tuple<Vector3, Vector3, Color>((Vector3){ cx + offset.x + 0.5f, offset.z + h.getELayer(l).getHiddenSize().z * 0.5f - columnRadius, cy + offset.y + 0.5f }, (Vector3){ columnRadius * 2.0f, h.getELayer(l).getHiddenSize().z + columnRadius * 2.0f, columnRadius * 2.0f }, (Color){0, 0, 0, 64}));
                 
                 Vector3 lowerBound = (Vector3){ std::get<0>(columns.back()).x - std::get<1>(columns.back()).x * 0.5f, std::get<0>(columns.back()).y - std::get<1>(columns.back()).y * 0.5f, std::get<0>(columns.back()).z - std::get<1>(columns.back()).z * 0.5f };
                 Vector3 upperBound = (Vector3){ std::get<0>(columns.back()).x + std::get<1>(columns.back()).x * 0.5f, std::get<0>(columns.back()).y + std::get<1>(columns.back()).y * 0.5f, std::get<0>(columns.back()).z + std::get<1>(columns.back()).z * 0.5f };
                 
                 bool columnCollision = select ? CheckCollisionRayBox(ray, (BoundingBox){ lowerBound, upperBound }) : false;
                 
-                for (int cz = 0; cz < h.getSCLayer(l).getHiddenSize().z; cz++) {
+                for (int cz = 0; cz < h.getELayer(l).getHiddenSize().z; cz++) {
                     Vector3 position = (Vector3){ cx + offset.x + 0.5f, cz + offset.z, cy + offset.y + 0.5f };
 
                     bool cellCollision = columnCollision ? CheckCollisionRaySphere(ray, position, cellRadius) : false;
@@ -302,9 +300,9 @@ void Vis3D::update(
             }
 
         if (l < h.getNumLayers() - 1)
-            lines.push_back(std::tuple<Vector3, Vector3, Color>((Vector3){ 0.0f, zOffset + h.getSCLayer(l).getHiddenSize().z, 0.0f }, (Vector3){ 0.0f, zOffset + h.getSCLayer(l).getHiddenSize().z + layerDelta, 0.0f }, (Color){ 0, 0, 0, 128 }));
+            lines.push_back(std::tuple<Vector3, Vector3, Color>((Vector3){ 0.0f, zOffset + h.getELayer(l).getHiddenSize().z, 0.0f }, (Vector3){ 0.0f, zOffset + h.getELayer(l).getHiddenSize().z + layerDelta, 0.0f }, (Color){ 0, 0, 0, 128 }));
 
-        zOffset += layerDelta + h.getSCLayer(l).getHiddenSize().z;
+        zOffset += layerDelta + h.getELayer(l).getHiddenSize().z;
     }
 
     // Display active cell receptive fields
@@ -318,15 +316,15 @@ void Vis3D::update(
     if (refreshTextures) {
         // FF
         if (selectLayer >= 0) {
-            ffVliRange = h.getSCLayer(selectLayer).getNumVisibleLayers();
+            ffVliRange = h.getELayer(selectLayer).getNumVisibleLayers();
 
             // Clamp
             ffVli = aon::min(ffVli, ffVliRange - 1);
 
-            const aon::SparseCoder::VisibleLayer &hvl = h.getSCLayer(selectLayer).getVisibleLayer(ffVli);
-            const aon::SparseCoder::VisibleLayerDesc &hvld = h.getSCLayer(selectLayer).getVisibleLayerDesc(ffVli);
+            const aon::Encoder::VisibleLayer &hvl = h.getELayer(selectLayer).getVisibleLayer(ffVli);
+            const aon::Encoder::VisibleLayerDesc &hvld = h.getELayer(selectLayer).getVisibleLayerDesc(ffVli);
 
-            aon::Int3 hiddenSize = h.getSCLayer(selectLayer).getHiddenSize();
+            aon::Int3 hiddenSize = h.getELayer(selectLayer).getHiddenSize();
             int hiddenIndex = aon::address3(aon::Int3(selectX, selectY, selectZ), hiddenSize);
 
             ffZRange = hvld.size.z;
@@ -353,6 +351,7 @@ void Vis3D::update(
             int height = diam;
 
             aon::Array<Color> colors(width * height, (Color){ 0, 0, 0, 255 });
+            ffWeights.resize(colors.size(), 0.0f);
 
             for (int ix = iterLowerBound.x; ix <= iterUpperBound.x; ix++)
                 for (int iy = iterLowerBound.y; iy <= iterUpperBound.y; iy++) {
@@ -360,7 +359,9 @@ void Vis3D::update(
 
                     aon::Int2 offset(ix - fieldLowerBound.x, iy - fieldLowerBound.y);
 
-                    unsigned char hc = (int)(aon::sigmoid(hvl.weights[ffZ + hvld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))]) * weightScaling * 255.0f);
+                    ffWeights[offset.y + offset.x * diam] = hvl.weights[ffZ + hvld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))]; 
+
+                    unsigned char hc = (int)(aon::sigmoid(hvl.weights[ffZ + hvld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))] * 2.0f) * 255.0f);
 
                     colors[offset.y + offset.x * diam] = (Color){ hc, 0, 0, 255 };
                 }
@@ -645,7 +646,24 @@ void Vis3D::render() {
         GuiEnable();
 
         if (showTextures) {
-            DrawTextureEx(ffTexture, (Vector2){ 10, winHeight - 80 - ffHeight * textureScaling}, 0.0f, textureScaling, (Color){ 255, 255, 255, 255 });
+            Vector2 mousePos = GetMousePosition();
+
+            Rectangle texRec;
+            texRec.width = ffTexture.width * textureScaling;
+            texRec.height = ffTexture.height * textureScaling;
+            texRec.x = 10;
+            texRec.y = winHeight - 80 - ffHeight * textureScaling;
+
+            if (CheckCollisionPointRec(mousePos, texRec)) {
+                int wx = (mousePos.x - texRec.x) / textureScaling;
+                int wy = (mousePos.y - texRec.y) / textureScaling;
+
+                float weight = ffWeights[wx + wy * ffTexture.width];
+
+                DrawText(std::to_string(weight).c_str(), 10, texRec.y - 40, 24, (Color){ 0, 0, 0, 255 });
+            }
+
+            DrawTextureEx(ffTexture, (Vector2){ texRec.x, texRec.y }, 0.0f, textureScaling, (Color){ 255, 255, 255, 255 });
 
             int oldffVli = ffVli;
             int oldffZ = ffZ;

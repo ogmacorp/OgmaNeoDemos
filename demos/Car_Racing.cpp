@@ -2,7 +2,7 @@
 #include <SFML/Graphics.hpp>
 
 #include <aogmaneo/Hierarchy.h>
-#include <aogmaneo/Helpers.h>
+#include <aogmaneo/RLAdapter.h>
 //#include <aogmaneo/ImageEncoder.h>
 #include <cmath>
 
@@ -45,9 +45,10 @@ struct Car {
     float rotation;
 
     Car()
-        : position(0.0f, 0.0f),
-        speed(0.0f),
-        rotation(0.0f)
+    :
+    position(0.0f, 0.0f),
+    speed(0.0f),
+    rotation(0.0f)
     {}
 };
 
@@ -122,23 +123,26 @@ int main() {
 
     // --------------------------- Create the Hierarchy ---------------------------
 
-    // Create hierarchy
     setNumThreads(8);
 
-    Array<Hierarchy::LayerDesc> lds(2);
+    // Create hierarchy
+    Array<Hierarchy::LayerDesc> lds(3);
 
-    for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(4, 4, 32);
-    }
+    for (int i = 0; i < lds.size(); i++)
+        lds[i].hiddenSize = Int3(5, 5, 16);
 
     // Two IODescs, for sensors and for actions
-    // types none and action (no prediction and reinforcement learning)
+    // types none and prediction (no prediction and predictions used as actions)
     Array<Hierarchy::IODesc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IODesc(Int3(rootNumSensors, rootNumSensors, sensorResolution), IOType::prediction, 4, 2, 64);
-    ioDescs[1] = Hierarchy::IODesc(Int3(1, 1, steerResolution), IOType::action, 2, 2, 64);
+    ioDescs[0] = Hierarchy::IODesc(Int3(rootNumSensors, rootNumSensors, sensorResolution), IOType::none, 4, 2);
+    ioDescs[1] = Hierarchy::IODesc(Int3(1, 1, steerResolution), IOType::prediction, 2, 2);
 
     Hierarchy h;
     h.initRandom(ioDescs, lds);
+
+    // Adapter to command the SPH to maximize reward
+    RLAdapter adapter;
+    adapter.initRandom(h.getTopHiddenSize(), 2, 64); // Program size, radius, history capacity
     
     //CustomStreamReader reader;
     //reader.ins.open(hFileName.c_str(), std::ios::out | std::ios::binary);
@@ -202,6 +206,8 @@ int main() {
     // Used for speed mode to render slower
     int renderCounter = 0;
 
+    float averageReward = 0.0f;
+
     do {
         clock.restart();
 
@@ -248,10 +254,10 @@ int main() {
         // Get action prediction
         int actionIndex = h.getPredictionCIs(1)[0];
 
-        //if (dist01(rng) < 0.01f) {
-        //    std::uniform_int_distribution<int> steerDist(0, steerResolution - 1);
-        //    actionIndex = steerDist(rng);
-        //}
+        if (dist01(rng) < 0.05f) {
+            std::uniform_int_distribution<int> steerDist(0, steerResolution - 1);
+            actionIndex = steerDist(rng);
+        }
 
         // Tranformation action (column index) -> steering value
         float steer = static_cast<float>(actionIndex) / static_cast<float>(steerResolution - 1) * 2.0f - 1.0f;
@@ -347,7 +353,9 @@ int main() {
         // Define reward as orientation difference between 2 vectors: car direction and road direction
         // because they are already normalized, so that cos(alpha) = carDir.x * trackDir.x + carDir.y * trackDir.y
         // this reward will be higher by higher speed
-        float reward = 0.1f * std::abs(car.speed) * (carDir.x * trackDir.x + carDir.y * trackDir.y) + (reset ? -50.0f : 0.0f);
+        float reward = 0.01f * std::abs(car.speed) * (carDir.x * trackDir.x + carDir.y * trackDir.y) + (reset ? -10.0f : 0.0f);
+
+        averageReward = 0.99f * averageReward + 0.01f * reward;
 
         // Sensors as laser multiple beams (number of beams = numSensors) for checking collision
         std::vector<float> sensors(numSensors);
@@ -440,8 +448,11 @@ int main() {
 
         inputCIs[1] = &actionCIs;
 
-        h.step(inputCIs, true, reward * 100.0f);
+        // Update adapter
+        adapter.step(reward, &h.getTopHiddenCIs(), true);
 
+        // Step hierarchy with adapter's program
+        h.step(inputCIs, &adapter.getProgCIs(), true);
     } while (!quit);
 
     return 0;

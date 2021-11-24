@@ -9,16 +9,30 @@
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 
-#include <runner/Runner.h>
-
 #include <aogmaneo/Hierarchy.h>
-#include <aogmaneo/RLAdapter.h>
+#include <aogmaneo/Helpers.h>
+
+#include <box2d/box2d.h>
 
 #include <time.h>
 #include <iostream>
 #include <random>
 
 using namespace aon;
+
+struct Limb {
+    b2PolygonShape bodyShape;
+    b2Body* body;
+    b2RevoluteJoint* joint;
+};
+
+struct Reacher {
+    // Base
+    b2PolygonShape bodyShape;
+    b2Body* body;
+
+    std::vector<Limb> limbs;
+};
 
 int main() {
     // RNG
@@ -36,94 +50,94 @@ int main() {
     window.setVerticalSyncEnabled(true);
 
     // Physics
-    b2World world(b2Vec2(0.0f, -9.81f));
+    b2World world(b2Vec2(0.0f, 0.0f));
 
     const float pixelsPerMeter = 256.0f;
 
-    const float groundWidth = 20000.0f;
-    const float groundHeight = 5.0f;
+    Reacher r;
 
-    const float hurdleWidth = 0.15f;
-    const float hurdleHeight = 0.1f;
-    const float hurdleHeightInc = 0.02f;
-    const float hurdleOffset = 5.0f;
-    const float hurdleStart = 10.0f;
+    r.limbs.resize(3);
 
-    // Create ground body
-    b2BodyDef groundBodyDef;
-    groundBodyDef.position.Set(0.0f, 0.0f);
+    {
+        b2BodyDef bodyDef;
+        bodyDef.position.Set(0.0f, 0.0f);
 
-    b2Body* groundBody = world.CreateBody(&groundBodyDef);
+        r.body = world.CreateBody(&bodyDef);
 
-    b2PolygonShape groundBox;
-    groundBox.SetAsBox(groundWidth * 0.5f, groundHeight * 0.5f);
+        r.bodyShape.SetAsBox(0.5f, 0.5f);
 
-    groundBody->CreateFixture(&groundBox, 0.0f); // 0 density (static)
-
-    // Spawn some hurdles
-    std::vector<b2Body*> hurdles(100);
-
-    for (int i = 0; i < hurdles.size(); i++) {
-        b2BodyDef hurdleBodyDef;
-        hurdleBodyDef.position.Set(i * hurdleOffset + hurdleStart, groundHeight * 0.5f + (hurdleHeight + hurdleHeightInc * i) * 0.5f);
-
-        b2Body* hurdleBody = world.CreateBody(&hurdleBodyDef);
-
-        b2PolygonShape hurdleBox;
-        hurdleBox.SetAsBox(hurdleWidth * 0.5f, (hurdleHeight + hurdleHeightInc * i) * 0.5f);
-
-        hurdleBody->CreateFixture(&hurdleBox, 0.0f); // 0 density (static)
-
-        hurdles[i] = hurdleBody;
+        r.body->CreateFixture(&r.bodyShape, 0.0f); // 0 density flag (static)
     }
 
-    // Background image
-    sf::Texture skyTexture;
+    float length = 1.0f;
+    float thickness = 0.1f;
 
-    skyTexture.loadFromFile("resources/background1.png");
+    b2Body* prevBody = r.body;
+    b2Vec2 prevAttachPoint = b2Vec2(0.0f, 0.0f);
 
-    skyTexture.setSmooth(true);
+    for (int i = 0; i < r.limbs.size(); i++) {
+        b2BodyDef bodyDef;
 
-    // Floor image
-    sf::Texture floorTexture;
+        bodyDef.type = b2_dynamicBody;
 
-    floorTexture.loadFromFile("resources/floor1.png");
+        float offset = length * 0.5f - thickness * 0.5f;
 
-    floorTexture.setRepeated(true);
-    floorTexture.setSmooth(true);
+        float angle = prevBody->GetAngle() + 0.0f;
 
-    // Create a runner
-    const float runnerSpawnHeight = 2.762f;
+        bodyDef.position = prevBody->GetWorldPoint(prevAttachPoint) + b2Vec2(std::cos(angle) * offset, std::sin(angle) * offset);
+        bodyDef.angle = angle;
+        bodyDef.allowSleep = false;
 
-    Runner runner;
-    runner.createDefault(&world, b2Vec2(0.0f, runnerSpawnHeight), 0.0f, 1);
+        r.limbs[i].body = world.CreateBody(&bodyDef);
 
-    const int inputCount = 2 + 2 + 2 + 2 + 1 + 4 + 6 + 3 + 1; // 3 inputs for hind legs, 2 for front, body angle, contacts for each leg, 6 whiskers, IMU (lAccel, rAccel), distance to next hurdle
-    const int outputCount = 2 + 2 + 2 + 2; // Motor output for each joint
+        r.limbs[i].bodyShape = b2PolygonShape();
+        r.limbs[i].bodyShape.SetAsBox(length * 0.5f, thickness * 0.5f);
+
+        b2FixtureDef fixtureDef;
+
+        fixtureDef.shape = &r.limbs[i].bodyShape;
+
+        fixtureDef.density = 1.0f;
+        fixtureDef.friction = 1.0f;
+        fixtureDef.restitution = 0.001f;
+
+        r.limbs[i].body->CreateFixture(&fixtureDef);
+
+        b2RevoluteJointDef jointDef;
+
+        jointDef.bodyA = prevBody;
+
+        jointDef.bodyB = r.limbs[i].body;
+
+        jointDef.referenceAngle = 0.0f;
+        jointDef.localAnchorA = prevAttachPoint;
+        jointDef.localAnchorB = b2Vec2(-offset, 0.0f);
+        jointDef.collideConnected = false;
+        jointDef.maxMotorTorque = 10.0f;
+
+        jointDef.enableMotor = true;
+
+        r.limbs[i].joint = static_cast<b2RevoluteJoint*>(world.CreateJoint(&jointDef));
+
+        prevBody = r.limbs[i].body;
+        prevAttachPoint = b2Vec2(offset, 0.0f);
+    }
 
     // Create the agent
     setNumThreads(8);
 
-    Array<Hierarchy::LayerDesc> lds(4);
+    Array<Hierarchy::LayerDesc> lds(5);
 
-    for (int i = 0; i < lds.size(); i++) {
+    for (int i = 0; i < lds.size(); i++)
         lds[i].hiddenSize = Int3(4, 4, 16);
-        lds[i].ticksPerUpdate = 4;
-        lds[i].temporalHorizon = 4;
-    }
 
-    const int sensorResolution = 31;
-    const int actionResolution = 13;
+    const int motionRes = 13;
 
-    Array<Hierarchy::IODesc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IODesc(Int3(4, 6, sensorResolution), IOType::prediction, 2, 2, 8);
-    ioDescs[1] = Hierarchy::IODesc(Int3(2, 4, actionResolution), IOType::prediction, 2, 2, 8);
+    Array<Hierarchy::IODesc> ioDescs(1);
+    ioDescs[0] = Hierarchy::IODesc(Int3(1, r.limbs.size(), motionRes), IOType::prediction, 2, 2, 64);
 
     Hierarchy h;
     h.initRandom(ioDescs, lds);
-
-    aon::RLAdapter adapter;
-    adapter.initRandom(h.getTopHiddenSize(), 256);
 
     // ---------------------------- Game Loop -----------------------------
 
@@ -153,7 +167,7 @@ int main() {
     float averageVel = 0.0f;
     float velPrev = 0.0f;
 
-    IntBuffer actionCIs(outputCount, 0);
+    IntBuffer actionCIs(r.limbs.size(), 0);
 
     std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
     std::uniform_int_distribution<int> actionDist(0, actionResolution - 1);
@@ -241,16 +255,14 @@ int main() {
             if (reset)
                 reward -= 100.0f;
 
-            adapter.step(&h.getTopHiddenCIs(), reward, true, h.getTopUpdate());
-
-            h.step(inputCIs, &adapter.getGoalCIs(), true);
+            h.step(inputCIs, true, reward);
 
             actionCIs = h.getPredictionCIs(1);
 
-            for (int i = 0; i < actionCIs.size(); i++) {
-                if (dist01(rng) < 0.04f)
-                    actionCIs[i] = actionDist(rng);
-            }
+            //for (int i = 0; i < actionCIs.size(); i++) {
+            //    if (dist01(rng) < 0.02f)
+            //        actionCIs[i] = actionDist(rng);
+            //}
 
             // Go through tiles
             for (int i = 0; i < rescaledActions.size(); i++) {
@@ -259,11 +271,10 @@ int main() {
         }
 
         // Step the physics simulation
-        int subSteps = 1;
-
-        world.ClearForces();
+        int subSteps = 3;
 
         for (int ss = 0; ss < subSteps; ss++) {
+            world.ClearForces();
             runner.motorUpdate(rescaledActions);
             world.Step(1.0f / 60.0f / subSteps, 8, 8);
         }
