@@ -52,14 +52,6 @@ include_directories(${AOGMANEO_INCLUDE_DIRS})
 
 
 ############################################################################
-# Find OgmaNeo2 include and libs
-
-find_package(Torch)
-
-include_directories(${TORCH_INCLUDE_DIRS})
-
-
-############################################################################
 # Find SFML include and libs
 
 #set(SFML_STATIC_LIBRARIES TRUE)
@@ -110,189 +102,15 @@ endif()
 
 
 ############################################################################
-# Find Box2D include and libs
-
-find_package(BOX2D)
-
-if(BOX2D_FOUND)
-    include_directories(${BOX2D_INCLUDE_DIRS})
-    message(STATUS "Found existing Box2D in ${BOX2D_INCLUDE_DIRS}")
-else()
-    message(STATUS "-- Box2D will be downloaded and built from source")
-    ExternalProject_Add(
-        Box2D
-        PREFIX Box2D
-        URL "https://github.com/erincatto/Box2D/archive/v2.3.0.zip"
-
-        # Box2D's source isn't in the top level directory so add a dummy file to set cmake right
-        PATCH_COMMAND ${CMAKE_COMMAND} -E echo ADD_SUBDIRECTORY(Box2D) > <SOURCE_DIR>/CMakeLists.txt
-
-        CMAKE_ARGS
-            "-DCMAKE_INSTALL_PREFIX=${3RDPARTY_PATH}"
-            "-DBOX2D_INSTALL=ON"
-            "-DBOX2D_BUILD_EXAMPLES=OFF"
-    )
-    set(BOX2D_INCLUDE_DIRS "${3RDPARTY_PATH}/include")
-    set(BOX2D_LIBRARIES "Box2D${CMAKE_STATIC_LIBRARY_SUFFIX}")
-endif()
-
-
-############################################################################
-# Find OpenCV
-
-find_package(OpenCV COMPONENTS core imgproc highgui)
-
-if(OpenCV_FOUND)
-    message(STATUS "Found existing OpenCV in ${OpenCV_INCLUDE_DIRS}")
-    include_directories(${OpenCV_INCLUDE_DIRS})
-endif()
-
-############################################################################
-# Find Raylib
-
-find_package(raylib REQUIRED)
-
-if(raylib_FOUND)
-    message(STATUS "Found existing Raylib in ${raylib_INCLUDE_DIRS}")
-    include_directories(${raylib_INCLUDE_DIRS})
-endif()
-
-
-############################################################################
-# Find Eigen3
-
-find_package(Eigen3 REQUIRED)
-
-
-############################################################################
-# Find autodiff
-
-find_package(autodiff REQUIRED)
-
-
-############################################################################
 # Define experiments to build
 
 include_directories("${PROJECT_SOURCE_DIR}/demos")
-
-#list(APPEND VIDEO_PREDICTION_SRCS "demos/Video_Prediction.cpp")
-#list(APPEND VIDEO_PREDICTION_SRCS "demos/vis/Vis3D.cpp")
-#list(APPEND VIDEO_PREDICTION_DEPS "SFML")
-#list(APPEND VIDEO_PREDICTION_DEPS "OPENCV")
-#list(APPEND VIDEO_PREDICTION_DEPS "RAYLIB")
-#list(APPEND DEMO_PROJECTS_LIST "Video_Prediction")
-#list(APPEND DEMO_SOURCES_LIST VIDEO_PREDICTION_SRCS)
-#list(APPEND DEMO_DEPENDS_LIST VIDEO_PREDICTION_DEPS)
-
-#list(APPEND WAVY_LINE_SRCS "demos/Wavy_Line.cpp")
-#list(APPEND WAVY_LINE_SRCS "demos/vis/Plot.cpp")
-#list(APPEND WAVY_LINE_DEPS "SFML")
-#list(APPEND DEMO_PROJECTS_LIST "Wavy_Line")
-#list(APPEND DEMO_SOURCES_LIST WAVY_LINE_SRCS)
-#list(APPEND DEMO_DEPENDS_LIST WAVY_LINE_DEPS)
-
-#list(APPEND WAVY_CLASSIFY_SRCS "demos/Wavy_Classify.cpp")
-#list(APPEND WAVY_CLASSIFY_DEPS "SFML")
-#list(APPEND DEMO_PROJECTS_LIST "Wavy_Classify")
-#list(APPEND DEMO_SOURCES_LIST WAVY_CLASSIFY_SRCS)
-#list(APPEND DEMO_DEPENDS_LIST WAVY_CLASSIFY_DEPS)
-
-#list(APPEND SWARM_TEST_SRCS "demos/Swarm_Test.cpp")
-#list(APPEND SWARM_TEST_SRCS "demos/swarm/Swarm.cpp")
-#list(APPEND SWARM_TEST_DEPS "SFML")
-#list(APPEND DEMO_PROJECTS_LIST "Swarm_Test")
-#list(APPEND DEMO_SOURCES_LIST SWARM_TEST_SRCS)
-#list(APPEND DEMO_DEPENDS_LIST SWARM_TEST_DEPS)
 
 list(APPEND CAR_RACING_SRCS "demos/Car_Racing.cpp")
 list(APPEND CAR_RACING_DEPS "SFML")
 list(APPEND DEMO_PROJECTS_LIST "Car_Racing")
 list(APPEND DEMO_SOURCES_LIST CAR_RACING_SRCS)
 list(APPEND DEMO_DEPENDS_LIST CAR_RACING_DEPS)
-
-#list(APPEND PUSHER_SRCS "demos/Pusher.cpp")
-#list(APPEND PUSHER_DEPS "SFML")
-#list(APPEND DEMO_PROJECTS_LIST "Pusher")
-#list(APPEND DEMO_SOURCES_LIST PUSHER_SRCS)
-#list(APPEND DEMO_DEPENDS_LIST PUSHER_DEPS)
-
-#list(APPEND CAT_MOUSE_SRCS "demos/Cat_Mouse.cpp")
-#list(APPEND CAT_MOUSE_SRCS "demos/catmouse/CatMouseEnv.cpp")
-#list(APPEND CAT_MOUSE_DEPS "SFML")
-#list(APPEND DEMO_PROJECTS_LIST "Cat_Mouse")
-#list(APPEND DEMO_SOURCES_LIST CAT_MOUSE_SRCS)
-#list(APPEND DEMO_DEPENDS_LIST CAT_MOUSE_DEPS)
-
-#list(APPEND NAVIGRAPH_SRCS "demos/NaviGraph.cpp")
-#list(APPEND NAVIGRAPH_SRCS "demos/constructs/Vec2f.cpp")
-#list(APPEND NAVIGRAPH_SRCS "demos/constructs/Vec3f.cpp")
-#list(APPEND NAVIGRAPH_SRCS "demos/constructs/Vec4f.cpp")
-#list(APPEND NAVIGRAPH_SRCS "demos/constructs/Matrix3x3f.cpp")
-#list(APPEND NAVIGRAPH_SRCS "demos/constructs/Matrix4x4f.cpp")
-#list(APPEND NAVIGRAPH_SRCS "demos/constructs/Quaternion.cpp")
-#list(APPEND NAVIGRAPH_SRCS "demos/navigraph/Graph.cpp")
-#list(APPEND NAVIGRAPH_DEPS "SFML")
-#list(APPEND DEMO_PROJECTS_LIST "NaviGraph")
-#list(APPEND DEMO_SOURCES_LIST NAVIGRAPH_SRCS)
-#list(APPEND DEMO_DEPENDS_LIST NAVIGRAPH_DEPS)
-
-#list(APPEND CAT_MOUSE_TORCH_SRCS "demos/Cat_Mouse_Torch.cpp")
-#list(APPEND CAT_MOUSE_TORCH_SRCS "demos/catmouse/CatMouseEnv.cpp")
-#list(APPEND CAT_MOUSE_TORCH_DEPS "SFML")
-#list(APPEND CAT_MOUSE_TORCH_DEPS "TORCH")
-#list(APPEND DEMO_PROJECTS_LIST "Cat_Mouse_Torch")
-#list(APPEND DEMO_SOURCES_LIST CAT_MOUSE_TORCH_SRCS)
-#list(APPEND DEMO_DEPENDS_LIST CAT_MOUSE_TORCH_DEPS)
-
-#list(APPEND INVARIANCE_SRCS "demos/Invariance.cpp")
-#list(APPEND INVARIANCE_DEPS "SFML")
-#list(APPEND DEMO_PROJECTS_LIST "Invariance")
-#list(APPEND DEMO_SOURCES_LIST INVARIANCE_SRCS)
-#list(APPEND DEMO_DEPENDS_LIST INVARIANCE_DEPS)
-
-#list(APPEND GENERATIVE_SRCS "demos/Generative.cpp")
-#list(APPEND GENERATIVE_SRCS "demos/generative/Layer.cpp")
-#list(APPEND GENERATIVE_DEPS "SFML")
-#list(APPEND DEMO_PROJECTS_LIST "Generative")
-#list(APPEND DEMO_SOURCES_LIST GENERATIVE_SRCS)
-#list(APPEND DEMO_DEPENDS_LIST GENERATIVE_DEPS)
-
-#list(APPEND EVO_SRCS "demos/Evo.cpp")
-#list(APPEND EVO_SRCS "demos/evo/CPPN.cpp")
-#list(APPEND EVO_SRCS "demos/evo/Unit.cpp")
-#list(APPEND EVO_SRCS "demos/evo/Lattice.cpp")
-#list(APPEND EVO_DEPS "SFML")
-#list(APPEND DEMO_PROJECTS_LIST "Evo")
-#list(APPEND DEMO_SOURCES_LIST EVO_SRCS)
-#list(APPEND DEMO_DEPENDS_LIST EVO_DEPS)
-
-#list(APPEND RUNNER_RUN_SRCS "demos/Runner_Run.cpp")
-#list(APPEND RUNNER_RUN_SRCS "demos/runner/Runner.cpp")
-#list(APPEND RUNNER_RUN_DEPS "SFML")
-#list(APPEND RUNNER_RUN_DEPS "BOX2D")
-#list(APPEND DEMO_PROJECTS_LIST "Runner_Run")
-#list(APPEND DEMO_SOURCES_LIST RUNNER_RUN_SRCS)
-#list(APPEND DEMO_DEPENDS_LIST RUNNER_RUN_DEPS)
-
-#list(APPEND REACHER_RUN_SRCS "demos/Reacher.cpp")
-#list(APPEND REACHER_RUN_DEPS "SFML")
-#list(APPEND REACHER_RUN_DEPS "BOX2D")
-#list(APPEND DEMO_PROJECTS_LIST "Reacher")
-#list(APPEND DEMO_SOURCES_LIST REACHER_RUN_SRCS)
-#list(APPEND DEMO_DEPENDS_LIST REACHER_RUN_DEPS)
-
-#list(APPEND STDP_RUN_SRCS "demos/STDP.cpp")
-#list(APPEND STDP_RUN_DEPS "SFML")
-#list(APPEND DEMO_PROJECTS_LIST "STDP")
-#list(APPEND DEMO_SOURCES_LIST STDP_RUN_SRCS)
-#list(APPEND DEMO_DEPENDS_LIST STDP_RUN_DEPS)
-
-#list(APPEND ARDUINOVIS_SRCS "demos/ArduinoVis.cpp")
-#list(APPEND ARDUINOVIS_DEPS "SFML")
-#list(APPEND ARDUINOVIS_DEPS "RAYLIB")
-#list(APPEND DEMO_PROJECTS_LIST "ArduinoVis")
-#list(APPEND DEMO_SOURCES_LIST ARDUINOVIS_SRCS)
-#list(APPEND DEMO_DEPENDS_LIST ARDUINOVIS_DEPS)
 
 list(LENGTH DEMO_PROJECTS_LIST num_demos)
 
@@ -333,38 +151,5 @@ foreach(i RANGE ${num_demos})
         endif()
         target_link_libraries(${DEMO_PROJECT} ${SFML_DEPENDENCIES})
         target_link_libraries(${DEMO_PROJECT} ${SFML_LIBRARIES})
-    endif()
-
-    # Does this demo require Box2D?
-    list(FIND ${DEMO_DEPENDS} "BOX2D" _box2d_depends_index)
-    if (${_box2d_depends_index} GREATER -1)
-        if(NOT BOX2D_FOUND)
-            add_dependencies(${DEMO_PROJECT} Box2D)
-        endif()
-        target_link_libraries(${DEMO_PROJECT} ${BOX2D_LIBRARIES})
-    endif()
-
-    # Does this demo require OpenCV?
-    list(FIND ${DEMO_DEPENDS} "OPENCV" _opencv_depends_index)
-    if (${_opencv_depends_index} GREATER -1)
-        target_link_libraries(${DEMO_PROJECT} ${OpenCV_LIBS})
-    endif()
-
-    # Does this demo require Raylib?
-    list(FIND ${DEMO_DEPENDS} "RAYLIB" _raylib_depends_index)
-    if (${_raylib_depends_index} GREATER -1)
-        target_link_libraries(${DEMO_PROJECT} raylib)
-    endif()
-
-    list(FIND ${DEMO_DEPENDS} "TORCH" _torch_depends_index)
-    if (${_torch_depends_index} GREATER -1)
-        target_link_libraries(${DEMO_PROJECT} ${TORCH_LIBRARIES})
-    endif()
-
-    # Does this demo require Torch?
-    list(FIND ${DEMO_DEPENDS} "AUTODIFF" _autodiff_depends_index)
-    if (${_autodiff_depends_index} GREATER -1)
-        target_link_libraries(${DEMO_PROJECT} Eigen3::Eigen)
-        target_link_libraries(${DEMO_PROJECT} autodiff::autodiff)
     endif()
 endforeach()
