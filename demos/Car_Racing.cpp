@@ -126,7 +126,7 @@ int main() {
     setNumThreads(8);
 
     // Create hierarchy
-    Array<Hierarchy::LayerDesc> lds(3);
+    Array<Hierarchy::LayerDesc> lds(2);
 
     for (int i = 0; i < lds.size(); i++)
         lds[i].hiddenSize = Int3(5, 5, 16);
@@ -142,7 +142,7 @@ int main() {
 
     // Adapter to command the SPH to maximize reward
     RLAdapter adapter;
-    adapter.initRandom(h.getTopHiddenSize(), 2, 64); // Program size, radius, history capacity
+    adapter.initRandom(h.getTopHiddenSize(), 2, 128); // Program size, radius, history capacity
     
     //CustomStreamReader reader;
     //reader.ins.open(hFileName.c_str(), std::ios::out | std::ios::binary);
