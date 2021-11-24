@@ -134,8 +134,8 @@ int main() {
     // Two IODescs, for sensors and for actions
     // types none and prediction (no prediction and predictions used as actions)
     Array<Hierarchy::IODesc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IODesc(Int3(rootNumSensors, rootNumSensors, sensorResolution), IOType::none, 4, 2);
-    ioDescs[1] = Hierarchy::IODesc(Int3(1, 1, steerResolution), IOType::prediction, 2, 2);
+    ioDescs[0] = Hierarchy::IODesc(Int3(rootNumSensors, rootNumSensors, sensorResolution), IOType::none, 4, 2, 8);
+    ioDescs[1] = Hierarchy::IODesc(Int3(1, 1, steerResolution), IOType::prediction, 2, 2, 8);
 
     Hierarchy h;
     h.initRandom(ioDescs, lds);
