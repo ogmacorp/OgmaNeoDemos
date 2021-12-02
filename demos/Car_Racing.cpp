@@ -128,21 +128,24 @@ int main() {
     // Create hierarchy
     Array<Hierarchy::LayerDesc> lds(3);
 
-    for (int i = 0; i < lds.size(); i++)
+    for (int i = 0; i < lds.size(); i++) {
         lds[i].hiddenSize = Int3(5, 5, 16);
+        lds[i].ticksPerUpdate = 4;
+        lds[i].temporalHorizon = 4;
+    }
 
     // Two IODescs, for sensors and for actions
     // types none and prediction (no prediction and predictions used as actions)
     Array<Hierarchy::IODesc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IODesc(Int3(rootNumSensors, rootNumSensors, sensorResolution), IOType::none, 4, 2);
-    ioDescs[1] = Hierarchy::IODesc(Int3(1, 1, steerResolution), IOType::prediction, 2, 2);
+    ioDescs[0] = Hierarchy::IODesc(Int3(rootNumSensors, rootNumSensors, sensorResolution), IOType::none, 4, 2, 8);
+    ioDescs[1] = Hierarchy::IODesc(Int3(1, 1, steerResolution), IOType::prediction, 2, 2, 8);
 
     Hierarchy h;
     h.initRandom(ioDescs, lds);
 
     // Adapter to command the SPH to maximize reward
     RLAdapter adapter;
-    adapter.initRandom(h.getTopHiddenSize(), 2, 64); // Program size, radius, history capacity
+    adapter.initRandom(h.getTopHiddenSize()); // Program size, radius, history capacity
     
     //CustomStreamReader reader;
     //reader.ins.open(hFileName.c_str(), std::ios::out | std::ios::binary);
