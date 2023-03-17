@@ -159,30 +159,27 @@ endif()
 
 
 ############################################################################
-# Find Eigen3
-
-find_package(Eigen3 REQUIRED)
-
-
-############################################################################
-# Find autodiff
-
-find_package(autodiff REQUIRED)
-
-
-############################################################################
 # Define experiments to build
 
 include_directories("${PROJECT_SOURCE_DIR}/demos")
 
-#list(APPEND VIDEO_PREDICTION_SRCS "demos/Video_Prediction.cpp")
-#list(APPEND VIDEO_PREDICTION_SRCS "demos/vis/Vis3D.cpp")
-#list(APPEND VIDEO_PREDICTION_DEPS "SFML")
-#list(APPEND VIDEO_PREDICTION_DEPS "OPENCV")
-#list(APPEND VIDEO_PREDICTION_DEPS "RAYLIB")
-#list(APPEND DEMO_PROJECTS_LIST "Video_Prediction")
-#list(APPEND DEMO_SOURCES_LIST VIDEO_PREDICTION_SRCS)
-#list(APPEND DEMO_DEPENDS_LIST VIDEO_PREDICTION_DEPS)
+list(APPEND VIDEO_PREDICTION_SRCS "demos/Video_Prediction.cpp")
+list(APPEND VIDEO_PREDICTION_SRCS "demos/vis/Vis3D.cpp")
+list(APPEND VIDEO_PREDICTION_DEPS "SFML")
+list(APPEND VIDEO_PREDICTION_DEPS "OPENCV")
+list(APPEND VIDEO_PREDICTION_DEPS "RAYLIB")
+list(APPEND DEMO_PROJECTS_LIST "Video_Prediction")
+list(APPEND DEMO_SOURCES_LIST VIDEO_PREDICTION_SRCS)
+list(APPEND DEMO_DEPENDS_LIST VIDEO_PREDICTION_DEPS)
+
+#list(APPEND DONKEY_PLAYBACK_SRCS "demos/Donkey_Playback.cpp")
+#list(APPEND DONKEY_PLAYBACK_SRCS "demos/vis/Vis3D.cpp")
+#list(APPEND DONKEY_PLAYBACK_DEPS "SFML")
+#list(APPEND DONKEY_PLAYBACK_DEPS "OPENCV")
+#list(APPEND DONKEY_PLAYBACK_DEPS "RAYLIB")
+#list(APPEND DEMO_PROJECTS_LIST "Donkey_Playback")
+#list(APPEND DEMO_SOURCES_LIST DONKEY_PLAYBACK_SRCS)
+#list(APPEND DEMO_DEPENDS_LIST DONKEY_PLAYBACK_DEPS)
 
 #list(APPEND WAVY_LINE_SRCS "demos/Wavy_Line.cpp")
 #list(APPEND WAVY_LINE_SRCS "demos/vis/Plot.cpp")
@@ -204,11 +201,11 @@ include_directories("${PROJECT_SOURCE_DIR}/demos")
 #list(APPEND DEMO_SOURCES_LIST SWARM_TEST_SRCS)
 #list(APPEND DEMO_DEPENDS_LIST SWARM_TEST_DEPS)
 
-list(APPEND CAR_RACING_SRCS "demos/Car_Racing.cpp")
-list(APPEND CAR_RACING_DEPS "SFML")
-list(APPEND DEMO_PROJECTS_LIST "Car_Racing")
-list(APPEND DEMO_SOURCES_LIST CAR_RACING_SRCS)
-list(APPEND DEMO_DEPENDS_LIST CAR_RACING_DEPS)
+#list(APPEND CAR_RACING_SRCS "demos/Car_Racing.cpp")
+#list(APPEND CAR_RACING_DEPS "SFML")
+#list(APPEND DEMO_PROJECTS_LIST "Car_Racing")
+#list(APPEND DEMO_SOURCES_LIST CAR_RACING_SRCS)
+#list(APPEND DEMO_DEPENDS_LIST CAR_RACING_DEPS)
 
 #list(APPEND PUSHER_SRCS "demos/Pusher.cpp")
 #list(APPEND PUSHER_DEPS "SFML")
@@ -287,6 +284,13 @@ list(APPEND DEMO_DEPENDS_LIST CAR_RACING_DEPS)
 #list(APPEND DEMO_SOURCES_LIST STDP_RUN_SRCS)
 #list(APPEND DEMO_DEPENDS_LIST STDP_RUN_DEPS)
 
+#list(APPEND BALL_PHYSICS_RUN_SRCS "demos/Ball_Physics.cpp")
+#list(APPEND BALL_PHYSICS_RUN_DEPS "SFML")
+#list(APPEND BALL_PHYSICS_RUN_DEPS "BOX2D")
+#list(APPEND DEMO_PROJECTS_LIST "Ball_Physics")
+#list(APPEND DEMO_SOURCES_LIST BALL_PHYSICS_RUN_SRCS)
+#list(APPEND DEMO_DEPENDS_LIST BALL_PHYSICS_RUN_DEPS)
+
 #list(APPEND ARDUINOVIS_SRCS "demos/ArduinoVis.cpp")
 #list(APPEND ARDUINOVIS_DEPS "SFML")
 #list(APPEND ARDUINOVIS_DEPS "RAYLIB")
@@ -359,12 +363,5 @@ foreach(i RANGE ${num_demos})
     list(FIND ${DEMO_DEPENDS} "TORCH" _torch_depends_index)
     if (${_torch_depends_index} GREATER -1)
         target_link_libraries(${DEMO_PROJECT} ${TORCH_LIBRARIES})
-    endif()
-
-    # Does this demo require Torch?
-    list(FIND ${DEMO_DEPENDS} "AUTODIFF" _autodiff_depends_index)
-    if (${_autodiff_depends_index} GREATER -1)
-        target_link_libraries(${DEMO_PROJECT} Eigen3::Eigen)
-        target_link_libraries(${DEMO_PROJECT} autodiff::autodiff)
     endif()
 endforeach()

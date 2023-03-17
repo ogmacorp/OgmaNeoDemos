@@ -56,23 +56,25 @@ int main() {
     // Create hierarchy
     setNumThreads(8);
 
-    Array<Hierarchy::LayerDesc> lds(3);
+    Array<Hierarchy::LayerDesc> lds(1);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(4, 4, 16);
+        lds[i].hiddenSize = Int3(4, 4, 32);
         lds[i].ticksPerUpdate = 2;
         lds[i].temporalHorizon = 2;
     }
 
-    int sensorRes = 33;
-    int actionRes = 10;
+    int sensorRes = 32;
+    int actionRes = 5;
 
     Array<Hierarchy::IODesc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IODesc(Int3(2, 2, sensorRes), IOType::prediction, 2, 2, 64);
-    ioDescs[1] = Hierarchy::IODesc(Int3(1, 2, actionRes), IOType::action, 2, 2, 64);
+    ioDescs[0] = Hierarchy::IODesc(Int3(2, 2, sensorRes), IOType::prediction, 2, 2);
+    ioDescs[1] = Hierarchy::IODesc(Int3(1, 2, actionRes), IOType::action, 2, 2);
 
     Hierarchy h;
     h.initRandom(ioDescs, lds);
+
+    IntBuffer actionCIs = h.getPredictionCIs(1);
 
     //CustomStreamReader reader;
     //reader.ins.open(hFileName.c_str(), std::ios::out | std::ios::binary);
@@ -109,6 +111,7 @@ int main() {
     float averageReward = 0.0f;
 
     float distPrev = -1.0f;
+    float objectDistPrev = -1.0f;
 
     sf::Vector2f objectPos(0.3f, 0.3f);
     sf::Vector2f pusherPos(0.0f, 0.0f);
@@ -183,13 +186,24 @@ int main() {
 
         float mag = std::sqrt(delta.x * delta.x + delta.y * delta.y);
 
-        float maxSpeed = 0.05f;
+        float maxSpeed = 0.08f;
 
         if (mag > maxSpeed)
             delta *= maxSpeed / mag;
 
-        delta.x = maxSpeed * (h.getPredictionCIs(1)[0] / static_cast<float>(actionRes - 1) * 2.0f - 1.0f);
-        delta.y = maxSpeed * (h.getPredictionCIs(1)[1] / static_cast<float>(actionRes - 1) * 2.0f - 1.0f);
+        actionCIs = h.getPredictionCIs(1);
+
+        // Exploration
+        for (int i = 0; i < actionCIs.size(); i++) {
+            if (dist01(rng) < 0.1f) {
+                std::uniform_int_distribution<int> actionDist(0, actionRes - 1);
+
+                actionCIs[i] = actionDist(rng);
+            }
+        }
+
+        delta.x = maxSpeed * (actionCIs[0] / static_cast<float>(actionRes - 1) * 2.0f - 1.0f);
+        delta.y = maxSpeed * (actionCIs[1] / static_cast<float>(actionRes - 1) * 2.0f - 1.0f);
 
         pusherPos += delta;
 
@@ -205,36 +219,54 @@ int main() {
 
         float distToCenter = std::sqrt(objectPos.x * objectPos.x + objectPos.y * objectPos.y);
 
+        sf::Vector2f objectDelta = objectPos - pusherPos;
+
+        float distToObject = std::sqrt(objectDelta.x * objectDelta.x + objectDelta.y * objectDelta.y);
+
         if (distPrev == -1.0f)
             distPrev = distToCenter;
 
-        float reward = -(distToCenter - distPrev);
+        if (objectDistPrev == -1.0f)
+            objectDistPrev = distToObject;
+
+        float reward = -1.0f * (distToCenter - distPrev) - 0.2f * (distToObject - objectDistPrev);
 
         distPrev = distToCenter;
+        objectDistPrev = distToObject;
 
-        if (distToCenter < 0.04f || objectPos.x < -1.0f || objectPos.x > 1.0f || objectPos.y < -1.0f || objectPos.y > 1.0f) {
+        bool outOfBounds = objectPos.x < -1.0f || objectPos.x > 1.0f || objectPos.y < -1.0f || objectPos.y > 1.0f;
+
+        if (distToCenter < 0.06f || outOfBounds) {
             // Reset
             objectPos = sf::Vector2f(dist01(rng) * 2.0f - 1.0f, dist01(rng) * 2.0f - 1.0f) * 0.6f;
 
-            reward = 10.0f;
+            reward = outOfBounds ? -10.0f : 100.0f;
+
+            if (reward == 100.0f) {
+                std::cout << "Made it!" << std::endl;
+            }
+            else {
+                std::cout << "Out of bounds!" << std::endl;
+            }
 
             distPrev = -1.0f;
+            objectDistPrev = -1.0f;
         }
         //std::cout << reward << std::endl;
 
         IntBuffer sensorCIs(4);
         sensorCIs[0] = (pusherPos.x * 0.5f + 0.5f) * (sensorRes - 1) + 0.5f;
         sensorCIs[1] = (pusherPos.y * 0.5f + 0.5f) * (sensorRes - 1) + 0.5f;
-        sensorCIs[2] = (objectPos.x * 0.5f + 0.5f) * (sensorRes - 1) + 0.5f;
-        sensorCIs[3] = (objectPos.y * 0.5f + 0.5f) * (sensorRes - 1) + 0.5f;
+        sensorCIs[2] = (objectDelta.x * 0.5f + 0.5f) * (sensorRes - 1) + 0.5f;
+        sensorCIs[3] = (objectDelta.y * 0.5f + 0.5f) * (sensorRes - 1) + 0.5f;
 
         Array<const IntBuffer*> inputCIs(2);
         inputCIs[0] = &sensorCIs;
-        inputCIs[1] = &h.getPredictionCIs(1);
+        inputCIs[1] = &actionCIs;
 
         h.step(inputCIs, true, reward);
 
-        if (!speedMode || renderCounter >= 100) {
+        if (!speedMode || renderCounter >= 300) {
             window.clear();
 
             renderCounter = 0;

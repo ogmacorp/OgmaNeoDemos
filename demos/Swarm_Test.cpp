@@ -9,6 +9,18 @@
 #include <cmath>
 #include <random>
 
+inline float sigmoid(
+    float x
+) {
+    if (x < 0.0f) {
+        float z = std::exp(x);
+
+        return z / (1.0f + z);
+    }
+    
+    return 1.0f / (1.0f + std::exp(-x));
+}
+
 struct CartPoleEnv {
     float x;
     float dx;
@@ -47,7 +59,7 @@ int main() {
 
     sf::RenderWindow window;
 
-    window.create(sf::VideoMode(windowWidth, windowHeight), "STDP Demo", sf::Style::Default);
+    window.create(sf::VideoMode(windowWidth, windowHeight), "Swarm Demo", sf::Style::Default);
 
     //window.setVerticalSyncEnabled(true);
     window.setFramerateLimit(60);
@@ -81,6 +93,7 @@ int main() {
     bool quit = false;
 
     int t = 0;
+    int attempt = 0;
 
     do {
         sf::Event event;
@@ -101,7 +114,7 @@ int main() {
         int iters = 1;
 
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space))
-            iters = 10000;
+            iters = 1000;
 
         for (int it = 0; it < iters; it++) {
             std::vector<bool> inputs(inValues * inRes, false);
@@ -114,7 +127,7 @@ int main() {
             inputValuesf[3] = env.dtheta;
 
             for (int i = 0; i < 4; i++) {
-                int v = sigmoid(inputValuesf[i] * 2.0f) * (maxBound - 1) + 0.5f;
+                int v = sigmoid(inputValuesf[i] * 6.0f) * (maxBound - 1) + 0.5f;
 
                 for (int j = 0; j < inRes; j++)
                     inputs[i * inRes + j] = (v >> j) & 0x1;
@@ -149,9 +162,10 @@ int main() {
             reward = 0.0f;
 
             if (std::abs(env.theta) > fallAngle || std::abs(env.x) > fallDist) {
-                std::cout << "Survived " << t << " steps." << std::endl;
+                std::cout << attempt << ": Survived " << t << " steps." << std::endl;
                 t = 0;
                 reward = -1.0f;
+                attempt++;
 
                 env.x = 0.0f;
                 env.theta = thetaDist(rng);

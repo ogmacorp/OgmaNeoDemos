@@ -7,7 +7,6 @@
 // ----------------------------------------------------------------------------
 
 #include "Vis3D.h"
-#include <raylib.h>
 
 #define RAYGUI_IMPLEMENTATION
 #include "raygui/raygui.h"
@@ -17,7 +16,7 @@
 
 const Color hcellActiveColor = (Color){ 255, 64, 64, 255 };
 const Color cellPredictedColor = (Color){ 64, 255, 64, 255 };
-const Color cellOffColor = (Color){ 192, 192, 192, 255 };
+const Color cellOffColor = (Color){ 192, 192, 192, 16 };
 const Color cellSelectColor = (Color){ 64, 64, 255, 255 };
 
 const float cellRadius = 0.25f;
@@ -46,7 +45,7 @@ Vis3D::Vis3D(
     camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
     camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
     camera.fovy = 70.0f;
-    camera.type = CAMERA_PERSPECTIVE;
+    camera.projection = CAMERA_PERSPECTIVE;
 
     SetCameraMode(camera, CAMERA_FREE);
 
@@ -89,6 +88,7 @@ Vis3D::~Vis3D() {
 }
 
 void Vis3D::update(
+    const aon::Array<const aon::IntBuffer*> &inputCIs,
     const aon::Hierarchy &h,
     const std::vector<ImgEncDesc> &imgEncDescs
 ) {
@@ -140,10 +140,10 @@ void Vis3D::update(
     float inputWidthTotal = 0.0f;
     float maxInputHeight = 0.0f;
 
-    for (int i = 0; i < h.getInputSizes().size(); i++) {
-        inputWidthTotal += (i < h.getInputSizes().size() - 1 ? layerDelta : 0) + h.getInputSizes()[i].x;
+    for (int i = 0; i < h.getNumIO(); i++) {
+        inputWidthTotal += (i < h.getNumIO() - 1 ? layerDelta : 0) + h.getIOSize(i).x;
 
-        maxInputHeight = std::max<float>(maxInputHeight, h.getInputSizes()[i].z);
+        maxInputHeight = std::max<float>(maxInputHeight, h.getIOSize(i).z);
     }
 
     float zOffset = -hierarchyHeight * 0.5f;
@@ -151,35 +151,33 @@ void Vis3D::update(
     // Render input layers
     float xOffset = -inputWidthTotal * 0.5f;
 
-    for (int i = 0; i < h.getInputSizes().size(); i++) {
-        const aon::CircleBuffer<aon::IntBuffer> &hist = h.getHistories(0)[i];
-
-        aon::IntBuffer csdr = hist[0];
+    for (int i = 0; i < h.getNumIO(); i++) {
+        aon::IntBuffer csdr = (*inputCIs[i]);
         aon::IntBuffer pcsdr = h.getPredictionCIs(i);
         
-        Vector3 offset = (Vector3){ -h.getInputSizes()[i].x * 0.5f + h.getInputSizes()[i].x * 0.5f + xOffset, -h.getInputSizes()[i].y * 0.5f, -h.getInputSizes()[i].z * 0.5f + zOffset - layerDelta - maxInputHeight * 0.5f};
+        Vector3 offset = (Vector3){ -h.getIOSize(i).x * 0.5f + h.getIOSize(i).x * 0.5f + xOffset, -h.getIOSize(i).y * 0.5f, -h.getIOSize(i).z * 0.5f + zOffset - layerDelta - maxInputHeight * 0.5f};
 
         // Update bottom-most
         bottomMost = aon::min<float>(bottomMost, offset.z);
 
         // Construct columns
-        for (int cx = 0; cx < h.getInputSizes()[i].x; cx++)
-            for (int cy = 0; cy < h.getInputSizes()[i].y; cy++) {
-                int columnIndex = aon::address2(aon::Int2(cx, cy), aon::Int2(h.getInputSizes()[i].x, h.getInputSizes()[i].y));
+        for (int cx = 0; cx < h.getIOSize(i).x; cx++)
+            for (int cy = 0; cy < h.getIOSize(i).y; cy++) {
+                int columnIndex = aon::address2(aon::Int2(cx, cy), aon::Int2(h.getIOSize(i).x, h.getIOSize(i).y));
 
                 int c = csdr[columnIndex];
                 
-                columns.push_back(std::tuple<Vector3, Vector3, Color>((Vector3){ cx + offset.x + 0.5f, offset.z + h.getInputSizes()[i].z * 0.5f - columnRadius, cy + offset.y + 0.5f }, (Vector3){ columnRadius * 2.0f, h.getInputSizes()[i].z + columnRadius * 2.0f, columnRadius * 2.0f }, (Color){0, 0, 0, 64}));
+                columns.push_back(std::tuple<Vector3, Vector3, Color>((Vector3){ cx + offset.x + 0.5f, offset.z + h.getIOSize(i).z * 0.5f - columnRadius, cy + offset.y + 0.5f }, (Vector3){ columnRadius * 2.0f, h.getIOSize(i).z + columnRadius * 2.0f, columnRadius * 2.0f }, (Color){255, 255, 255, 16}));
                 
                 Vector3 lowerBound = (Vector3){ std::get<0>(columns.back()).x - std::get<1>(columns.back()).x * 0.5f, std::get<0>(columns.back()).y - std::get<1>(columns.back()).y * 0.5f, std::get<0>(columns.back()).z - std::get<1>(columns.back()).z * 0.5f };
                 Vector3 upperBound = (Vector3){ std::get<0>(columns.back()).x + std::get<1>(columns.back()).x * 0.5f, std::get<0>(columns.back()).y + std::get<1>(columns.back()).y * 0.5f, std::get<0>(columns.back()).z + std::get<1>(columns.back()).z * 0.5f };
                 
-                bool columnCollision = select ? CheckCollisionRayBox(ray, (BoundingBox){ lowerBound, upperBound }) : false;
+                bool columnCollision = select ? GetRayCollisionBox(ray, (BoundingBox){ lowerBound, upperBound }).hit : false;
                 
-                for (int cz = 0; cz < h.getInputSizes()[i].z; cz++) {
+                for (int cz = 0; cz < h.getIOSize(i).z; cz++) {
                     Vector3 position = (Vector3){ cx + offset.x + 0.5f, cz + offset.z, cy + offset.y + 0.5f };
 
-                    bool cellCollision = columnCollision ? CheckCollisionRaySphere(ray, position, cellRadius) : false;
+                    bool cellCollision = columnCollision ? GetRayCollisionSphere(ray, position, cellRadius).hit : false;
 
                     if (cellCollision) {
                         // If already found one, compare distance
@@ -224,17 +222,20 @@ void Vis3D::update(
             }
 
         // Line to next layer
-        lines.push_back(std::tuple<Vector3, Vector3, Color>((Vector3){ xOffset + h.getInputSizes()[i].x * 0.5f, zOffset - layerDelta - (maxInputHeight - h.getInputSizes()[i].z) * 0.5f, 0.0f }, (Vector3){ 0.0f, zOffset, 0.0f }, (Color){ 0, 0, 0, 128 }));
+        lines.push_back(std::tuple<Vector3, Vector3, Color>((Vector3){ xOffset + h.getIOSize(i).x * 0.5f, zOffset - layerDelta - (maxInputHeight - h.getIOSize(i).z) * 0.5f, 0.0f }, (Vector3){ 0.0f, zOffset, 0.0f }, (Color){ 255, 255, 255, 64 }));
 
-        xOffset += layerDelta + h.getInputSizes()[i].x;
+        xOffset += layerDelta + h.getIOSize(i).x;
     }
 
     for (int l = 0; l < h.getNumLayers(); l++) {
         aon::IntBuffer hcsdr = h.getELayer(l).getHiddenCIs();
         aon::IntBuffer pcsdr;
         
-        if (l < h.getNumLayers() - 1)
-            pcsdr = h.getDLayers(l + 1)[0][h.getTicksPerUpdate(l + 1) - 1 - h.getTicks(l + 1)].getHiddenCIs();
+        if (l < h.getNumLayers() - 1) {
+            int numInputs = h.getHistories(0).size() * h.getHistories(0)[0].size();
+            //pcsdr = h.getELayer(l + 1).getVisibleLayer(numInputs + h.getTicksPerUpdate(l + 1) - 1 - h.getTicks(l + 1)).reconCIs;
+            pcsdr = h.getDLayer(l + 1, 0).getHiddenCIs();
+        }
 
         Vector3 offset = (Vector3){ -h.getELayer(l).getHiddenSize().x * 0.5f, -h.getELayer(l).getHiddenSize().y * 0.5f, zOffset };
 
@@ -245,17 +246,17 @@ void Vis3D::update(
 
                 int hc = hcsdr[columnIndex];
 
-                columns.push_back(std::tuple<Vector3, Vector3, Color>((Vector3){ cx + offset.x + 0.5f, offset.z + h.getELayer(l).getHiddenSize().z * 0.5f - columnRadius, cy + offset.y + 0.5f }, (Vector3){ columnRadius * 2.0f, h.getELayer(l).getHiddenSize().z + columnRadius * 2.0f, columnRadius * 2.0f }, (Color){0, 0, 0, 64}));
+                columns.push_back(std::tuple<Vector3, Vector3, Color>((Vector3){ cx + offset.x + 0.5f, offset.z + h.getELayer(l).getHiddenSize().z * 0.5f - columnRadius, cy + offset.y + 0.5f }, (Vector3){ columnRadius * 2.0f, h.getELayer(l).getHiddenSize().z + columnRadius * 2.0f, columnRadius * 2.0f }, (Color){255, 255, 255, 16}));
                 
                 Vector3 lowerBound = (Vector3){ std::get<0>(columns.back()).x - std::get<1>(columns.back()).x * 0.5f, std::get<0>(columns.back()).y - std::get<1>(columns.back()).y * 0.5f, std::get<0>(columns.back()).z - std::get<1>(columns.back()).z * 0.5f };
                 Vector3 upperBound = (Vector3){ std::get<0>(columns.back()).x + std::get<1>(columns.back()).x * 0.5f, std::get<0>(columns.back()).y + std::get<1>(columns.back()).y * 0.5f, std::get<0>(columns.back()).z + std::get<1>(columns.back()).z * 0.5f };
                 
-                bool columnCollision = select ? CheckCollisionRayBox(ray, (BoundingBox){ lowerBound, upperBound }) : false;
+                bool columnCollision = select ? GetRayCollisionBox(ray, (BoundingBox){ lowerBound, upperBound }).hit : false;
                 
                 for (int cz = 0; cz < h.getELayer(l).getHiddenSize().z; cz++) {
                     Vector3 position = (Vector3){ cx + offset.x + 0.5f, cz + offset.z, cy + offset.y + 0.5f };
 
-                    bool cellCollision = columnCollision ? CheckCollisionRaySphere(ray, position, cellRadius) : false;
+                    bool cellCollision = columnCollision ? GetRayCollisionSphere(ray, position, cellRadius).hit : false;
 
                     if (cellCollision) {
                         // If already found one, compare distance
@@ -300,7 +301,7 @@ void Vis3D::update(
             }
 
         if (l < h.getNumLayers() - 1)
-            lines.push_back(std::tuple<Vector3, Vector3, Color>((Vector3){ 0.0f, zOffset + h.getELayer(l).getHiddenSize().z, 0.0f }, (Vector3){ 0.0f, zOffset + h.getELayer(l).getHiddenSize().z + layerDelta, 0.0f }, (Color){ 0, 0, 0, 128 }));
+            lines.push_back(std::tuple<Vector3, Vector3, Color>((Vector3){ 0.0f, zOffset + h.getELayer(l).getHiddenSize().z, 0.0f }, (Vector3){ 0.0f, zOffset + h.getELayer(l).getHiddenSize().z + layerDelta, 0.0f }, (Color){ 255, 255, 255, 64 }));
 
         zOffset += layerDelta + h.getELayer(l).getHiddenSize().z;
     }
@@ -359,11 +360,11 @@ void Vis3D::update(
 
                     aon::Int2 offset(ix - fieldLowerBound.x, iy - fieldLowerBound.y);
 
-                    ffWeights[offset.y + offset.x * diam] = hvl.weights[ffZ + hvld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))]; 
+                    ffWeights[offset.y + offset.x * diam] = hvl.weights[ffZ + hvld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))] / 255.0f; 
 
-                    unsigned char hc = (int)(aon::sigmoid(hvl.weights[ffZ + hvld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))] * 2.0f) * 255.0f);
+                    unsigned char wc = (int)(hvl.weights[ffZ + hvld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))]);
 
-                    colors[offset.y + offset.x * diam] = (Color){ hc, 0, 0, 255 };
+                    colors[offset.y + offset.x * diam] = (Color){ wc, 0, 0, 255 };
                 }
 
             // Load image
@@ -372,7 +373,7 @@ void Vis3D::update(
             image.width = width;
             image.height = height;
             image.mipmaps = 1;
-            image.format = UNCOMPRESSED_R8G8B8A8;
+            image.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
 
             int k = 0;
 
@@ -387,7 +388,7 @@ void Vis3D::update(
             }
 
             // Load texture
-            if (showTextures) // Already have, just update
+            if (showTextures && !(selectLayer != selectLayerPrev || selectInput != selectInputPrev)) // Already have, just update
                 UpdateTexture(ffTexture, image.data);
             else
                 ffTexture = LoadTextureFromImage(image);
@@ -455,20 +456,20 @@ void Vis3D::update(
                         aon::Int2 offset(ix - fieldLowerBound.x, iy - fieldLowerBound.y);
 
                         if (vld.size.z == 2) {
-                            unsigned char r = vl.protos[0 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
-                            unsigned char g = vl.protos[1 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
+                            unsigned char r = vl.weights0[0 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
+                            unsigned char g = vl.weights0[1 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
 
                             colors[offset.y + offset.x * diam] = (Color){ r, g, 0, 255 };
                         }
                         else if (vld.size.z == 3) {
-                            unsigned char r = vl.protos[0 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
-                            unsigned char g = vl.protos[1 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
-                            unsigned char b = vl.protos[2 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
+                            unsigned char r = vl.weights0[0 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
+                            unsigned char g = vl.weights0[1 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
+                            unsigned char b = vl.weights0[2 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
 
                             colors[offset.y + offset.x * diam] = (Color){ r, g, b, 255 };
                         }
                         else {
-                            unsigned char c = vl.protos[ffZ + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
+                            unsigned char c = vl.weights0[ffZ + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
 
                             colors[offset.y + offset.x * diam] = (Color){ c, c, c, 255 };
                         }
@@ -480,7 +481,7 @@ void Vis3D::update(
                 image.width = width;
                 image.height = height;
                 image.mipmaps = 1;
-                image.format = UNCOMPRESSED_R8G8B8A8;
+                image.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
 
                 int k = 0;
 
@@ -495,7 +496,7 @@ void Vis3D::update(
                 }
 
                 // Load texture
-                if (showTextures) // Already have, just update
+                if (showTextures && !(selectLayer != selectLayerPrev || selectInput != selectInputPrev)) // Already have, just update
                     UpdateTexture(ffTexture, image.data);
                 else
                     ffTexture = LoadTextureFromImage(image);
@@ -566,7 +567,7 @@ void Vis3D::update(
             image.width = imgWidth;
             image.height = imgHeight;
             image.mipmaps = 1;
-            image.format = UNCOMPRESSED_R8G8B8A8;
+            image.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
 
             int k = 0;
 
@@ -591,7 +592,7 @@ void Vis3D::update(
 
                 //UnloadMesh(m);
 
-                imgEncPlanes[imgIndex].materials[0].maps[MAP_DIFFUSE].texture = imgEncTextures[imgIndex];
+                imgEncPlanes[imgIndex].materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = imgEncTextures[imgIndex];
             }
 
             UnloadImage(image);
@@ -615,12 +616,12 @@ void Vis3D::render() {
 
     BeginDrawing();
 
-        ClearBackground(RAYWHITE);
+        ClearBackground(Color{ 33, 33, 33, 255 });
 
         BeginMode3D(camera);
 
             for (int i = 0; i < cells.size(); i++)
-                DrawSphereEx(std::get<0>(cells[i]), cellRadius, 6, 6, std::get<1>(cells[i]));
+                DrawSphereEx(std::get<0>(cells[i]), cellRadius, 4, 4, std::get<1>(cells[i]));
 
             for (int i = 0; i < columns.size(); i++)
                 DrawCubeWiresV(std::get<0>(columns[i]), std::get<1>(columns[i]), std::get<2>(columns[i]));
@@ -635,8 +636,8 @@ void Vis3D::render() {
 
         EndMode3D();
 
-        DrawRectangle( 10, 10, 290, 60, Fade(SKYBLUE, 0.5f));
-        DrawRectangleLines( 10, 10, 290, 60, BLUE);
+        DrawRectangle( 10, 10, 290, 60, Color{ 128, 128, 128, 32 });
+        DrawRectangleLines( 10, 10, 290, 60, Color{ 255, 255, 255, 32 });
 
         DrawText("Middle mouse button + move mouse -> pan", 20, 20, 8, DARKGRAY);
         DrawText("Shift + middle mouse button + move mouse -> rotate", 20, 30, 8, DARKGRAY);
@@ -660,7 +661,7 @@ void Vis3D::render() {
 
                 float weight = ffWeights[wx + wy * ffTexture.width];
 
-                DrawText(std::to_string(weight).c_str(), 10, texRec.y - 40, 24, (Color){ 0, 0, 0, 255 });
+                DrawText(std::to_string(weight).c_str(), 10, texRec.y - 40, 24, (Color){ 255, 255, 255, 255 });
             }
 
             DrawTextureEx(ffTexture, (Vector2){ texRec.x, texRec.y }, 0.0f, textureScaling, (Color){ 255, 255, 255, 255 });

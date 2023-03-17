@@ -71,8 +71,15 @@ int main() {
     Vec3f lvel(0.0f, 0.0f, 0.0f);
     Vec3f rvel(0.0f, 0.0f, 0.0f);
 
+    Matrix4x4f test = Matrix4x4f::rotateMatrix(Vec3f(0.9f, -0.4f, 0.3f));
+
+    std::cout << test.getUpperLeftMatrix3x3f().getEulerAngles() << std::endl;
+
     Graph g;
     g.init(16);
+
+    std::vector<int> path;
+    int waypointNodeIndex = -1;
 
     bool quit = false;
 
@@ -115,7 +122,9 @@ int main() {
 
             float moveX = 0.0f;
             float moveY = 0.0f;
+            float moveAngle = 0.0f;
             float speed = 1.0f;
+            float angleSpeed = 0.5f;
 
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::A))
                 moveX = -speed;
@@ -127,13 +136,27 @@ int main() {
             else if (sf::Keyboard::isKeyPressed(sf::Keyboard::W))
                 moveY = -speed;
 
+
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Q))
+                moveAngle = angleSpeed;
+            else if (sf::Keyboard::isKeyPressed(sf::Keyboard::E))
+                moveAngle = -angleSpeed;
+
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::L))
+                waypointNodeIndex = g.lastN;
+
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::P)) {
+                if (g.lastN != -1 && waypointNodeIndex != -1)
+                    g.findPath(waypointNodeIndex, g.lastN, path);
+            }
+
             if (true) {
                 // Move
                 lvel += -10.0f * dt * lvel + Vec3f(moveX, moveY, 0.0f) * dt - 0.1f * dt * pos;
-                rvel += -10.0f * dt * rvel + Vec3f(0.0f, 0.0f, nDist(rng) * 0.3f) * dt;
+                rvel += -10.0f * dt * rvel + Vec3f(0.0f, 0.0f, moveAngle) * dt; // nDist(rng) * 0.3f
 
                 pos += lvel * dt;
-                //rot += rvel * dt;
+                rot += rvel * dt;
 
                 if (pos.x > 1.0f)
                     pos.x = 1.0f;
@@ -152,7 +175,8 @@ int main() {
                 trans = Matrix4x4f::translateMatrix(pos) * Matrix4x4f::rotateMatrix(rot);
 
                 float driftNoise = 0.0f;
-                Matrix4x4f delta = inv * trans * Matrix4x4f::translateMatrix(Vec3f(nDist(rng) * driftNoise, nDist(rng) * driftNoise, 0.0f));
+                float rotNoise = 0.0f;
+                Matrix4x4f delta = trans * inv * Matrix4x4f::translateMatrix(Vec3f(nDist(rng) * driftNoise, nDist(rng) * driftNoise, 0.0f)) * Matrix4x4f::rotateMatrixZ(nDist(rng) * rotNoise);
 
                 // Add node
                 g.step(delta, transToCSDR(trans, 1.0f));
@@ -170,7 +194,7 @@ int main() {
 
         const float renderScale = 400.0f;
 
-        g.renderXY(window, renderScale);
+        g.renderXY(window, renderScale, path);
 
         {
             sf::CircleShape cs;

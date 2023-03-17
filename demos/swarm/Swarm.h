@@ -4,18 +4,6 @@
 #include <array>
 #include <random>
 
-inline float sigmoid(
-    float x
-) {
-    if (x < 0.0f) {
-        float z = std::exp(x);
-
-        return z / (1.0f + z);
-    }
-    
-    return 1.0f / (1.0f + std::exp(-x));
-}
-
 class Swarm {
 public:
     struct Cell {
@@ -48,7 +36,7 @@ public:
     :
     lr(0.001f),
     discount(0.99f),
-    traceDecay(0.97f),
+    traceDecay(0.98f),
     epsilon(0.001f)
     {}
 

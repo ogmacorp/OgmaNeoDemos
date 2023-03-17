@@ -42,7 +42,7 @@ public:
 int main() {
     bool load = false;
     bool manualControl = false;
-    float epsilon = 0.0f;
+    float epsilon = 0.03f;
 
     const std::string hCatFileName = "hCat.ohr";
     const std::string hMouseFileName = "hMouse.ohr";
@@ -63,7 +63,7 @@ int main() {
     float mouseRewardTotal = 0.0f;
 
     sf::Image map;
-    map.loadFromFile("resources/map7.png");
+    map.loadFromFile("resources/map0.png");
 
     CatMouseEnv env;
     env.init(map);
@@ -73,21 +73,21 @@ int main() {
     // Create hierarchy
     setNumThreads(8);
 
-    Array<Hierarchy::LayerDesc> lds(2);
+    Array<Hierarchy::LayerDesc> lds(6);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(4, 4, 32);
+        lds[i].hiddenSize = Int3(5, 5, 32);
         //lds[i].eRadius = 2;
         //lds[i].dRadius = 2;
         //lds[i].ticksPerUpdate = 4;
         //lds[i].temporalHorizon = 4;
     }
 
-    int obsRes = 15;
+    int obsRes = 32;
     int actionRes = 5;
 
     Array<Hierarchy::IODesc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IODesc(Int3(4, 3, obsRes), IOType::prediction, 2, 2);
+    ioDescs[0] = Hierarchy::IODesc(Int3(4, 3, obsRes), IOType::none, 2, 2);
     ioDescs[1] = Hierarchy::IODesc(Int3(1, 3, actionRes), IOType::action, 1, 2);
 
     Hierarchy hCat;
@@ -111,6 +111,9 @@ int main() {
     else {
         hCat.initRandom(ioDescs, lds);
         hMouse.initRandom(ioDescs, lds);
+
+        //hCat.setInputImportance(1, 0.0f);
+        //hMouse.setInputImportance(1, 0.0f);
 
         std::cout << "Random init" << std::endl;
     }
@@ -156,7 +159,7 @@ int main() {
     do {
         clock.restart();
 
-        int numSubSteps = speedMode ? 200 : 1;
+        int numSubSteps = speedMode ? 300 : 1;
 
         for (int ss = 0; ss < numSubSteps; ss++) {
             // ----------------------------- Input -----------------------------
@@ -209,26 +212,16 @@ int main() {
 
             env.getObs(catObs, mouseObs, catVisual, mouseVisual);
 
-            float catCuriosity = 0.0f;
-
             for (int i = 0; i < catObs.size(); i++) {
                 assert(catObs[i] >= 0.0f && catObs[i] <= 1.0f);
                 assert(mouseObs[i] >= 0.0f && mouseObs[i] <= 1.0f);
 
                 catObsi[i] = catObs[i] * (obsRes - 1) + 0.5f;
                 mouseObsi[i] = mouseObs[i] * (obsRes - 1) + 0.5f;
-
-                float diff = catObsi[i] - hCat.getPredictionCIs(0)[i];
-
-                diff /= obsRes - 1;
-
-                catCuriosity += std::abs(diff);
             }
 
-            catCuriosity /= catObs.size();
-
-            if (window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::C))
-                std::cout << "Curiosity: " << catCuriosity << std::endl;
+            //if (window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::C))
+            //    std::cout << "Curiosity: " << catCuriosity << std::endl;
 
             float catReward = env.getDone() * 10.0f;// + catCuriosity * 0.1f + catVisual * 1.0f;
             float mouseReward = env.getDone() * -10.0f;

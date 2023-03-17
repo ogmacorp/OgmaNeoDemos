@@ -12,7 +12,6 @@
 #include <runner/Runner.h>
 
 #include <aogmaneo/Hierarchy.h>
-#include <aogmaneo/RLAdapter.h>
 
 #include <time.h>
 #include <iostream>
@@ -104,26 +103,21 @@ int main() {
     // Create the agent
     setNumThreads(8);
 
-    Array<Hierarchy::LayerDesc> lds(4);
+    Array<Hierarchy::LayerDesc> lds(5);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(4, 4, 16);
-        lds[i].ticksPerUpdate = 4;
-        lds[i].temporalHorizon = 4;
+        lds[i].hiddenSize = Int3(5, 5, 32);
     }
 
-    const int sensorResolution = 31;
-    const int actionResolution = 13;
+    const int sensorResolution = 32;
+    const int actionResolution = 9;
 
     Array<Hierarchy::IODesc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IODesc(Int3(4, 6, sensorResolution), IOType::prediction, 2, 2, 8);
-    ioDescs[1] = Hierarchy::IODesc(Int3(2, 4, actionResolution), IOType::prediction, 2, 2, 8);
+    ioDescs[0] = Hierarchy::IODesc(Int3(4, 6, sensorResolution), IOType::none);
+    ioDescs[1] = Hierarchy::IODesc(Int3(2, 4, actionResolution), IOType::action);
 
     Hierarchy h;
     h.initRandom(ioDescs, lds);
-
-    aon::RLAdapter adapter;
-    adapter.initRandom(h.getTopHiddenSize(), 256);
 
     // ---------------------------- Game Loop -----------------------------
 
@@ -201,10 +195,10 @@ int main() {
 
             runner.getStateVector(state);
 
-            IntBuffer sensorCIs(inputCount, 0);
+            IntBuffer sensorCIs(h.getIOSize(0).x * h.getIOSize(0).y, 0);
 
             for (int i = 0; i < state.size(); i++)
-                sensorCIs[i] = sigmoid(state[i] * 2.0f) * (sensorResolution - 1) + 0.5f;
+                sensorCIs[i] = sigmoidf(state[i] * 2.0f) * (sensorResolution - 1) + 0.5f;
 
             int nextHurdleIndex = 0;
 
@@ -234,21 +228,17 @@ int main() {
 
             std::normal_distribution<float> noiseDist(0.0f, 0.1f);
 
-            float reward = vel;// * (1.0f + noiseDist(rng));
-
-            reward *= 1.0f;
+            float reward = vel * 1.0f;// + 2.0f * (runner.body->GetPosition().y - runnerSpawnHeight);// * (1.0f + noiseDist(rng));
 
             if (reset)
                 reward -= 100.0f;
 
-            adapter.step(&h.getTopHiddenCIs(), reward, true, h.getTopUpdate());
-
-            h.step(inputCIs, &adapter.getGoalCIs(), true);
+            h.step(inputCIs, true, reward);
 
             actionCIs = h.getPredictionCIs(1);
 
             for (int i = 0; i < actionCIs.size(); i++) {
-                if (dist01(rng) < 0.04f)
+                if (dist01(rng) < 0.0f)
                     actionCIs[i] = actionDist(rng);
             }
 
@@ -261,11 +251,10 @@ int main() {
         // Step the physics simulation
         int subSteps = 1;
 
-        world.ClearForces();
-
         for (int ss = 0; ss < subSteps; ss++) {
+            world.ClearForces();
             runner.motorUpdate(rescaledActions);
-            world.Step(1.0f / 60.0f / subSteps, 8, 8);
+            world.Step(1.0f / 60.0f / subSteps, 32, 32);
         }
 
         averageVel = 0.99f * averageVel + 0.01f * runner.body->GetLinearVelocity().x;

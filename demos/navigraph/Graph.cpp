@@ -1,8 +1,6 @@
 #include "Graph.h"
 
-#include <iostream>
-
-std::mt19937 rng;
+#include <unordered_set>
 
 float getSimilarity(
     const CSDR &left,
@@ -35,24 +33,6 @@ float getSimilarity(
     sim /= 16.0f;
 
     return sim;
-}
-
-void merge(
-    const CSDR &left,
-    const CSDR &right,
-    CSDR &result
-) {
-    std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
-
-    if (result.size() != left.size())
-        result.resize(left.size());
-
-    for (int i = 0; i < left.size(); i++) {
-        if (dist01(rng) < 0.5f)
-            result[i] = left[i];
-        else
-            result[i] = right[i];
-    }
 }
 
 void toward(
@@ -113,8 +93,6 @@ void Graph::init(
     this->columnSize = columnSize;
 
     estimated.setIdentity();
-
-    accumDelta.setIdentity();
 }
 
 void Graph::step(
@@ -125,18 +103,16 @@ void Graph::step(
 
     estimated *= delta;
 
-    accumDelta *= delta;
-
     // Update nodes based on closeness to estimated position
     CSDR temp(csdr.size());
 
-    int maxN = 0;
+    int maxN = -1;
     float maxSim = 0.0f;
 
     for (int n = 0; n < nodes.size(); n++) {
         inhibit(nodes[n].qcsdr, temp);
 
-        float sim = getSimilarity(csdr, temp) * (1.0f - transWeight) + std::exp(getSimilarity(estimated, nodes[n].trans) * transScale) * transWeight;
+        float sim = getSimilarity(csdr, temp);
 
         if (sim > maxSim) {
             maxSim = sim;
@@ -144,112 +120,222 @@ void Graph::step(
         }
     }
 
-    // Find node with closest position top estimated position
-    int minN = 0;
-    float minDist = 999999.0f;
+    float dist = 0.0f;
 
-    Vec3f estimatedPos = estimated * Vec3f(0.0f, 0.0f, 0.0f);
+    if (lastN != -1)
+        dist = (estimated * Vec3f(0.0f, 0.0f, 0.0f) - nodes[lastN].trans * Vec3f(0.0f, 0.0f, 0.0f)).magnitude();
 
-    for (int n = 0; n < nodes.size(); n++) {
-        Vec3f pos = nodes[n].trans * Vec3f(0.0f, 0.0f, 0.0f);
+    if (lastN == -1 || dist >= minDist) {
+        if (maxSim >= minSim) {
+            // Check if connection already exists
+            int usedC = -1;
 
-        float dist = (estimatedPos - pos).magnitude();
+            auto it = connections.find(Pair{ lastN, maxN });
+            auto revIt = connections.find(Pair{ maxN, lastN });
 
-        if (dist < minDist) {
-            minDist = dist;
-            minN = n;
-        }
-    }
+            if (it == connections.end()) {
+                assert(revIt == connections.end());
 
-    if (lastN == -1 || maxSim < addThresh) {
-        // Add new node
-        Node node;
-        node.trans = estimated;
-        node.qcsdr.resize(csdr.size() * columnSize);
+                if (maxN != lastN) {
+                    Connection conn0;
+                    Connection conn1;
 
-        initQuasiCSDR(csdr, node.qcsdr);
+                    Matrix4x4f inv;
 
-        if (lastN != -1) {
-            Connection conn;
-            conn.ni = lastN;
+                    nodes[lastN].trans.inverse(inv);
 
-            conn.relTrans = accumDelta;
+                    conn0.relTrans = inv * estimated;
+                    conn0.relTrans.inverse(conn1.relTrans);
 
-            node.connections.push_back(conn);
-        }
-
-        nodes.push_back(node);
-
-        lastN = nodes.size() - 1;
-    }
-    else {
-        // Check if connection already exists
-        int usedC = -1;
-
-        for (int c = 0; c < nodes[maxN].connections.size(); c++) {
-            if (nodes[maxN].connections[c].ni == lastN) {
-                usedC = c;
-
-                break;
+                    connections[Pair{ lastN, maxN }] = conn0;
+                    connections[Pair{ maxN, lastN }] = conn1;
+                }
             }
-        }
+            else {
+                assert(revIt != connections.end());
 
-        if (usedC == -1) {
-            if (maxN != lastN) {
-                // Add new connection
-                Connection conn;
-                conn.ni = lastN;
+                if (maxN != lastN) {
+                    Matrix4x4f inv;
 
-                conn.relTrans = accumDelta;
+                    nodes[lastN].trans.inverse(inv);
 
-                nodes[maxN].connections.push_back(conn);
+                    Matrix4x4f relTrans = inv * estimated;
+                    Matrix4x4f relTransInv;
+                    relTrans.inverse(relTransInv);
+
+                    // Update relative transforms
+                    for (int i = 0; i < 16; i++)
+                        (*it).second.relTrans.elements[i] += (relTrans.elements[i] - (*it).second.relTrans.elements[i]) * drift;
+
+                    for (int i = 0; i < 16; i++)
+                        (*revIt).second.relTrans.elements[i] += (relTransInv.elements[i] - (*revIt).second.relTrans.elements[i]) * drift;
+                }
             }
+            
+            lastN = maxN;
         }
         else {
-            // Update relative transform
-            for (int i = 0; i < 16; i++)
-                nodes[maxN].connections[usedC].relTrans.elements[i] += (accumDelta.elements[i] - nodes[maxN].connections[usedC].relTrans.elements[i]) * elasticity;
-        }
+            // Add new node
+            Node node;
+            node.trans = estimated;
+            node.qcsdr.resize(csdr.size() * columnSize);
 
-        // Tweak existing nodes around max node
-        for (int n = 0; n < nodes.size(); n++) {
-            Matrix4x4f transNNew;
-            
-            for (int i = 0; i < 16; i++)
-                transNNew.elements[i] = 0.0f;
+            initQuasiCSDR(csdr, node.qcsdr);
 
-            for (int c = 0; c < nodes[n].connections.size(); c++) {
-                Matrix4x4f predTransNNew = nodes[nodes[n].connections[c].ni].trans * nodes[n].connections[c].relTrans;
+            if (lastN != -1) {
+                Connection conn0;
+                Connection conn1;
 
-                for (int i = 0; i < 16; i++)
-                    transNNew.elements[i] += predTransNNew.elements[i];
+                Matrix4x4f inv;
+
+                nodes[lastN].trans.inverse(inv);
+
+                conn0.relTrans = inv * estimated;
+                conn0.relTrans.inverse(conn1.relTrans);
+
+                maxN = static_cast<int>(nodes.size());
+
+                connections[Pair{ lastN, maxN }] = conn0;
+                connections[Pair{ maxN, lastN }] = conn1;
             }
 
-            for (int i = 0; i < 16; i++)
-                transNNew.elements[i] /= std::max<int>(1, nodes[n].connections.size());
+            nodes.push_back(node);
 
-            // Learn matrix (not the best way of doing this especially for rotation but whatever)
-            for (int i = 0; i < 16; i++)
-                nodes[n].trans.elements[i] += (transNNew.elements[i] - nodes[n].trans.elements[i]) * elasticity;
+            lastN = nodes.size() - 1;
         }
-        
-        // Learn matrix (not the best way of doing this especially for rotation but whatever)
-        for (int i = 0; i < 16; i++)
-            estimated.elements[i] += (nodes[maxN].trans.elements[i] - estimated.elements[i]) * drift * maxSim * maxSim;
-
-        lastN = maxN;
     }
 
-    // Update QuasiCSDR
-    toward(csdr, nodes[lastN].qcsdr, drift * maxSim * maxSim);
+    // Relax graph
+    if (nodes.size() > 1) {
+        // Zero trans and count temps
+        for (int n = 0; n < nodes.size(); n++) {
+            for (int i = 0; i < 16; i++)
+                nodes[n].transTemp.elements[i] = 0.0f;
 
-    if (oldLastN != lastN)
-        accumDelta.setIdentity();
+            nodes[n].countTemp = 0;
+        }
+
+        // Absolute phase
+        for (auto it = connections.begin(); it != connections.end(); it++) {
+            Pair p = (*it).first;
+
+            Matrix4x4f predTransNNew = nodes[p.n0].trans * (*it).second.relTrans;
+            
+            for (int i = 0; i < 16; i++)
+                nodes[p.n1].transTemp.elements[i] += predTransNNew.elements[i];
+
+            nodes[p.n1].countTemp++;
+        }
+
+        // Update (double buffer)
+        for (int n = 0; n < nodes.size(); n++) {
+            assert(nodes[n].countTemp > 0);
+
+            float scale = 1.0f / nodes[n].countTemp;
+
+            for (int i = 0; i < 16; i++)
+                nodes[n].trans.elements[i] += (nodes[n].transTemp.elements[i] * scale - nodes[n].trans.elements[i]) * elasticity;
+        }
+
+        // Relative phase
+        for (auto it = connections.begin(); it != connections.end(); it++) {
+            Pair p = (*it).first;
+
+            Matrix4x4f inv;
+
+            nodes[p.n0].trans.inverse(inv);
+
+            Matrix4x4f newRelTrans = inv * nodes[p.n1].trans;
+
+            for (int i = 0; i < 16; i++)
+                (*it).second.relTrans.elements[i] += (newRelTrans.elements[i] - (*it).second.relTrans.elements[i]) * relElasticity;
+        }
+    }
+
+    if (lastN != -1) {
+        // Update matrix (not the best way of doing this especially for rotation but whatever)
+        for (int i = 0; i < 16; i++)
+            estimated.elements[i] += (nodes[lastN].trans.elements[i] - estimated.elements[i]) * drift;
+
+        // Update QuasiCSDR
+        toward(csdr, nodes[lastN].qcsdr, drift);
+    }
+}
+
+void Graph::findPath(
+    int startIndex,
+    int endIndex,
+    std::vector<int> &path
+) {
+    if (!path.empty())
+        path.clear();
+
+    std::vector<float> dists(nodes.size(), 999999.0f);
+    std::vector<int> prev(nodes.size(), -1);
+
+    std::unordered_set<int> q;
+
+    for (int v = 0; v < nodes.size(); v++)
+        q.insert(v);
+
+    dists[startIndex] = 0.0f;
+
+    while (!q.empty()) {
+        std::unordered_set<int>::iterator cit = q.begin();
+
+        int u = *cit;
+        float minDist = dists[u];
+        
+        cit++;
+
+        for (; cit != q.end(); cit++) {
+            if (dists[*cit] < minDist) {
+                minDist = dists[*cit];
+                u = *cit;
+            }
+        }
+
+        if (u == endIndex) {
+            path.push_back(u);
+
+            while (prev[u] != -1) {
+                path.push_back(prev[u]);
+                u = prev[u];
+            }
+
+            return;
+        }
+
+        q.erase(u);
+
+        cit = q.begin();
+
+        for (; cit != q.end(); cit++) {
+            float dist = 999999.0f;
+
+            // Find connection
+            Pair p{ *cit, u };
+
+            auto it = connections.find(p);
+
+            if (it != connections.end())
+                dist = ((*it).second.relTrans * Vec3f(0.0f, 0.0f, 0.0f)).magnitude();
+
+            float alt = dists[u] + dist; // Slight decay for transition cost
+            
+            if (alt < dists[*cit]) {
+                dists[*cit] = alt;
+
+                prev[*cit] = u;
+            }
+        }
+    }
 }
 
 void Graph::renderXY(
     sf::RenderTarget &rt,
-    float renderScale
+    float renderScale,
+    const std::vector<int> &path
 ) {
     // Compute all positions of transforms
     std::vector<Vec3f> positions(nodes.size());
@@ -261,21 +347,40 @@ void Graph::renderXY(
 
     lines.setPrimitiveType(sf::Lines);
 
-    for (int n = 0; n < nodes.size(); n++) {
-        for (int c = 0; c < nodes[n].connections.size(); c++) {
-            sf::Vertex start;
+    for (auto it = connections.begin(); it != connections.end(); it++) {
+        Pair p = (*it).first;
 
-            start.position = sf::Vector2f(positions[n].x, positions[n].y) * renderScale;
-            start.color = sf::Color::Red;
+        sf::Vertex start;
 
-            sf::Vertex end;
+        start.position = sf::Vector2f(positions[p.n0].x, positions[p.n0].y) * renderScale;
+        start.color = sf::Color::Red;
 
-            end.position = sf::Vector2f(positions[nodes[n].connections[c].ni].x, positions[nodes[n].connections[c].ni].y) * renderScale;
-            end.color = sf::Color::Red;
+        sf::Vertex end;
 
-            lines.append(start);
-            lines.append(end);
-        }
+        end.position = sf::Vector2f(positions[p.n1].x, positions[p.n1].y) * renderScale;
+        end.color = sf::Color::Red;
+
+        lines.append(start);
+        lines.append(end);
+    }
+
+    rt.draw(lines);
+
+    lines.clear();
+
+    for (int i = 0; i < static_cast<int>(path.size()) - 1; i++) {
+        sf::Vertex start;
+
+        start.position = sf::Vector2f(positions[path[i]].x, positions[path[i]].y) * renderScale;
+        start.color = sf::Color::Green;
+
+        sf::Vertex end;
+
+        end.position = sf::Vector2f(positions[path[i + 1]].x, positions[path[i + 1]].y) * renderScale;
+        end.color = sf::Color::Green;
+
+        lines.append(start);
+        lines.append(end);
     }
 
     rt.draw(lines);

@@ -65,6 +65,8 @@ public:
 
     float determinant() const;
 
+    Vec3f getEulerAngles() const;
+
     // Returns false if there is no inverse, true if there is one
     // Warning! Expensive function!
     bool inverse(Matrix3x3f &inverse) const;

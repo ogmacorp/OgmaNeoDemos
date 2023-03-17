@@ -56,10 +56,10 @@ public:
 
 int main() {
     // Capture file name
-    std::string fileName = "resources/Tesseract.wmv";
+    std::string fileName = "resources/Bullfinch192.mp4";
 
-    std::string encFileName = "videoPrediction.oenc";
-    std::string hFileName = "videoPrediction.ohr";
+    std::string encFileName = "steamed.oenc";
+    std::string hFileName = "steamed.ohr";
 
     // Initialize a random number generator
     std::mt19937 rng(time(nullptr));
@@ -98,14 +98,14 @@ int main() {
     rescaleRT.create(rescaleWidth, rescaleHeight);
 
     // --------------------------- Create the Hierarchy ---------------------------
+    //
+    aon::setNumThreads(8);
 
     // Create hierarchy
-    aon::setNumThreads(16);
-
     Array<Hierarchy::LayerDesc> lds(3);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(5, 5, 32);
+        lds[i].hiddenSize = Int3(16, 16, 16);
         //lds[i].errorSize = Int3(8, 8, 16);
 
         //lds[i].hRadius = 2;
@@ -113,19 +113,19 @@ int main() {
         //lds[i].dRadius = 2;
         //lds[i].bRadius = 2;
 
-        lds[i].ticksPerUpdate = 2;
-        lds[i].temporalHorizon = 2;
+        //lds[i].ticksPerUpdate = 4;
+        //lds[i].temporalHorizon = 4;
     }
 
-    Int3 hiddenSize(10, 10, 32);
+    Int3 hiddenSize(16, 16, 16);
 
     Array<ImageEncoder::VisibleLayerDesc> vlds(1);
 
     vlds[0].size = Int3(rescaleRT.getSize().x, rescaleRT.getSize().y, 3);
-    vlds[0].radius = 16;
+    vlds[0].radius = 8;
 
     Array<Hierarchy::IODesc> ioDescs(1);
-    ioDescs[0] = Hierarchy::IODesc(hiddenSize, IOType::prediction, 2, 2, 64);
+    ioDescs[0] = Hierarchy::IODesc(hiddenSize, IOType::prediction, 2, 2);
 
     // Forward declare
     ImageEncoder imgEnc;
@@ -136,25 +136,25 @@ int main() {
     int captureLength = static_cast<int>(capture.get(CAP_PROP_FRAME_COUNT));
 
     // Calculate actual number of frames
-    int i = 1;
-    for (; i <= captureLength; i++) {
-        capture >> frame;
+    //int i = 1;
+    //for (; i <= captureLength; i++) {
+    //    capture >> frame;
 
-        if (frame.empty())
-            break;
-    }
-	
-    captureLength = i;
+    //    if (frame.empty())
+    //        break;
+    //}
+    //    
+    //captureLength = i;
 
     std::cout << "Capture has " << captureLength << " frames" << std::endl;
 
     std::vector<float> errors(captureLength, 0.0f);
 
     // Training time
-    const int numIter = 30;
+    const int numIter = 20;
 
     // Frame skip
-    int frameSkip = 3; // 1 means no frame skip (stride of 1)
+    int frameSkip = 1; // 1 means no frame skip (stride of 1)
 
     // UI update resolution
     const int progressBarLength = 40;
@@ -165,12 +165,13 @@ int main() {
     bool loadHierarchy = false;
     bool saveHierarchy = true;
 
-    const float graphScaleX = 0.3f;
+    const float graphScaleX = 0.2f;
     const float graphScaleY = 20.0f;
 
     if (!loadHierarchy) {
         // Initialize hierarchy randomly
         imgEnc.initRandom(hiddenSize, vlds);
+
         h.initRandom(ioDescs, lds);
 
         // Train for a bit
@@ -269,6 +270,11 @@ int main() {
                 Array<const IntBuffer*> inputCIs(1);
                 inputCIs[0] = &imgEnc.getHiddenCIs();
                 h.step(inputCIs, true);
+
+                //for (int i = 0; i < h.getELayer(0).getHiddenCIs().size(); i++)
+                //    std::cout << h.getELayer(0).getHiddenCIs()[i] << " ";
+
+                //std::cout << std::endl;
 
                 // Show progress bar
                 float ratio = static_cast<float>(currentFrame + 1) / captureLength;
@@ -441,19 +447,21 @@ int main() {
 
     // ---------------------------- Presentation Simulation Loop -----------------------------
 
-    window.setVerticalSyncEnabled(true);
+    window.setFramerateLimit(24);
     quit = false;
 
     std::vector<Vis3D::ImgEncDesc> descs(1);
 
     std::mutex mut;
 
+    Array<const IntBuffer*> inputCIs(1);
+
     std::thread th([&]{
         Vis3D v(900, 1200, "Test");
 
         while (!quit) {
             mut.lock();
-            v.update(h, descs);
+            v.update(inputCIs, h, descs);
             mut.unlock();
             v.render();
         }
@@ -481,9 +489,8 @@ int main() {
 
         mut.lock();
 
-        Array<const IntBuffer*> inputCIs(1);
         inputCIs[0] = &h.getPredictionCIs(0);
-        h.step(inputCIs, true);
+        h.step(inputCIs, false);
 
         imgEnc.reconstruct(&h.getPredictionCIs(0));
 

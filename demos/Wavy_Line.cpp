@@ -9,9 +9,7 @@
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 
-#include <ogmaneo/Hierarchy.h>
-
-#include <vis/Plot.h>
+#include "vis/Plot.h"
 
 #include <fstream>
 #include <sstream>
@@ -23,10 +21,16 @@ const int numAdditionalStepsAhead = 0;
 
 const float pi = 3.141596f;
 
-using namespace ogmaneo;
-
 float sigmoid(float x) {
     return 1.0f / (1.0f + std::exp(-x));
+}
+
+float func(float x) {
+    return std::sin(0.025f * pi * x + 0.25f) * 0.2f;
+}
+
+float func_deriv(float x) {
+    return std::cos(0.025f * pi * x + 0.25f) * 0.2f * (0.025f * pi);
 }
 
 int main(int argc, char *argv[])
@@ -50,15 +54,14 @@ int main(int argc, char *argv[])
 
     window.create(sf::VideoMode(windowWidth, windowHeight), "Wavy Test", sf::Style::Default);
 
-    window.setVerticalSyncEnabled(false);
-    //window.setFramerateLimit(60);
+    //window.setVerticalSyncEnabled(true);
+    window.setFramerateLimit(30);
 
     vis::Plot plot;
     //plot.backgroundColor = sf::Color(64, 64, 64, 255);
     plot.plotXAxisTicks = false;
-    plot.curves.resize(2);
+    plot.curves.resize(1);
     plot.curves[0].shadow = 0.0f; // Input
-    plot.curves[1].shadow = 0.0f; // Prediction
 
     float minCurve = -1.25f;
     float maxCurve = 1.25f;
@@ -76,23 +79,7 @@ int main(int argc, char *argv[])
 
     // --------------------------- Create the Hierarchy ---------------------------
 
-    const int inputColumnSize = 32;
-
-    ComputeSystem cs;
-    cs.setNumThreads(8);
-
-    std::vector<Hierarchy::LayerDesc> lds(7);
-
-    for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(4, 4, 32);
-    }
-
-    Hierarchy h;
-    bool learnFlag = true;
-
-    h.initRandom(cs, { Int3(1, 1, inputColumnSize) }, { prediction }, lds);
-
-    const int maxBufferSize = 300;
+    const int maxBufferSize = 250;
 
     bool quit = false;
     bool autoplay = true;
@@ -131,32 +118,7 @@ int main(int argc, char *argv[])
             if (index % 1000 == 0)
                 std::cout << "Step: " << index << std::endl;
 
-            float value = std::sin(0.0125f * pi * index + 0.25f) * 
-            std::sin(0.03f * pi * index + 1.5f) *
-            std::sin(0.025f * pi * index - 0.1f);
-
-            if (dist01(rng) < 0.004f) {
-                std::uniform_int_distribution<int> indexDist(0, 1000);
-                index = indexDist(rng);
-            }
-
-            std::vector<int> input = { static_cast<int>((value - minCurve) / (maxCurve - minCurve) * (inputColumnSize - 1) + 0.5f) };
-
-            if (!learnFlag || (window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::P)))
-            {
-                // Prediction mode
-                //inputCIs[0] = &h.getPredictionCIs(0);
-                h.step(cs, { &input }, false);
-            }
-            else {
-                // training mode
-                h.step(cs, { &input }, true);
-            }
-            
-            predIndex = h.getPredictionCs(0)[0];
-
-            // Un-bin
-            float predValue = static_cast<float>(predIndex) / static_cast<float>(inputColumnSize - 1) * (maxCurve - minCurve) + minCurve;
+            float value = func(index);
 
             // Plot target data
             vis::Point p;
@@ -165,26 +127,12 @@ int main(int argc, char *argv[])
             p.color = sf::Color::Red;
             plot.curves[0].points.push_back(p);
 
-            // Plot predicted data
-            vis::Point p1;
-            p1.position.x = index;
-            p1.position.y = predValue;
-            p1.color = sf::Color::Blue;
-            plot.curves[1].points.push_back(p1);
-
             if (plot.curves[0].points.size() > maxBufferSize) {
                 plot.curves[0].points.erase(plot.curves[0].points.begin());
 
                 int firstIndex = 0;
 
                 for (std::vector<vis::Point>::iterator it = plot.curves[0].points.begin(); it != plot.curves[0].points.end(); it++, firstIndex++)
-                    (*it).position.x = static_cast<float>(firstIndex);
-
-                plot.curves[1].points.erase(plot.curves[1].points.begin());
-
-                firstIndex = 0;
-
-                for (std::vector<vis::Point>::iterator it = plot.curves[1].points.begin(); it != plot.curves[1].points.end(); it++, firstIndex++)
                     (*it).position.x = static_cast<float>(firstIndex);
             }
 
@@ -205,124 +153,48 @@ int main(int argc, char *argv[])
 
             window.draw(plotSprite);
 
-            window.display();
-        }
-    } while (!quit);
+            // Draw segments
+            int numSegments = 100;
 
-    quit = false;
-    autoplay = true;
-    spacePressedPrev = false;
-
-    index = -1;
-
-    sf::sleep(sf::seconds(2.0f));
-
-    do {
-        sf::Event event;
-
-        while (window.pollEvent(event)) {
-            switch (event.type) {
-            case sf::Event::Closed:
-                quit = true;
-                break;
-            }
-        }
-
-        if (window.hasFocus()) {
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
-                quit = true;
-
-            bool spacePressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Space);
-
-            if (spacePressed && !spacePressedPrev)
-                autoplay = !autoplay;
-
-            spacePressedPrev = spacePressed;
-        }
-
-        if (autoplay || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-            index++;
-
-            if (index % 1000 == 0)
-                std::cout << "Step: " << index << std::endl;
-
-            float value = std::sin(0.0125f * pi * index + 0.25f) * 
-            std::sin(0.03f * pi * index + 1.5f) *
-            std::sin(0.025f * pi * index - 0.1f);
-
-            //if (dist01(rng) < 0.004f) {
-            //    std::uniform_int_distribution<int> indexDist(0, 1000);
-            //    index = indexDist(rng);
-            //}
-
-            std::vector<int> input = { static_cast<int>((value - minCurve) / (maxCurve - minCurve) * (inputColumnSize - 1) + 0.5f) };
-
-            if (!learnFlag || (window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::P)))
-            {
-                // Prediction mode
-                //inputCIs[0] = &h.getPredictionCIs(0);
-                h.step(cs, { &input }, false);
-            }
-            else {
-                // training mode
-                h.step(cs, { &input }, true);
-            }
+            sf::VertexArray va(sf::Lines, numSegments * 2);
             
-            predIndex = h.getPredictionCs(0)[0];
+            for (int i = 0; i < numSegments; i++) {
+                int j0 = i * 2;
+                int j1 = j0 + 1;
 
-            // Un-bin
-            float predValue = static_cast<float>(predIndex) / static_cast<float>(inputColumnSize - 1) * (maxCurve - minCurve) + minCurve;
+                float x = i / static_cast<float>(numSegments);
+                int xi = x * plot.curves[0].points.size();
+                float y = plot.curves[0].points[xi].position.y;
 
-            // Plot target data
-            vis::Point p;
-            p.position.x = index;
-            p.position.y = value;
-            p.color = sf::Color::Red;
-            plot.curves[0].points.push_back(p);
+                float slope;
 
-            // Plot predicted data
-            vis::Point p1;
-            p1.position.x = index;
-            p1.position.y = predValue;
-            p1.color = sf::Color::Blue;
-            plot.curves[1].points.push_back(p1);
+                if (x == 0)
+                    slope = (plot.curves[0].points[xi + 1].position.y - y) * 32.0f;
+                else
+                    slope = (y - plot.curves[0].points[xi - 1].position.y) * 32.0f;
 
-            if (plot.curves[0].points.size() > maxBufferSize) {
-                plot.curves[0].points.erase(plot.curves[0].points.begin());
+                sf::Vector2f dir(1.0f, -slope);
 
-                int firstIndex = 0;
+                float mag = std::sqrt(dir.x * dir.x + dir.y * dir.y);
 
-                for (std::vector<vis::Point>::iterator it = plot.curves[0].points.begin(); it != plot.curves[0].points.end(); it++, firstIndex++)
-                    (*it).position.x = static_cast<float>(firstIndex);
+                dir /= mag;
 
-                plot.curves[1].points.erase(plot.curves[1].points.begin());
+                // Perpendicular
+                dir = sf::Vector2f(dir.y, -dir.x);
 
-                firstIndex = 0;
-
-                for (std::vector<vis::Point>::iterator it = plot.curves[1].points.begin(); it != plot.curves[1].points.end(); it++, firstIndex++)
-                    (*it).position.x = static_cast<float>(firstIndex);
+                va[j0].position.x = x * (1000.0f - 2.0f * 48.0f) + 48.0f;
+                va[j0].position.y = -y * (500.0f - 2.0f * 48.0f) * 0.4f + 250.0f - 0.0f;
+                va[j1].position = va[j0].position + dir * 32.0f; 
+                va[j0].color = sf::Color::Green;
+                va[j1].color = sf::Color::Green;
             }
 
-            window.clear();
-
-            plot.draw(
-                plotRT, lineGradient, tickFont, 0.5f,
-                sf::Vector2f(0.0f, plot.curves[0].points.size()),
-                sf::Vector2f(minCurve, maxCurve), sf::Vector2f(48.0f, 48.0f),
-                sf::Vector2f(plot.curves[0].points.size() / 10.0f, (maxCurve - minCurve) / 10.0f),
-                2.0f, 4.0f, 2.0f, 6.0f, 2.0f, 4
-            );
-
-            plotRT.display();
-
-            sf::Sprite plotSprite;
-            plotSprite.setTexture(plotRT.getTexture());
-
-            window.draw(plotSprite);
+            window.draw(va);
 
             window.display();
         }
     } while (!quit);
+
     return 0;
 }
 

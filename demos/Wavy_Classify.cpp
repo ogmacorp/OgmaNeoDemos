@@ -23,6 +23,8 @@
 #include "vis/Plot.hpp"
 #include "vis/guiControl_sfml.hpp"
 
+#include <string>
+
 #include <aogmaneo/Helpers.h>
 
 using namespace aon;
@@ -111,9 +113,6 @@ public:
 };
 
 
-#include <string>
-#include <vector>
-
 // encode float into 2 integer, each has the max value 16
 std::vector<int> Unorm8ToCSDR(float x)
 {
@@ -169,8 +168,6 @@ float CSDRToF(std::vector<int> csdr, int cells_per_column, float scale_factor=0.
     return x;
 }
 
-
-const float pi = 3.141596f;
 
 int main(int argc, char *argv[])
 {
@@ -248,7 +245,7 @@ int main(int argc, char *argv[])
     Array<Hierarchy::LayerDesc> lds(5);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(3, 3, 32);
+        lds[i].hiddenSize = Int3(5, 5, 16);
         //lds[i].errorSize = Int3(4, 4, 32);
 
         //lds[i].hRadius = 2;
@@ -261,7 +258,7 @@ int main(int argc, char *argv[])
     Array<Hierarchy::IODesc> ioDescs(2);
 
     //ioDescs[0] = Hierarchy::IODesc(Int3(1, numInputColumns, inputColumnSize), IOType::prediction, 4, 2, 2, 32);
-    ioDescs[0] = Hierarchy::IODesc(Int3(1, numInputColumns, inputColumnSize), IOType::prediction, 4, 2, 32);
+    ioDescs[0] = Hierarchy::IODesc(Int3(1, numInputColumns, inputColumnSize), IOType::prediction);
 
     const int label_width  = 1;
     const int label_height = 1;
@@ -272,7 +269,7 @@ int main(int argc, char *argv[])
 #endif    
     const int label_num_cells_per_column = numLabels;   // same as number of classes
     //ioDescs[1] = Hierarchy::IODesc(Int3(label_width, label_height, label_num_cells_per_column), IOType::prediction, 2, 2, 2, 32);
-    ioDescs[1] = Hierarchy::IODesc(Int3(label_width, label_height, label_num_cells_per_column), IOType::prediction, 2, 2, 32);
+    ioDescs[1] = Hierarchy::IODesc(Int3(label_width, label_height, label_num_cells_per_column), IOType::prediction);
 
     Hierarchy h;
     bool learnFlag = true;
@@ -289,7 +286,7 @@ int main(int argc, char *argv[])
 	else
 	{
 		h.initRandom(ioDescs, lds);
-                h.setImportance(1, 1.0f);
+                h.setInputImportance(1, 0.01f);
 	}
 
     int hStateSize = h.stateSize();
@@ -416,9 +413,9 @@ int main(int argc, char *argv[])
                 h.step(inputCIs, true);
             }
 
-            //for (int i = 0; i < h.getELayer(0).getHiddenCIs().size(); i++)
-            //    std::cout << h.getELayer(0).getHiddenCIs()[i] << " ";
-            //std::cout << std::endl;
+            for (int i = 0; i < h.getELayer(0).getHiddenCIs().size(); i++)
+                std::cout << h.getELayer(0).getHiddenCIs()[i] << " ";
+            std::cout << std::endl;
             
             if (numAdditionalStepsAhead)
             {

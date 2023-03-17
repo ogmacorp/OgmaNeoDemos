@@ -56,6 +56,25 @@ float Matrix3x3f::determinant() const {
         elements[8] * elements[1] * elements[3];
 }
 
+Vec3f Matrix3x3f::getEulerAngles() const {
+    float sy = std::sqrt(get(0, 0) * get(0, 0) + get(1, 0) * get(1, 0));
+    bool singular = sy < 0.0001f;
+    Vec3f angles;
+
+    if (!singular) {
+        angles.x = std::atan2(get(2, 1) , get(2, 2));
+        angles.y = std::atan2(-get(2, 0), sy);
+        angles.z = std::atan2(get(1, 0), get(0, 0));
+    }
+    else {
+        angles.x = std::atan2(-get(1, 2), get(1, 1));
+        angles.y = std::atan2(-get(2, 0), sy);
+        angles.z = 0.0f;
+    }
+
+    return angles;
+}
+
 bool Matrix3x3f::inverse(Matrix3x3f &inverse) const {
     float det = determinant();
 

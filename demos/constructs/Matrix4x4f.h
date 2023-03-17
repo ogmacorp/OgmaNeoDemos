@@ -2,6 +2,7 @@
 
 #include "Vec3f.h"
 #include "Vec4f.h"
+#include "Matrix3x3f.h"
 #include <vector>
 #include <array>
 
@@ -48,11 +49,11 @@ public:
     }
 
     void set(int i, int j, float val) {
-        elements[4 * i + j] = val; // Row-major would be i + 4 * j
+        elements[4 * i + j] = val;
     }
 
     float get(int i, int j) const {
-        return elements[4 * i + j]; // Row-major would be i + 4 * j
+        return elements[4 * i + j];
     }
 
     void setIdentity();

@@ -93,12 +93,14 @@ public:
     ~Vis3D();
 
     void update(
+        const aon::Array<const aon::IntBuffer*> &inputCIs,
         const aon::Hierarchy &h
     ) {
-        update(h, {});
+        update(inputCIs, h, {});
     }
 
     void update(
+        const aon::Array<const aon::IntBuffer*> &inputCIs,
         const aon::Hierarchy &h,
         const std::vector<ImgEncDesc> &imgEncDescs
     );

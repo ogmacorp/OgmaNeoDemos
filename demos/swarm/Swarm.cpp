@@ -61,10 +61,12 @@ void Swarm::step(
 
             float targetQ = reward + discount * std::max(cells[i].values[cellIndex1], cells[i].values[cellIndex0]);
 
+            float delta = lr * (targetQ - cells[i].values[cellIndex]);
+
             // Traces
             for (int j = 0; j < cells[i].traces.size(); j++) {
                 if (learnEnabled)
-                    cells[i].values[j] += lr * (targetQ - cells[i].values[j]) * cells[i].traces[j];
+                    cells[i].values[j] += delta * cells[i].traces[j];
 
                 cells[i].traces[j] *= traceDecay;
             }

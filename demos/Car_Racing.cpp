@@ -2,7 +2,6 @@
 #include <SFML/Graphics.hpp>
 
 #include <aogmaneo/Hierarchy.h>
-#include <aogmaneo/RLAdapter.h>
 //#include <aogmaneo/ImageEncoder.h>
 #include <cmath>
 
@@ -101,6 +100,22 @@ void getCheckpoints(const sf::Image &checkpointsImg, std::vector<sf::Vector2f> &
         }
 }
 
+IntBuffer fToCSDR(float f) {
+    IntBuffer buf(8);
+
+    union {
+        float f;
+        int i;
+    } u;
+
+    u.f = f;
+
+    for (int i = 0; i < 8; i++)
+        buf[i] = static_cast<int>((u.i >> (i * 4)) & 0x0000000f);
+
+    return buf;
+}
+
 int main() {
     std::mt19937 rng(time(nullptr));
 
@@ -116,10 +131,10 @@ int main() {
     std::string encFileName = "Car_Racing.oenc";
     std::string hFileName = "Car_Racing.ohr";
 
-    int numSensors = 16;
+    int numSensors = 12;
     int rootNumSensors = std::ceil(std::sqrt(numSensors));
-    int sensorResolution = 32;
-    int steerResolution = 9;
+    int sensorResolution = 16;
+    int steerResolution = 7;
 
     // --------------------------- Create the Hierarchy ---------------------------
 
@@ -129,24 +144,23 @@ int main() {
     Array<Hierarchy::LayerDesc> lds(3);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(5, 5, 16);
-        lds[i].ticksPerUpdate = 4;
-        lds[i].temporalHorizon = 4;
+        lds[i].hiddenSize = Int3(4, 4, 32);
+
+        //lds[i].ticksPerUpdate = 2;
+        //lds[i].temporalHorizon = 2;
     }
 
     // Two IODescs, for sensors and for actions
     // types none and prediction (no prediction and predictions used as actions)
     Array<Hierarchy::IODesc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IODesc(Int3(rootNumSensors, rootNumSensors, sensorResolution), IOType::none, 4, 2, 8);
-    ioDescs[1] = Hierarchy::IODesc(Int3(1, 1, steerResolution), IOType::prediction, 2, 2, 8);
+    ioDescs[0] = Hierarchy::IODesc(Int3(rootNumSensors, rootNumSensors, sensorResolution), IOType::prediction, 4, 2);
+    ioDescs[1] = Hierarchy::IODesc(Int3(1, 1, steerResolution), IOType::action, 2, 2);
 
     Hierarchy h;
     h.initRandom(ioDescs, lds);
 
-    // Adapter to command the SPH to maximize reward
-    RLAdapter adapter;
-    adapter.initRandom(h.getTopHiddenSize()); // Program size, radius, history capacity
-    
+    //h.setImportance(1, 0.01f);
+
     //CustomStreamReader reader;
     //reader.ins.open(hFileName.c_str(), std::ios::out | std::ios::binary);
     //h.read(reader);
@@ -211,6 +225,8 @@ int main() {
 
     float averageReward = 0.0f;
 
+    int actionSetCounter = 0;
+
     do {
         clock.restart();
 
@@ -255,9 +271,16 @@ int main() {
         const float spinRate = 0.16f;
 
         // Get action prediction
-        int actionIndex = h.getPredictionCIs(1)[0];
+        int actionIndex;
 
-        if (dist01(rng) < 0.05f) {
+        if (actionSetCounter < 10) {
+            actionIndex = steerResolution / 2;
+            actionSetCounter++;
+        }
+        else
+            actionIndex = h.getPredictionCIs(1)[0];
+
+        if (dist01(rng) < 0.01f) {
             std::uniform_int_distribution<int> steerDist(0, steerResolution - 1);
             actionIndex = steerDist(rng);
         }
@@ -356,7 +379,9 @@ int main() {
         // Define reward as orientation difference between 2 vectors: car direction and road direction
         // because they are already normalized, so that cos(alpha) = carDir.x * trackDir.x + carDir.y * trackDir.y
         // this reward will be higher by higher speed
-        float reward = 0.01f * std::abs(car.speed) * (carDir.x * trackDir.x + carDir.y * trackDir.y) + (reset ? -10.0f : 0.0f);
+        float reward = 0.01f * std::abs(car.speed) * (carDir.x * trackDir.x + carDir.y * trackDir.y) + (reset ? -1.0f : 0.0f);
+
+        reward *= 10.0f;
 
         averageReward = 0.99f * averageReward + 0.01f * reward;
 
@@ -451,11 +476,8 @@ int main() {
 
         inputCIs[1] = &actionCIs;
 
-        // Update adapter
-        adapter.step(reward, &h.getTopHiddenCIs(), true);
-
         // Step hierarchy with adapter's program
-        h.step(inputCIs, &adapter.getProgCIs(), true);
+        h.step(inputCIs, true, reward);
     } while (!quit);
 
     return 0;
