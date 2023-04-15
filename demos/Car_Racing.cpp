@@ -1,8 +1,8 @@
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 
-#include <aogmaneo/Hierarchy.h>
-//#include <aogmaneo/ImageEncoder.h>
+#include <aogmaneo/hierarchy.h>
+//#include <aogmaneo/image_encoder.h>
 #include <cmath>
 
 #include <time.h>
@@ -12,7 +12,7 @@
 
 using namespace aon;
 
-class CustomStreamReader : public aon::StreamReader {
+class CustomStreamReader : public aon::Stream_Reader {
 public:
     std::ifstream ins;
 
@@ -24,7 +24,7 @@ public:
     }
 };
 
-class CustomStreamWriter : public aon::StreamWriter {
+class CustomStreamWriter : public aon::Stream_Writer {
 public:
     std::ofstream outs;
 
@@ -100,8 +100,8 @@ void getCheckpoints(const sf::Image &checkpointsImg, std::vector<sf::Vector2f> &
         }
 }
 
-IntBuffer fToCSDR(float f) {
-    IntBuffer buf(8);
+Int_Buffer fToCSDR(float f) {
+    Int_Buffer buf(8);
 
     union {
         float f;
@@ -138,13 +138,13 @@ int main() {
 
     // --------------------------- Create the Hierarchy ---------------------------
 
-    setNumThreads(8);
+    set_num_threads(8);
 
     // Create hierarchy
-    Array<Hierarchy::LayerDesc> lds(3);
+    Array<Hierarchy::Layer_Desc> lds(3);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(4, 4, 32);
+        lds[i].hidden_size = Int3(4, 4, 32);
 
         //lds[i].ticksPerUpdate = 2;
         //lds[i].temporalHorizon = 2;
@@ -152,12 +152,12 @@ int main() {
 
     // Two IODescs, for sensors and for actions
     // types none and prediction (no prediction and predictions used as actions)
-    Array<Hierarchy::IODesc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IODesc(Int3(rootNumSensors, rootNumSensors, sensorResolution), IOType::prediction, 4, 2);
-    ioDescs[1] = Hierarchy::IODesc(Int3(1, 1, steerResolution), IOType::action, 2, 2);
+    Array<Hierarchy::IO_Desc> ioDescs(2);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(rootNumSensors, rootNumSensors, sensorResolution), IO_Type::prediction, 4, 2);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 1, steerResolution), IO_Type::action, 2, 2);
 
     Hierarchy h;
-    h.initRandom(ioDescs, lds);
+    h.init_random(ioDescs, lds);
 
     //h.setImportance(1, 0.01f);
 
@@ -278,7 +278,7 @@ int main() {
             actionSetCounter++;
         }
         else
-            actionIndex = h.getPredictionCIs(1)[0];
+            actionIndex = h.get_prediction_cis(1)[0];
 
         if (dist01(rng) < 0.01f) {
             std::uniform_int_distribution<int> steerDist(0, steerResolution - 1);
@@ -462,16 +462,16 @@ int main() {
 
         renderCounter++;
 
-        Array<const IntBuffer*> inputCIs(ioDescs.size());
+        Array<const Int_Buffer*> inputCIs(ioDescs.size());
 
-        IntBuffer sensorCIs(rootNumSensors * rootNumSensors, 0);
+        Int_Buffer sensorCIs(rootNumSensors * rootNumSensors, 0);
 
         for (int i = 0; i < sensors.size(); i++)
             sensorCIs[i] = static_cast<int>(std::min(1.0f, std::max(0.0f, sensors[i])) * (sensorResolution - 1) + 0.5f);
 
         inputCIs[0] = &sensorCIs;
 
-        IntBuffer actionCIs(1);
+        Int_Buffer actionCIs(1);
         actionCIs[0] = actionIndex;
 
         inputCIs[1] = &actionCIs;

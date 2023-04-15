@@ -3,9 +3,9 @@
 
 #include "catmouse/CatMouseEnv.h"
 
-#include <aogmaneo/Hierarchy.h>
-#include <aogmaneo/Helpers.h>
-//#include <aogmaneo/ImageEncoder.h>
+#include <aogmaneo/hierarchy.h>
+#include <aogmaneo/helpers.h>
+//#include <aogmaneo/image_encoder.h>
 #include <cmath>
 
 #include <time.h>
@@ -15,7 +15,7 @@
 
 using namespace aon;
 
-class CustomStreamReader : public aon::StreamReader {
+class CustomStreamReader : public aon::Stream_Reader {
 public:
     std::ifstream ins;
 
@@ -27,7 +27,7 @@ public:
     }
 };
 
-class CustomStreamWriter : public aon::StreamWriter {
+class CustomStreamWriter : public aon::Stream_Writer {
 public:
     std::ofstream outs;
 
@@ -71,12 +71,12 @@ int main() {
     // --------------------------- Create the Hierarchy ---------------------------
 
     // Create hierarchy
-    setNumThreads(8);
+    set_num_threads(8);
 
-    Array<Hierarchy::LayerDesc> lds(6);
+    Array<Hierarchy::Layer_Desc> lds(6);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(5, 5, 32);
+        lds[i].hidden_size = Int3(5, 5, 32);
         //lds[i].eRadius = 2;
         //lds[i].dRadius = 2;
         //lds[i].ticksPerUpdate = 4;
@@ -86,9 +86,9 @@ int main() {
     int obsRes = 32;
     int actionRes = 5;
 
-    Array<Hierarchy::IODesc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IODesc(Int3(4, 3, obsRes), IOType::none, 2, 2);
-    ioDescs[1] = Hierarchy::IODesc(Int3(1, 3, actionRes), IOType::action, 1, 2);
+    Array<Hierarchy::IO_Desc> ioDescs(2);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(4, 3, obsRes), IO_Type::prediction, 2, 2);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 3, actionRes), IO_Type::action, 1, 2);
 
     Hierarchy hCat;
     Hierarchy hMouse;
@@ -109,25 +109,25 @@ int main() {
         std::cout << "Loaded" << std::endl;
     }
     else {
-        hCat.initRandom(ioDescs, lds);
-        hMouse.initRandom(ioDescs, lds);
+        hCat.init_random(ioDescs, lds);
+        hMouse.init_random(ioDescs, lds);
 
-        //hCat.setInputImportance(1, 0.0f);
-        //hMouse.setInputImportance(1, 0.0f);
+        hCat.params.ios[1].importance = 0.05f;
+        hMouse.params.ios[1].importance = 0.05f;
 
         std::cout << "Random init" << std::endl;
     }
 
-    IntBuffer catObsi(ioDescs[0].size.x * ioDescs[0].size.y, 0);
-    IntBuffer mouseObsi(catObsi.size(), 0);
-    IntBuffer catActionsi(env.actionsSize(), 0);
-    IntBuffer mouseActionsi(env.actionsSize(), 0);
+    Int_Buffer catObsi(ioDescs[0].size.x * ioDescs[0].size.y, 0);
+    Int_Buffer mouseObsi(catObsi.size(), 0);
+    Int_Buffer catActionsi(env.actionsSize(), 0);
+    Int_Buffer mouseActionsi(env.actionsSize(), 0);
     
-    Array<const IntBuffer*> catInputs(2);
+    Array<const Int_Buffer*> catInputs(2);
     catInputs[0] = &catObsi;
     catInputs[1] = &catActionsi;
 
-    Array<const IntBuffer*> mouseInputs(2);
+    Array<const Int_Buffer*> mouseInputs(2);
     mouseInputs[0] = &mouseObsi;
     mouseInputs[1] = &mouseActionsi;
 
@@ -253,12 +253,12 @@ int main() {
                 if (dist01(rng) < epsilon)
                     catActionsi[i] = actionDist(rng);
                 else
-                    catActionsi[i] = hCat.getPredictionCIs(1)[i];
+                    catActionsi[i] = hCat.get_prediction_cis(1)[i];
 
                 if (dist01(rng) < epsilon)
                     mouseActionsi[i] = actionDist(rng);
                 else
-                    mouseActionsi[i] = hMouse.getPredictionCIs(1)[i];
+                    mouseActionsi[i] = hMouse.get_prediction_cis(1)[i];
 
                 catActions[i] = catActionsi[i] / static_cast<float>(actionRes - 1);
                 mouseActions[i] = mouseActionsi[i] / static_cast<float>(actionRes - 1);

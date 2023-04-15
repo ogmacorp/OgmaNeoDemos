@@ -11,7 +11,7 @@
 
 #include <runner/Runner.h>
 
-#include <aogmaneo/Hierarchy.h>
+#include <aogmaneo/hierarchy.h>
 
 #include <time.h>
 #include <iostream>
@@ -101,23 +101,23 @@ int main() {
     const int outputCount = 2 + 2 + 2 + 2; // Motor output for each joint
 
     // Create the agent
-    setNumThreads(8);
+    set_num_threads(8);
 
-    Array<Hierarchy::LayerDesc> lds(5);
+    Array<Hierarchy::Layer_Desc> lds(5);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(5, 5, 32);
+        lds[i].hidden_size = Int3(5, 5, 32);
     }
 
     const int sensorResolution = 32;
     const int actionResolution = 9;
 
-    Array<Hierarchy::IODesc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IODesc(Int3(4, 6, sensorResolution), IOType::none);
-    ioDescs[1] = Hierarchy::IODesc(Int3(2, 4, actionResolution), IOType::action);
+    Array<Hierarchy::IO_Desc> ioDescs(2);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(4, 6, sensorResolution), IO_Type::prediction);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(2, 4, actionResolution), IO_Type::action);
 
     Hierarchy h;
-    h.initRandom(ioDescs, lds);
+    h.init_random(ioDescs, lds);
 
     // ---------------------------- Game Loop -----------------------------
 
@@ -147,7 +147,7 @@ int main() {
     float averageVel = 0.0f;
     float velPrev = 0.0f;
 
-    IntBuffer actionCIs(outputCount, 0);
+    Int_Buffer actionCIs(outputCount, 0);
 
     std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
     std::uniform_int_distribution<int> actionDist(0, actionResolution - 1);
@@ -195,7 +195,7 @@ int main() {
 
             runner.getStateVector(state);
 
-            IntBuffer sensorCIs(h.getIOSize(0).x * h.getIOSize(0).y, 0);
+            Int_Buffer sensorCIs(h.get_io_size(0).x * h.get_io_size(0).y, 0);
 
             for (int i = 0; i < state.size(); i++)
                 sensorCIs[i] = sigmoidf(state[i] * 2.0f) * (sensorResolution - 1) + 0.5f;
@@ -216,7 +216,7 @@ int main() {
                 sensorCIs[state.size()] = min(1.0f, 0.5f * dist / hurdleOffset) * (sensorResolution - 1) + 0.5f;
             }
 
-            Array<const IntBuffer*> inputCIs(2);
+            Array<const Int_Buffer*> inputCIs(2);
             inputCIs[0] = &sensorCIs;
             inputCIs[1] = &actionCIs;
 
@@ -235,7 +235,7 @@ int main() {
 
             h.step(inputCIs, true, reward);
 
-            actionCIs = h.getPredictionCIs(1);
+            actionCIs = h.get_prediction_cis(1);
 
             for (int i = 0; i < actionCIs.size(); i++) {
                 if (dist01(rng) < 0.0f)
@@ -254,7 +254,7 @@ int main() {
         for (int ss = 0; ss < subSteps; ss++) {
             world.ClearForces();
             runner.motorUpdate(rescaledActions);
-            world.Step(1.0f / 60.0f / subSteps, 32, 32);
+            world.Step(1.0f / 60.0f / subSteps, 16, 16);
         }
 
         averageVel = 0.99f * averageVel + 0.01f * runner.body->GetLinearVelocity().x;

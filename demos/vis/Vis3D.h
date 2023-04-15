@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include <aogmaneo/Hierarchy.h>
-#include <aogmaneo/ImageEncoder.h>
+#include <aogmaneo/hierarchy.h>
+#include <aogmaneo/image_encoder.h>
 
 #include <vector>
 #include <string>
@@ -27,9 +27,9 @@ public:
     struct ImgEncDesc {
         int hIndex; // Index of input in hierarchy where this encoder plugs in
 
-        aon::ImageEncoder* enc;
+        aon::Image_Encoder* enc;
 
-        std::vector<aon::ByteBuffer> imgs;
+        std::vector<aon::Byte_Buffer> imgs;
 
         ImgEncDesc()
         :
@@ -93,14 +93,14 @@ public:
     ~Vis3D();
 
     void update(
-        const aon::Array<const aon::IntBuffer*> &inputCIs,
+        const aon::Array<const aon::Int_Buffer*> &inputCIs,
         const aon::Hierarchy &h
     ) {
         update(inputCIs, h, {});
     }
 
     void update(
-        const aon::Array<const aon::IntBuffer*> &inputCIs,
+        const aon::Array<const aon::Int_Buffer*> &inputCIs,
         const aon::Hierarchy &h,
         const std::vector<ImgEncDesc> &imgEncDescs
     );

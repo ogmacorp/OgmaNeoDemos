@@ -20,9 +20,9 @@
 #include <thread>
 #include <mutex>
 
-#include <aogmaneo/Hierarchy.h>
-#include <aogmaneo/Helpers.h>
-#include <aogmaneo/ImageEncoder.h>
+#include <aogmaneo/hierarchy.h>
+#include <aogmaneo/helpers.h>
+#include <aogmaneo/image_encoder.h>
 #include <cmath>
 
 #include <vis/Vis3D.h>
@@ -30,7 +30,7 @@
 using namespace aon;
 using namespace cv;
 
-class CustomStreamReader : public aon::StreamReader {
+class CustomStreamReader : public aon::Stream_Reader {
 public:
     std::ifstream ins;
 
@@ -42,7 +42,7 @@ public:
     }
 };
 
-class CustomStreamWriter : public aon::StreamWriter {
+class CustomStreamWriter : public aon::Stream_Writer {
 public:
     std::ofstream outs;
 
@@ -99,13 +99,13 @@ int main() {
 
     // --------------------------- Create the Hierarchy ---------------------------
     //
-    aon::setNumThreads(8);
+    aon::set_num_threads(8);
 
     // Create hierarchy
-    Array<Hierarchy::LayerDesc> lds(3);
+    Array<Hierarchy::Layer_Desc> lds(6);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(16, 16, 16);
+        lds[i].hidden_size = Int3(8, 8, 64);
         //lds[i].errorSize = Int3(8, 8, 16);
 
         //lds[i].hRadius = 2;
@@ -119,16 +119,16 @@ int main() {
 
     Int3 hiddenSize(16, 16, 16);
 
-    Array<ImageEncoder::VisibleLayerDesc> vlds(1);
+    Array<Image_Encoder::Visible_Layer_Desc> vlds(1);
 
     vlds[0].size = Int3(rescaleRT.getSize().x, rescaleRT.getSize().y, 3);
     vlds[0].radius = 8;
 
-    Array<Hierarchy::IODesc> ioDescs(1);
-    ioDescs[0] = Hierarchy::IODesc(hiddenSize, IOType::prediction, 2, 2);
+    Array<Hierarchy::IO_Desc> ioDescs(1);
+    ioDescs[0] = Hierarchy::IO_Desc(hiddenSize, IO_Type::prediction, 2, 2);
 
     // Forward declare
-    ImageEncoder imgEnc;
+    Image_Encoder imgEnc;
     Hierarchy h;
 
     std::cout << "Running through capture: " << fileName << std::endl;
@@ -170,9 +170,9 @@ int main() {
 
     if (!loadHierarchy) {
         // Initialize hierarchy randomly
-        imgEnc.initRandom(hiddenSize, vlds);
+        imgEnc.init_random(hiddenSize, vlds);
 
-        h.initRandom(ioDescs, lds);
+        h.init_random(ioDescs, lds);
 
         // Train for a bit
         for (int iter = 0; iter < numIter && !quit; iter++) {
@@ -237,15 +237,15 @@ int main() {
                 sf::Image reImg = rescaleRT.getTexture().copyToImage();
 
                 // Reconstruct last prediction
-                imgEnc.reconstruct(&h.getPredictionCIs(0));
+                imgEnc.reconstruct(&h.get_prediction_cis(0));
 
-                ByteBuffer pred = imgEnc.getReconstruction(0);
+                Byte_Buffer pred = imgEnc.get_reconstruction(0);
 
                 float predError = 0.0f;
 
                 // Get input buffers
-                Array<const ByteBuffer*> inputs(1);
-                ByteBuffer input(pred.size());
+                Array<const Byte_Buffer*> inputs(1);
+                Byte_Buffer input(pred.size());
                 for (int x = 0; x < reImg.getSize().x; x++)
                     for (int y = 0; y < reImg.getSize().y; y++) {
                         sf::Color c = reImg.getPixel(x, y);
@@ -267,8 +267,8 @@ int main() {
                 inputs[0] = &input;
                 imgEnc.step(inputs, true);
 
-                Array<const IntBuffer*> inputCIs(1);
-                inputCIs[0] = &imgEnc.getHiddenCIs();
+                Array<const Int_Buffer*> inputCIs(1);
+                inputCIs[0] = &imgEnc.get_hidden_cis();
                 h.step(inputCIs, true);
 
                 //for (int i = 0; i < h.getELayer(0).getHiddenCIs().size(); i++)
@@ -431,7 +431,7 @@ int main() {
         std::cout << "Loading hierarchy from " << hFileName << " and " << encFileName << std::endl;
 
         {
-            imgEnc = ImageEncoder();
+            imgEnc = Image_Encoder();
             CustomStreamReader reader;
             reader.ins.open(encFileName.c_str(), std::ios::binary);
             imgEnc.read(reader);
@@ -454,7 +454,7 @@ int main() {
 
     std::mutex mut;
 
-    Array<const IntBuffer*> inputCIs(1);
+    Array<const Int_Buffer*> inputCIs(1);
 
     std::thread th([&]{
         Vis3D v(900, 1200, "Test");
@@ -489,12 +489,12 @@ int main() {
 
         mut.lock();
 
-        inputCIs[0] = &h.getPredictionCIs(0);
+        inputCIs[0] = &h.get_prediction_cis(0);
         h.step(inputCIs, false);
 
-        imgEnc.reconstruct(&h.getPredictionCIs(0));
+        imgEnc.reconstruct(&h.get_prediction_cis(0));
 
-        ByteBuffer pred = imgEnc.getReconstruction(0);
+        Byte_Buffer pred = imgEnc.get_reconstruction(0);
 
         descs[0].enc = &imgEnc;
         descs[0].imgs.resize(1);
