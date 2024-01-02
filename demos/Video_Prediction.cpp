@@ -89,7 +89,7 @@ int main() {
     const int movieWidth = static_cast<int>(capture.get(CAP_PROP_FRAME_WIDTH));
     const int movieHeight = static_cast<int>(capture.get(CAP_PROP_FRAME_HEIGHT));
 
-    const float videoScale = 0.5f; // Rescale ratio
+    const float videoScale = 1.0f; // Rescale ratio
     const unsigned int rescaleWidth = videoScale * movieWidth;
     const unsigned int rescaleHeight = videoScale * movieHeight;
 
@@ -102,22 +102,22 @@ int main() {
     aon::set_num_threads(8);
 
     // Create hierarchy
-    Array<Hierarchy::Layer_Desc> lds(6);
+    Array<Hierarchy::Layer_Desc> lds(2);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hidden_size = Int3(8, 8, 64);
+        lds[i].hidden_size = Int3(16, 16, 32);
         //lds[i].errorSize = Int3(8, 8, 16);
 
         //lds[i].hRadius = 2;
         //lds[i].eRadius = 2;
         //lds[i].dRadius = 2;
-        //lds[i].bRadius = 2;
+        //lds[i].recurrent_radius = 0;
 
         //lds[i].ticksPerUpdate = 4;
         //lds[i].temporalHorizon = 4;
     }
 
-    Int3 hiddenSize(16, 16, 16);
+    Int3 hiddenSize(32, 32, 32);
 
     Array<Image_Encoder::Visible_Layer_Desc> vlds(1);
 
@@ -125,7 +125,7 @@ int main() {
     vlds[0].radius = 8;
 
     Array<Hierarchy::IO_Desc> ioDescs(1);
-    ioDescs[0] = Hierarchy::IO_Desc(hiddenSize, IO_Type::prediction, 2, 2);
+    ioDescs[0] = Hierarchy::IO_Desc(hiddenSize, IO_Type::prediction, 4, 2);
 
     // Forward declare
     Image_Encoder imgEnc;
@@ -237,14 +237,14 @@ int main() {
                 sf::Image reImg = rescaleRT.getTexture().copyToImage();
 
                 // Reconstruct last prediction
-                imgEnc.reconstruct(&h.get_prediction_cis(0));
+                imgEnc.reconstruct(h.get_prediction_cis(0));
 
                 Byte_Buffer pred = imgEnc.get_reconstruction(0);
 
                 float predError = 0.0f;
 
                 // Get input buffers
-                Array<const Byte_Buffer*> inputs(1);
+                Array<Byte_Buffer_View> inputs(1);
                 Byte_Buffer input(pred.size());
                 for (int x = 0; x < reImg.getSize().x; x++)
                     for (int y = 0; y < reImg.getSize().y; y++) {
@@ -264,11 +264,11 @@ int main() {
                 errors[currentFrame] = predError / (reImg.getSize().x * reImg.getSize().y);
 
                 // Step pre-encoder and hierarchy
-                inputs[0] = &input;
+                inputs[0] = input;
                 imgEnc.step(inputs, true);
 
-                Array<const Int_Buffer*> inputCIs(1);
-                inputCIs[0] = &imgEnc.get_hidden_cis();
+                Array<Int_Buffer_View> inputCIs(1);
+                inputCIs[0] = imgEnc.get_hidden_cis();
                 h.step(inputCIs, true);
 
                 //for (int i = 0; i < h.getELayer(0).getHiddenCIs().size(); i++)
@@ -454,7 +454,7 @@ int main() {
 
     std::mutex mut;
 
-    Array<const Int_Buffer*> inputCIs(1);
+    Array<Int_Buffer_View> inputCIs(1);
 
     std::thread th([&]{
         Vis3D v(900, 1200, "Test");
@@ -466,6 +466,8 @@ int main() {
             v.render();
         }
     });
+
+    std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
 
     do {
         // ----------------------------- Input -----------------------------
@@ -489,10 +491,19 @@ int main() {
 
         mut.lock();
 
-        inputCIs[0] = &h.get_prediction_cis(0);
+        Int_Buffer noisy_prediction_cis = h.get_prediction_cis(0);
+
+        std::uniform_int_distribution<int> noise_dist(0, h.get_io_size(0).z - 1);
+
+        for (int i = 0; i < noisy_prediction_cis.size(); i++) {
+            if (dist01(rng) < 0.0f)
+                noisy_prediction_cis[i] = noise_dist(rng);
+        }
+
+        inputCIs[0] = noisy_prediction_cis;
         h.step(inputCIs, false);
 
-        imgEnc.reconstruct(&h.get_prediction_cis(0));
+        imgEnc.reconstruct(h.get_prediction_cis(0));
 
         Byte_Buffer pred = imgEnc.get_reconstruction(0);
 

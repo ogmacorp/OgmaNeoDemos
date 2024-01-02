@@ -84,7 +84,7 @@ Vis3D::~Vis3D() {
 }
 
 void Vis3D::update(
-    const aon::Array<const aon::Int_Buffer*> &inputCIs,
+    const aon::Array<aon::Int_Buffer_View> &inputCIs,
     const aon::Hierarchy &h,
     const std::vector<ImgEncDesc> &imgEncDescs
 ) {
@@ -148,7 +148,7 @@ void Vis3D::update(
     float xOffset = -inputWidthTotal * 0.5f;
 
     for (int i = 0; i < h.get_num_io(); i++) {
-        aon::Int_Buffer csdr = (*inputCIs[i]);
+        aon::Int_Buffer_View csdr = inputCIs[i];
         aon::Int_Buffer pcsdr = h.get_prediction_cis(i);
         
         Vector3 offset = (Vector3){ -h.get_io_size(i).x * 0.5f + h.get_io_size(i).x * 0.5f + xOffset, -h.get_io_size(i).y * 0.5f, -h.get_io_size(i).z * 0.5f + zOffset - layerDelta - maxInputHeight * 0.5f};
@@ -228,9 +228,10 @@ void Vis3D::update(
         aon::Int_Buffer pcsdr;
         
         if (l < h.get_num_layers() - 1) {
-            int numInputs = h.get_histories(0).size() * h.get_histories(0)[0].size();
+            //int numInputs = h.get_histories(0).size() * h.get_histories(0)[0].size();
             //pcsdr = h.get_encoder(l + 1).get_visible_layer(numInputs + h.get_ticks_per_update(l + 1) - 1 - h.get_ticks(l + 1)).recon_cis;
-            pcsdr = h.get_decoder(l + 1, h.get_ticks_per_update(l + 1) - 1 - h.get_ticks(l + 1)).get_hidden_cis();
+            //pcsdr = h.get_decoder(l + 1, h.get_ticks_per_update(l + 1) - 1 - h.get_ticks(l + 1)).get_hidden_cis();
+            pcsdr = h.get_decoder(l + 1, 0).get_hidden_cis();
         }
 
         Vector3 offset = (Vector3){ -h.get_encoder(l).get_hidden_size().x * 0.5f, -h.get_encoder(l).get_hidden_size().y * 0.5f, zOffset };
@@ -322,6 +323,7 @@ void Vis3D::update(
             const aon::Encoder::Visible_Layer_Desc &hvld = h.get_encoder(selectLayer).get_visible_layer_desc(ffVli);
 
             aon::Int3 hiddenSize = h.get_encoder(selectLayer).get_hidden_size();
+            int hiddenColumn = aon::address2(aon::Int2(selectX, selectY), aon::Int2(hiddenSize.x, hiddenSize.y));
             int hiddenIndex = aon::address3(aon::Int3(selectX, selectY, selectZ), hiddenSize);
 
             ffZRange = hvld.size.z;
@@ -356,13 +358,13 @@ void Vis3D::update(
 
                     aon::Int2 offset(ix - fieldLowerBound.x, iy - fieldLowerBound.y);
 
-                    //int wi = ffZ + hvld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex));
+                    int wi = selectZ + hiddenSize.z * (offset.y + diam * (offset.x + diam * hiddenColumn));
 
-                    //float w = hvl.weights[wi] / 255.0f;
+                    float w = hvl.weights[wi];
 
-                    //ffWeights[offset.y + offset.x * diam] = w; 
+                    ffWeights[offset.y + offset.x * diam] = w; 
 
-                    //unsigned char wc = hvl.weights[wi];
+                    unsigned char wc = hvl.weights[wi] * 255.0f;
 
                     //int wi = offset.y + diam * (offset.x + diam * hiddenIndex);
 
@@ -373,13 +375,13 @@ void Vis3D::update(
 
                     //unsigned char wc = (ffZ == index ? hvl.weights[wi] : 0);
 
-                    int wi = offset.y + diam * (offset.x + diam * hiddenIndex);
+                    //int wi = selectZ + hiddenSize.z * (offset.y + diam * (offset.x + diam * hiddenColumn));
 
-                    float w = hvl.protos[wi];
+                    //float w = hvl.protos[wi];
 
-                    ffWeights[offset.y + offset.x * diam] = w; 
+                    //ffWeights[offset.y + offset.x * diam] = w; 
 
-                    unsigned char wc = hvl.protos[wi] * 255.0f;
+                    //unsigned char wc = hvl.protos[wi] * 255.0f;
 
                     colors[offset.y + offset.x * diam] = (Color){ wc, 0, 0, 255 };
                 }

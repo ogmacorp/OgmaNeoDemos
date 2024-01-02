@@ -1,8 +1,7 @@
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 
-#include <aogmaneo/Hierarchy.h>
-#include <aogmaneo/StateAdapter.h>
+#include <aogmaneo/hierarchy.h>
 //#include <aogmaneo/ImageEncoder.h>
 #include <cmath>
 
@@ -13,7 +12,7 @@
 
 using namespace aon;
 
-class CustomStreamReader : public aon::StreamReader {
+class CustomStreamReader : public aon::Stream_Reader {
 public:
     std::ifstream ins;
 
@@ -25,7 +24,7 @@ public:
     }
 };
 
-class CustomStreamWriter : public aon::StreamWriter {
+class CustomStreamWriter : public aon::Stream_Writer {
 public:
     std::ofstream outs;
 
@@ -54,27 +53,27 @@ int main() {
     // --------------------------- Create the Hierarchy ---------------------------
 
     // Create hierarchy
-    setNumThreads(8);
+    set_num_threads(8);
 
-    Array<Hierarchy::LayerDesc> lds(1);
+    Array<Hierarchy::Layer_Desc> lds(2);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(4, 4, 32);
-        lds[i].ticksPerUpdate = 2;
-        lds[i].temporalHorizon = 2;
+        lds[i].hidden_size = Int3(4, 4, 32);
+        lds[i].ticks_per_update = 2;
+        lds[i].temporal_horizon = 2;
     }
 
     int sensorRes = 32;
     int actionRes = 5;
 
-    Array<Hierarchy::IODesc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IODesc(Int3(2, 2, sensorRes), IOType::prediction, 2, 2);
-    ioDescs[1] = Hierarchy::IODesc(Int3(1, 2, actionRes), IOType::action, 2, 2);
+    Array<Hierarchy::IO_Desc> ioDescs(2);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(2, 2, sensorRes), IO_Type::prediction, 2, 2);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 2, actionRes), IO_Type::action, 2, 2);
 
     Hierarchy h;
-    h.initRandom(ioDescs, lds);
+    h.init_random(ioDescs, lds);
 
-    IntBuffer actionCIs = h.getPredictionCIs(1);
+    Int_Buffer actionCIs = h.get_prediction_cis(1);
 
     //CustomStreamReader reader;
     //reader.ins.open(hFileName.c_str(), std::ios::out | std::ios::binary);
@@ -191,7 +190,7 @@ int main() {
         if (mag > maxSpeed)
             delta *= maxSpeed / mag;
 
-        actionCIs = h.getPredictionCIs(1);
+        actionCIs = h.get_prediction_cis(1);
 
         // Exploration
         for (int i = 0; i < actionCIs.size(); i++) {
@@ -254,15 +253,15 @@ int main() {
         }
         //std::cout << reward << std::endl;
 
-        IntBuffer sensorCIs(4);
+        Int_Buffer sensorCIs(4);
         sensorCIs[0] = (pusherPos.x * 0.5f + 0.5f) * (sensorRes - 1) + 0.5f;
         sensorCIs[1] = (pusherPos.y * 0.5f + 0.5f) * (sensorRes - 1) + 0.5f;
         sensorCIs[2] = (objectDelta.x * 0.5f + 0.5f) * (sensorRes - 1) + 0.5f;
         sensorCIs[3] = (objectDelta.y * 0.5f + 0.5f) * (sensorRes - 1) + 0.5f;
 
-        Array<const IntBuffer*> inputCIs(2);
-        inputCIs[0] = &sensorCIs;
-        inputCIs[1] = &actionCIs;
+        Array<Int_Buffer_View> inputCIs(2);
+        inputCIs[0] = sensorCIs;
+        inputCIs[1] = actionCIs;
 
         h.step(inputCIs, true, reward);
 

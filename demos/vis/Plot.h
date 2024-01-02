@@ -48,10 +48,10 @@ namespace vis {
 
         Plot()
         :
-        axesColor(sf::Color::Black),
-        backgroundColor(sf::Color::White),
-        plotBackgroundColor(sf::Color::White),
-        plotXAxisTicks(false)
+        axesColor(sf::Color(192, 192, 192)),
+        backgroundColor(sf::Color(32, 32, 32)),
+        plotBackgroundColor(sf::Color(32, 32, 32)),
+        plotXAxisTicks(true)
         {}
 
         void draw(

@@ -26,7 +26,7 @@ float sigmoid(float x) {
 }
 
 float func(float x) {
-    return std::sin(0.025f * pi * x + 0.25f) * 0.2f;
+    return std::sin(0.025f * pi * x + 0.25f) * std::sin(0.01234f * pi * x - 0.3f) * std::sin(0.0018f * pi * x + 2.0f) * 0.3f;
 }
 
 float func_deriv(float x) {
@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 
     vis::Plot plot;
     //plot.backgroundColor = sf::Color(64, 64, 64, 255);
-    plot.plotXAxisTicks = false;
+    plot.plotXAxisTicks = true;
     plot.curves.resize(1);
     plot.curves[0].shadow = 0.0f; // Input
 
@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
 
     // --------------------------- Create the Hierarchy ---------------------------
 
-    const int maxBufferSize = 250;
+    const int maxBufferSize = 10000;
 
     bool quit = false;
     bool autoplay = true;
@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
             vis::Point p;
             p.position.x = index;
             p.position.y = value;
-            p.color = sf::Color::Red;
+            p.color = sf::Color(192, 32, 32);
             plot.curves[0].points.push_back(p);
 
             if (plot.curves[0].points.size() > maxBufferSize) {
@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
                 sf::Vector2f(0.0f, plot.curves[0].points.size()),
                 sf::Vector2f(minCurve, maxCurve), sf::Vector2f(48.0f, 48.0f),
                 sf::Vector2f(plot.curves[0].points.size() / 10.0f, (maxCurve - minCurve) / 10.0f),
-                2.0f, 4.0f, 2.0f, 6.0f, 2.0f, 4
+                2.0f, 2.0f, 2.0f, 6.0f, 2.0f, 4
             );
 
             plotRT.display();
@@ -154,42 +154,42 @@ int main(int argc, char *argv[])
             window.draw(plotSprite);
 
             // Draw segments
-            int numSegments = 100;
+            //int numSegments = 100;
 
-            sf::VertexArray va(sf::Lines, numSegments * 2);
-            
-            for (int i = 0; i < numSegments; i++) {
-                int j0 = i * 2;
-                int j1 = j0 + 1;
+            //sf::VertexArray va(sf::Lines, numSegments * 2);
+            //
+            //for (int i = 0; i < numSegments; i++) {
+            //    int j0 = i * 2;
+            //    int j1 = j0 + 1;
 
-                float x = i / static_cast<float>(numSegments);
-                int xi = x * plot.curves[0].points.size();
-                float y = plot.curves[0].points[xi].position.y;
+            //    float x = i / static_cast<float>(numSegments);
+            //    int xi = x * plot.curves[0].points.size();
+            //    float y = plot.curves[0].points[xi].position.y;
 
-                float slope;
+            //    float slope;
 
-                if (x == 0)
-                    slope = (plot.curves[0].points[xi + 1].position.y - y) * 32.0f;
-                else
-                    slope = (y - plot.curves[0].points[xi - 1].position.y) * 32.0f;
+            //    if (x == 0)
+            //        slope = (plot.curves[0].points[xi + 1].position.y - y) * 32.0f;
+            //    else
+            //        slope = (y - plot.curves[0].points[xi - 1].position.y) * 32.0f;
 
-                sf::Vector2f dir(1.0f, -slope);
+            //    sf::Vector2f dir(1.0f, -slope);
 
-                float mag = std::sqrt(dir.x * dir.x + dir.y * dir.y);
+            //    float mag = std::sqrt(dir.x * dir.x + dir.y * dir.y);
 
-                dir /= mag;
+            //    dir /= mag;
 
-                // Perpendicular
-                dir = sf::Vector2f(dir.y, -dir.x);
+            //    // Perpendicular
+            //    dir = sf::Vector2f(dir.y, -dir.x);
 
-                va[j0].position.x = x * (1000.0f - 2.0f * 48.0f) + 48.0f;
-                va[j0].position.y = -y * (500.0f - 2.0f * 48.0f) * 0.4f + 250.0f - 0.0f;
-                va[j1].position = va[j0].position + dir * 32.0f; 
-                va[j0].color = sf::Color::Green;
-                va[j1].color = sf::Color::Green;
-            }
+            //    va[j0].position.x = x * (1000.0f - 2.0f * 48.0f) + 48.0f;
+            //    va[j0].position.y = -y * (500.0f - 2.0f * 48.0f) * 0.4f + 250.0f - 0.0f;
+            //    va[j1].position = va[j0].position + dir * 32.0f; 
+            //    va[j0].color = sf::Color::Green;
+            //    va[j1].color = sf::Color::Green;
+            //}
 
-            window.draw(va);
+            //window.draw(va);
 
             window.display();
         }

@@ -9,8 +9,7 @@
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 
-#include <aogmaneo/Hierarchy.h>
-#include <aogmaneo/Helpers.h>
+#include <aogmaneo/hierarchy.h>
 
 #include "getopt.h"
 
@@ -24,8 +23,6 @@
 #include "vis/guiControl_sfml.hpp"
 
 #include <string>
-
-#include <aogmaneo/Helpers.h>
 
 using namespace aon;
 
@@ -47,7 +44,7 @@ void splitString(const std::string& s, std::string c, std::vector<std::string>& 
     }
 }
 
-class CustomStreamReader : public aon::StreamReader {
+class CustomStreamReader : public aon::Stream_Reader {
 public:
     std::ifstream ins;
 
@@ -59,7 +56,7 @@ public:
     }
 };
 
-class CustomStreamWriter : public aon::StreamWriter {
+class CustomStreamWriter : public aon::Stream_Writer {
 public:
     std::ofstream outs;
 
@@ -71,7 +68,7 @@ public:
     }
 };
 
-class BufferReader : public aon::StreamReader {
+class BufferReader : public aon::Stream_Reader {
 public:
     int start;
     const std::vector<unsigned char>* buffer;
@@ -89,7 +86,7 @@ public:
     };
 };
 
-class BufferWriter : public aon::StreamWriter {
+class BufferWriter : public aon::Stream_Writer {
 public:
     int start;
 
@@ -173,6 +170,9 @@ int main(int argc, char *argv[])
 {
     std::string hFileName = "wavyClass.ohr";
 
+    std::cout << aon::min(3.0f, 4.0f) << " " << aon::max(3.0f, 4.0f) << std::endl;
+    std::cout << aon::min(-3.0f, -8.0f) << " " << aon::max(-3.0f, -8.0f) << std::endl;
+
     bool loadHierarchy  = false;
     int numAdditionalStepsAhead = 0;
 
@@ -228,6 +228,51 @@ int main(int argc, char *argv[])
     sf::Font tickFont;
     tickFont.loadFromFile("resources/Hack-Regular.ttf");
 
+    //for (float x = 0.1f; x <= 10.0f; x += 0.1f)
+    //    std::cout << std::log2(x) << std::endl;
+
+    //for (float x = 0.1f; x <= 10.0f; x += 0.1f)
+    //    std::cout << aon::log2f(x) << std::endl;
+
+    //float mean = 0.0f;
+    //float variance = 0.0f;
+
+    //for (int i = 0; i < 1000; i++) {
+    //    float y = aon::rand_normalf();
+    //    std::cout << y << std::endl;
+
+    //    mean += y;
+    //    variance += y * y;
+    //}
+
+    //mean /= 1000.0f;
+    //variance /= 1000.0f;
+
+    //std::cout << mean << " " << variance << std::endl;
+
+    //for (int i = 0; i < 100; i++) {
+    //    float x = aon::randf(0.0f, 100.0f);
+
+    //    std::cout << x << " -> " << aon::rand_roundf(x) << std::endl;
+    //}
+
+    // generate RNG image
+    {
+        sf::Image img;
+        img.create(512, 512);
+
+        for (int x = 0; x < img.getSize().x; x++)
+            for (int y = 0; y < img.getSize().y; y++) {
+                unsigned char r = aon::rand() % 256;
+                unsigned char g = aon::rand() % 256;
+                unsigned char b = aon::rand() % 256;
+
+                img.setPixel(x, y, sf::Color(r, g, b));
+            }
+
+        img.saveToFile("rng_test.png");
+    }
+
     // --------------------------- Create the Hierarchy ---------------------------
 
     const int inputColumnSize = 32;
@@ -240,25 +285,27 @@ int main(int argc, char *argv[])
     const int numInputColumns = 2;
 #endif
 
-    setNumThreads(8);
+    set_num_threads(8);
 
-    Array<Hierarchy::LayerDesc> lds(5);
+    Array<Hierarchy::Layer_Desc> lds(5);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(5, 5, 16);
+        lds[i].hidden_size = Int3(5, 5, 32);
         //lds[i].errorSize = Int3(4, 4, 32);
 
         //lds[i].hRadius = 2;
         //lds[i].eRadius = 2;
         //lds[i].dRadius = 2;
+        //lds[i].ticks_per_update = 2;
+        //lds[i].temporal_horizon = 4;
     }
 
     // here we use the measuring data in 1st input     --> InputType = prediction
 	//             the labels data in 2nd input        --> InputType = prediction
-    Array<Hierarchy::IODesc> ioDescs(2);
+    Array<Hierarchy::IO_Desc> ioDescs(2);
 
     //ioDescs[0] = Hierarchy::IODesc(Int3(1, numInputColumns, inputColumnSize), IOType::prediction, 4, 2, 2, 32);
-    ioDescs[0] = Hierarchy::IODesc(Int3(1, numInputColumns, inputColumnSize), IOType::prediction);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(1, numInputColumns, inputColumnSize), IO_Type::prediction);
 
     const int label_width  = 1;
     const int label_height = 1;
@@ -269,7 +316,7 @@ int main(int argc, char *argv[])
 #endif    
     const int label_num_cells_per_column = numLabels;   // same as number of classes
     //ioDescs[1] = Hierarchy::IODesc(Int3(label_width, label_height, label_num_cells_per_column), IOType::prediction, 2, 2, 2, 32);
-    ioDescs[1] = Hierarchy::IODesc(Int3(label_width, label_height, label_num_cells_per_column), IOType::prediction);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(label_width, label_height, label_num_cells_per_column), IO_Type::prediction);
 
     Hierarchy h;
     bool learnFlag = true;
@@ -285,11 +332,11 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
-		h.initRandom(ioDescs, lds);
-                h.setInputImportance(1, 0.01f);
+		h.init_random(ioDescs, lds);
+                h.params.ios[1].importance = 0.1f;
 	}
 
-    int hStateSize = h.stateSize();
+    int hStateSize = h.state_size();
 
 #ifdef USE_SENSOR_DATA
     std::string fname("resources/training_camdataDetrend.txt");
@@ -385,27 +432,27 @@ int main(int argc, char *argv[])
             }
 #endif
 
-            Array<const IntBuffer*> inputCIs(ioDescs.size());
+            Array<Int_Buffer_View> inputCIs(ioDescs.size());
 
 #ifdef SINGLE_COLUMN_ENCODER
             int encodedIn = static_cast<int>((value - minY) / (maxY - minY) * (inputColumnSize - 1) + 0.5f);
-            IntBuffer input = IntBuffer(1, encodedIn);
+            Int_Buffer input = Int_Buffer(1, encodedIn);
 #else
             std::vector<int> encIn = Unorm8ToCSDR((value - minY) / (maxY - minY));
             IntBuffer input = IntBuffer(numInputColumns, 0);
             for (auto i = 0; i < numInputColumns; ++i) input[i] = encIn[i];
 #endif
-            inputCIs[0] = &input;
+            inputCIs[0] = input;
 
-            IntBuffer labelCI(1, sequenceID);
-            inputCIs[1] = &labelCI;
+            Int_Buffer labelCI(1, sequenceID);
+            inputCIs[1] = labelCI;
             
             if (!learnFlag || sf::Keyboard::isKeyPressed(sf::Keyboard::P))
             {
                 // Prediction mode
                 std::cout << "Prediction mode" << std::endl;
-                //inputCIs[0] = &h.getPredictionCIs(0); // memory prediction, independent in current input
-                inputCIs[1] = &h.getPredictionCIs(1);
+                //inputCIs[0] = &h.get_prediction_cis(0); // memory prediction, independent in current input
+                inputCIs[1] = h.get_prediction_cis(1);
                 h.step(inputCIs, false);
             }
             else {
@@ -413,34 +460,34 @@ int main(int argc, char *argv[])
                 h.step(inputCIs, true);
             }
 
-            for (int i = 0; i < h.getELayer(0).getHiddenCIs().size(); i++)
-                std::cout << h.getELayer(0).getHiddenCIs()[i] << " ";
+            for (int i = 0; i < h.get_encoder(0).get_hidden_cis().size(); i++)
+                std::cout << h.get_encoder(0).get_hidden_cis()[i] << " ";
             std::cout << std::endl;
             
             if (numAdditionalStepsAhead)
             {
-                inputCIs[0] = &h.getPredictionCIs(0);
+                inputCIs[0] = h.get_prediction_cis(0);
 
                 BufferWriter writer(hStateSize);
-                h.writeState(writer);
+                h.write_state(writer);
 
                 for (int step = 0; step < numAdditionalStepsAhead; step++)
                     h.step(inputCIs, false);
 
                 BufferReader reader;
                 reader.buffer = &writer.buffer;
-                h.readState(reader);
+                h.read_state(reader);
             }
             
             // Un-bin
 #ifdef SINGLE_COLUMN_ENCODER            
-            predIndex = h.getPredictionCIs(0)[0];
+            predIndex = h.get_prediction_cis(0)[0];
             float predValue = static_cast<float>(predIndex) / static_cast<float>(inputColumnSize - 1) * (maxY - minY) + minY;
 #else            
-            std::vector<int> csdr = {h.getPredictionCIs(0)[0], h.getPredictionCIs(0)[1]};
+            std::vector<int> csdr = {h.get_prediction_cis(0)[0], h.get_prediction_cis(0)[1]};
             float predValue = static_cast<float>(CSDRToUnorm8(csdr)) / static_cast<float>(inputColumnSize - 1) * (maxY - minY) + minY;
 #endif
-            int pred_label = h.getPredictionCIs(1)[0];
+            int pred_label = h.get_prediction_cis(1)[0];
 
             renderWindow.clear();
 

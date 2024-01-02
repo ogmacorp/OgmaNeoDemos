@@ -42,7 +42,7 @@ public:
 int main() {
     bool load = false;
     bool manualControl = false;
-    float epsilon = 0.03f;
+    float epsilon = 0.05f;
 
     const std::string hCatFileName = "hCat.ohr";
     const std::string hMouseFileName = "hMouse.ohr";
@@ -73,7 +73,7 @@ int main() {
     // Create hierarchy
     set_num_threads(8);
 
-    Array<Hierarchy::Layer_Desc> lds(6);
+    Array<Hierarchy::Layer_Desc> lds(5);
 
     for (int i = 0; i < lds.size(); i++) {
         lds[i].hidden_size = Int3(5, 5, 32);
@@ -112,8 +112,8 @@ int main() {
         hCat.init_random(ioDescs, lds);
         hMouse.init_random(ioDescs, lds);
 
-        hCat.params.ios[1].importance = 0.05f;
-        hMouse.params.ios[1].importance = 0.05f;
+        hCat.params.ios[1].importance = 0.0f;
+        hMouse.params.ios[1].importance = 0.0f;
 
         std::cout << "Random init" << std::endl;
     }
@@ -123,13 +123,13 @@ int main() {
     Int_Buffer catActionsi(env.actionsSize(), 0);
     Int_Buffer mouseActionsi(env.actionsSize(), 0);
     
-    Array<const Int_Buffer*> catInputs(2);
-    catInputs[0] = &catObsi;
-    catInputs[1] = &catActionsi;
+    Array<Int_Buffer_View> catInputs(2);
+    catInputs[0] = catObsi;
+    catInputs[1] = catActionsi;
 
-    Array<const Int_Buffer*> mouseInputs(2);
-    mouseInputs[0] = &mouseObsi;
-    mouseInputs[1] = &mouseActionsi;
+    Array<Int_Buffer_View> mouseInputs(2);
+    mouseInputs[0] = mouseObsi;
+    mouseInputs[1] = mouseActionsi;
 
     std::vector<float> catObs, mouseObs;
     std::vector<float> catActions(env.actionsSize(), 0.5f);

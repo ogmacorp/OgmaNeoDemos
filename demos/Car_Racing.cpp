@@ -462,19 +462,19 @@ int main() {
 
         renderCounter++;
 
-        Array<const Int_Buffer*> inputCIs(ioDescs.size());
+        Array<Int_Buffer_View> inputCIs(ioDescs.size());
 
         Int_Buffer sensorCIs(rootNumSensors * rootNumSensors, 0);
 
         for (int i = 0; i < sensors.size(); i++)
             sensorCIs[i] = static_cast<int>(std::min(1.0f, std::max(0.0f, sensors[i])) * (sensorResolution - 1) + 0.5f);
 
-        inputCIs[0] = &sensorCIs;
+        inputCIs[0] = sensorCIs;
 
         Int_Buffer actionCIs(1);
         actionCIs[0] = actionIndex;
 
-        inputCIs[1] = &actionCIs;
+        inputCIs[1] = actionCIs;
 
         // Step hierarchy with adapter's program
         h.step(inputCIs, true, reward);

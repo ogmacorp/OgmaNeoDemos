@@ -103,7 +103,7 @@ int main() {
     // Create the agent
     set_num_threads(8);
 
-    Array<Hierarchy::Layer_Desc> lds(5);
+    Array<Hierarchy::Layer_Desc> lds(3);
 
     for (int i = 0; i < lds.size(); i++) {
         lds[i].hidden_size = Int3(5, 5, 32);
@@ -179,8 +179,8 @@ int main() {
                     quit = true;
 
                 // Reward is velocity (flipped direction if K is pressed)
-                if (!kDownPrev && sf::Keyboard::isKeyPressed(sf::Keyboard::K))
-                    runBackwards = !runBackwards;
+                //if (!kDownPrev && sf::Keyboard::isKeyPressed(sf::Keyboard::K))
+                //    runBackwards = !runBackwards;
 
                 kDownPrev = sf::Keyboard::isKeyPressed(sf::Keyboard::K);
 
@@ -216,9 +216,9 @@ int main() {
                 sensorCIs[state.size()] = min(1.0f, 0.5f * dist / hurdleOffset) * (sensorResolution - 1) + 0.5f;
             }
 
-            Array<const Int_Buffer*> inputCIs(2);
-            inputCIs[0] = &sensorCIs;
-            inputCIs[1] = &actionCIs;
+            Array<Int_Buffer_View> inputCIs(2);
+            inputCIs[0] = sensorCIs;
+            inputCIs[1] = actionCIs;
 
             float vel = runner.body->GetLinearVelocity().x;
 
@@ -238,7 +238,7 @@ int main() {
             actionCIs = h.get_prediction_cis(1);
 
             for (int i = 0; i < actionCIs.size(); i++) {
-                if (dist01(rng) < 0.0f)
+                if (dist01(rng) < 0.05f)
                     actionCIs[i] = actionDist(rng);
             }
 
