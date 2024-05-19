@@ -21,7 +21,7 @@ public:
 
     void read(
         void* data,
-        int len
+        long len
     ) override {
         ins.read(static_cast<char*>(data), len);
     }
@@ -33,16 +33,16 @@ public:
 
     void write(
         const void* data,
-        int len
+        long len
     ) override {
         outs.write(static_cast<const char*>(data), len);
     }
 };
 
 int main() {
-    bool load = false;
+    bool load = true;
     bool manualControl = false;
-    float epsilon = 0.05f;
+    float epsilon = 0.01f;
 
     const std::string hCatFileName = "hCat.ohr";
     const std::string hMouseFileName = "hMouse.ohr";
@@ -63,7 +63,7 @@ int main() {
     float mouseRewardTotal = 0.0f;
 
     sf::Image map;
-    map.loadFromFile("resources/map0.png");
+    map.loadFromFile("resources/map_test.png");
 
     CatMouseEnv env;
     env.init(map);
@@ -73,7 +73,7 @@ int main() {
     // Create hierarchy
     set_num_threads(8);
 
-    Array<Hierarchy::Layer_Desc> lds(5);
+    Array<Hierarchy::Layer_Desc> lds(10);
 
     for (int i = 0; i < lds.size(); i++) {
         lds[i].hidden_size = Int3(5, 5, 32);
@@ -83,12 +83,12 @@ int main() {
         //lds[i].temporalHorizon = 4;
     }
 
-    int obsRes = 32;
+    int obsRes = 16;
     int actionRes = 5;
 
     Array<Hierarchy::IO_Desc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IO_Desc(Int3(4, 3, obsRes), IO_Type::prediction, 2, 2);
-    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 3, actionRes), IO_Type::action, 1, 2);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(7, 5, obsRes), IO_Type::prediction, 4, 2, 2);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 3, actionRes), IO_Type::action, 4, 1, 2);
 
     Hierarchy hCat;
     Hierarchy hMouse;
@@ -112,8 +112,8 @@ int main() {
         hCat.init_random(ioDescs, lds);
         hMouse.init_random(ioDescs, lds);
 
-        hCat.params.ios[1].importance = 0.0f;
-        hMouse.params.ios[1].importance = 0.0f;
+        hCat.params.ios[1].importance = 0.1f;
+        hMouse.params.ios[1].importance = 0.1f;
 
         std::cout << "Random init" << std::endl;
     }
@@ -159,7 +159,7 @@ int main() {
     do {
         clock.restart();
 
-        int numSubSteps = speedMode ? 300 : 1;
+        int numSubSteps = speedMode ? 500 : 1;
 
         for (int ss = 0; ss < numSubSteps; ss++) {
             // ----------------------------- Input -----------------------------
@@ -223,6 +223,14 @@ int main() {
             //if (window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::C))
             //    std::cout << "Curiosity: " << catCuriosity << std::endl;
 
+            float catCuriosity = 0.0f;
+
+            for (int i = 0; i < catObsi.size(); i++)
+                if (catObsi[i] != hCat.get_prediction_cis(0)[i])
+                    catCuriosity++;
+
+            catCuriosity /= catObsi.size();
+                
             float catReward = env.getDone() * 10.0f;// + catCuriosity * 0.1f + catVisual * 1.0f;
             float mouseReward = env.getDone() * -10.0f;
 
@@ -238,8 +246,10 @@ int main() {
             if (aiTimer >= aiDT) {
                 aiTimer = std::fmod(aiTimer, aiDT);
 
-                hCat.step(catInputs, true, catRewardTotal);
-                hMouse.step(mouseInputs, true, mouseRewardTotal);
+                const float rewardScale = 1.0f;
+
+                hCat.step(catInputs, true, catRewardTotal * rewardScale);
+                hMouse.step(mouseInputs, true, mouseRewardTotal * rewardScale);
 
                 catRewardTotal = 0.0f;
                 mouseRewardTotal = 0.0f;
@@ -248,6 +258,8 @@ int main() {
             aiTimer += dt;
 
             std::uniform_int_distribution<int> actionDist(0, actionRes - 1);
+
+            //std::cout << "FRAME" << std::endl;
 
             for (int i = 0; i < catActions.size(); i++) {
                 if (dist01(rng) < epsilon)
@@ -262,7 +274,16 @@ int main() {
 
                 catActions[i] = catActionsi[i] / static_cast<float>(actionRes - 1);
                 mouseActions[i] = mouseActionsi[i] / static_cast<float>(actionRes - 1);
+
+                //std::cout << "Action " << i << ": ";
+
+                //for (int j = 0; j < actionRes; j++)
+                //    std::cout << hCat.get_prediction_acts(1)[j + i * actionRes] << " ";
+
+                //std::cout << std::endl;
             }
+
+            //std::cout << std::endl;
 
             if (manualControl) {
                 catActions[0] = 0.5f;

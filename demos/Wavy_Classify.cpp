@@ -1,4 +1,4 @@
-// ----------------------------------------------------------------------------
+// ------------------------------------i----------------------------------------
 //  OgmaNeoDemos
 //  Copyright(c) 2016-2020 Ogma Intelligent Systems Corp. All rights reserved.
 //
@@ -17,6 +17,9 @@
 
 #include <fstream>
 #include <sstream>
+#include <cmath>
+
+#include <fstream>
 #include <vector>
 #include <iostream>
 #include "vis/Plot.hpp"
@@ -50,7 +53,7 @@ public:
 
     void read(
         void* data,
-        int len
+        long len
     ) override {
         ins.read(static_cast<char*>(data), len);
     }
@@ -62,7 +65,7 @@ public:
 
     void write(
         const void* data,
-        int len
+        long len
     ) override {
         outs.write(static_cast<const char*>(data), len);
     }
@@ -77,7 +80,7 @@ public:
       start(0), buffer(nullptr)
     {}
 
-    void read( void* data, int len ) override
+    void read( void* data, long len ) override
     {
       for (int i = 0; i < len; i++)
         static_cast<unsigned char*>(data)[i] = (*buffer)[start + i];
@@ -98,7 +101,7 @@ public:
         buffer.resize(size);
     }
 
-    void write( const void* data, int len) override
+    void write( const void* data, long len) override
     {
       assert(buffer.size() >= start + len);
 
@@ -291,6 +294,9 @@ int main(int argc, char *argv[])
 
     for (int i = 0; i < lds.size(); i++) {
         lds[i].hidden_size = Int3(5, 5, 32);
+        lds[i].up_radius = 2;
+        lds[i].down_radius = 2;
+        //lds[i].recurrent_radius = 0;
         //lds[i].errorSize = Int3(4, 4, 32);
 
         //lds[i].hRadius = 2;
@@ -333,7 +339,7 @@ int main(int argc, char *argv[])
 	else
 	{
 		h.init_random(ioDescs, lds);
-                h.params.ios[1].importance = 0.1f;
+        h.params.ios[1].importance = 0.1f;
 	}
 
     int hStateSize = h.state_size();

@@ -18,7 +18,7 @@ public:
 
     void read(
         void* data,
-        int len
+        long len
     ) override {
         ins.read(static_cast<char*>(data), len);
     }
@@ -30,7 +30,7 @@ public:
 
     void write(
         const void* data,
-        int len
+        long len
     ) override {
         outs.write(static_cast<const char*>(data), len);
     }
@@ -141,7 +141,7 @@ int main() {
     set_num_threads(8);
 
     // Create hierarchy
-    Array<Hierarchy::Layer_Desc> lds(3);
+    Array<Hierarchy::Layer_Desc> lds(5);
 
     for (int i = 0; i < lds.size(); i++) {
         lds[i].hidden_size = Int3(4, 4, 32);
@@ -153,8 +153,8 @@ int main() {
     // Two IODescs, for sensors and for actions
     // types none and prediction (no prediction and predictions used as actions)
     Array<Hierarchy::IO_Desc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IO_Desc(Int3(rootNumSensors, rootNumSensors, sensorResolution), IO_Type::prediction, 4, 2);
-    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 1, steerResolution), IO_Type::action, 2, 2);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(rootNumSensors, rootNumSensors, sensorResolution), IO_Type::prediction, 4, 4, 2);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 1, steerResolution), IO_Type::action, 4, 2, 2);
 
     Hierarchy h;
     h.init_random(ioDescs, lds);

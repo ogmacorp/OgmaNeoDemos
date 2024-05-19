@@ -358,13 +358,13 @@ void Vis3D::update(
 
                     aon::Int2 offset(ix - fieldLowerBound.x, iy - fieldLowerBound.y);
 
-                    int wi = selectZ + hiddenSize.z * (offset.y + diam * (offset.x + diam * hiddenColumn));
+                    int wi = ffZ + hvld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex));
 
-                    float w = hvl.weights[wi];
+                    float w = hvl.weights[wi] / 255.0f;
 
                     ffWeights[offset.y + offset.x * diam] = w; 
 
-                    unsigned char wc = hvl.weights[wi] * 255.0f;
+                    unsigned char wc = hvl.weights[wi];
 
                     //int wi = offset.y + diam * (offset.x + diam * hiddenIndex);
 
@@ -377,11 +377,11 @@ void Vis3D::update(
 
                     //int wi = selectZ + hiddenSize.z * (offset.y + diam * (offset.x + diam * hiddenColumn));
 
-                    //float w = hvl.protos[wi];
+                    //float w = hvl.weights[wi];
 
                     //ffWeights[offset.y + offset.x * diam] = w; 
 
-                    //unsigned char wc = hvl.protos[wi] * 255.0f;
+                    //unsigned char wc = hvl.weights[wi] * 255.0f;
 
                     colors[offset.y + offset.x * diam] = (Color){ wc, 0, 0, 255 };
                 }
@@ -475,20 +475,20 @@ void Vis3D::update(
                         aon::Int2 offset(ix - fieldLowerBound.x, iy - fieldLowerBound.y);
 
                         if (vld.size.z == 2) {
-                            unsigned char r = vl.protos[0 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
-                            unsigned char g = vl.protos[1 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
+                            unsigned char r = vl.weights0[0 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
+                            unsigned char g = vl.weights0[1 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
 
                             colors[offset.y + offset.x * diam] = (Color){ r, g, 0, 255 };
                         }
                         else if (vld.size.z == 3) {
-                            unsigned char r = vl.protos[0 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
-                            unsigned char g = vl.protos[1 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
-                            unsigned char b = vl.protos[2 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
+                            unsigned char r = vl.weights0[0 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
+                            unsigned char g = vl.weights0[1 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
+                            unsigned char b = vl.weights0[2 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
 
                             colors[offset.y + offset.x * diam] = (Color){ r, g, b, 255 };
                         }
                         else {
-                            unsigned char c = vl.protos[ffZ + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
+                            unsigned char c = vl.weights0[ffZ + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
 
                             colors[offset.y + offset.x * diam] = (Color){ c, c, c, 255 };
                         }

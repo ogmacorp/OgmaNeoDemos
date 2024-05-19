@@ -7,7 +7,7 @@
 const float pi = 3.141592f;
 
 const float fov = pi * 0.7f;
-const int scanRays = 7;
+const int scanRays = 30;
 const float angleSpeed = 8.0f;
 const float accel = 80.0f;
 const float deccel = 8.0f;

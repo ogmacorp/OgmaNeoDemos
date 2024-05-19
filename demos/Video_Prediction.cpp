@@ -36,7 +36,7 @@ public:
 
     void read(
         void* data,
-        int len
+        long len
     ) override {
         ins.read(static_cast<char*>(data), len);
     }
@@ -48,7 +48,7 @@ public:
 
     void write(
         const void* data,
-        int len
+        long len
     ) override {
         outs.write(static_cast<const char*>(data), len);
     }
@@ -173,6 +173,10 @@ int main() {
         imgEnc.init_random(hiddenSize, vlds);
 
         h.init_random(ioDescs, lds);
+        //h.params.anticipation = true;
+
+        //for (int i = 0; i < h.get_num_layers(); i++)
+        //    h.params.layers[i].recurrent_importance = 1.0f;
 
         // Train for a bit
         for (int iter = 0; iter < numIter && !quit; iter++) {

@@ -1,7 +1,7 @@
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 
-#include "generative/Layer.h"
+#include "generative/diffuser.h"
 #define USE_MNIST_LOADER
 #include "mnist.h"
 
@@ -24,6 +24,9 @@ int main() {
 
     int inputWidth = 64;
     int inputHeight = 64;
+
+    Diffuser d;
+    d.init_random(10, 10, 32, 2);
 
     std::vector<Layer> layers(4);
 

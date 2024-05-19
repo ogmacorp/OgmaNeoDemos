@@ -103,13 +103,14 @@ int main() {
     // Create the agent
     set_num_threads(8);
 
-    Array<Hierarchy::Layer_Desc> lds(3);
+    Array<Hierarchy::Layer_Desc> lds(5);
 
     for (int i = 0; i < lds.size(); i++) {
         lds[i].hidden_size = Int3(5, 5, 32);
+        //lds[i].spatial_activity = 16;
     }
 
-    const int sensorResolution = 32;
+    const int sensorResolution = 16;
     const int actionResolution = 9;
 
     Array<Hierarchy::IO_Desc> ioDescs(2);
@@ -233,7 +234,7 @@ int main() {
             if (reset)
                 reward -= 100.0f;
 
-            h.step(inputCIs, true, reward);
+            h.step(inputCIs, true, reward * 0.1f);
 
             actionCIs = h.get_prediction_cis(1);
 
