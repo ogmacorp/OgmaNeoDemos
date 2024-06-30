@@ -228,10 +228,10 @@ void Vis3D::update(
         aon::Int_Buffer pcsdr;
         
         if (l < h.get_num_layers() - 1) {
-            //int numInputs = h.get_histories(0).size() * h.get_histories(0)[0].size();
-            //pcsdr = h.get_encoder(l + 1).get_visible_layer(numInputs + h.get_ticks_per_update(l + 1) - 1 - h.get_ticks(l + 1)).recon_cis;
+            int numInputs = h.get_histories(0).size() * h.get_histories(0)[0].size();
+            pcsdr = h.get_encoder(l + 1).get_visible_layer(numInputs + h.get_ticks_per_update(l + 1) - 1 - h.get_ticks(l + 1)).recon_cis;
             //pcsdr = h.get_decoder(l + 1, h.get_ticks_per_update(l + 1) - 1 - h.get_ticks(l + 1)).get_hidden_cis();
-            pcsdr = h.get_decoder(l + 1, 0).get_hidden_cis();
+            //pcsdr = h.get_decoder(l + 1, 0).get_hidden_cis();
         }
 
         Vector3 offset = (Vector3){ -h.get_encoder(l).get_hidden_size().x * 0.5f, -h.get_encoder(l).get_hidden_size().y * 0.5f, zOffset };

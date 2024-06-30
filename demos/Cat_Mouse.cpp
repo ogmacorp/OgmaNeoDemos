@@ -40,7 +40,7 @@ public:
 };
 
 int main() {
-    bool load = true;
+    bool load = false;
     bool manualControl = false;
     float epsilon = 0.01f;
 
@@ -63,7 +63,7 @@ int main() {
     float mouseRewardTotal = 0.0f;
 
     sf::Image map;
-    map.loadFromFile("resources/map_test.png");
+    map.loadFromFile("resources/map0.png");
 
     CatMouseEnv env;
     env.init(map);
@@ -73,7 +73,7 @@ int main() {
     // Create hierarchy
     set_num_threads(8);
 
-    Array<Hierarchy::Layer_Desc> lds(10);
+    Array<Hierarchy::Layer_Desc> lds(3);
 
     for (int i = 0; i < lds.size(); i++) {
         lds[i].hidden_size = Int3(5, 5, 32);
@@ -87,8 +87,8 @@ int main() {
     int actionRes = 5;
 
     Array<Hierarchy::IO_Desc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IO_Desc(Int3(7, 5, obsRes), IO_Type::prediction, 4, 2, 2);
-    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 3, actionRes), IO_Type::action, 4, 1, 2);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(7, 5, obsRes), IO_Type::prediction, 4, 8, 2, 2);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 3, actionRes), IO_Type::action, 4, 8, 1, 2);
 
     Hierarchy hCat;
     Hierarchy hMouse;

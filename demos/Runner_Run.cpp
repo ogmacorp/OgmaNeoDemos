@@ -234,12 +234,12 @@ int main() {
             if (reset)
                 reward -= 100.0f;
 
-            h.step(inputCIs, true, reward * 0.1f);
+            h.step(inputCIs, true, reward * 1.0f);
 
             actionCIs = h.get_prediction_cis(1);
 
             for (int i = 0; i < actionCIs.size(); i++) {
-                if (dist01(rng) < 0.05f)
+                if (dist01(rng) < 0.0f)
                     actionCIs[i] = actionDist(rng);
             }
 

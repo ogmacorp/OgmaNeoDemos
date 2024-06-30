@@ -1,8 +1,8 @@
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 
-#include "constructs/Quaternion.h"
-#include "navigraph/Graph.h"
+#include "constructs/Vec2f.h"
+#include "navigraph/GridCells.h"
 
 #include <omp.h>
 #include <fstream>
@@ -11,39 +11,8 @@
 #include <cmath>
 #include <random>
 
-CSDR Unorm8ToCSDR(float x) {
-    x = std::min(1.0f, std::max(0.0f, x));
-
-    int i = static_cast<int>(x * 255.0f + 0.5) & 0xff;
-
-    CSDR res = { i & 0x0f, (i & 0xf0) >> 4 };
-
-    return res;
-};
-
-float CSDRToUnorm8(const std::vector<int> &csdr) {
-    return (csdr[0] | (csdr[1] << 4)) / 255.0f;
-};
-
-CSDR transToCSDR(const Matrix4x4f &trans, float range) {
-    CSDR res(32);
-
-    for (int i = 0; i < 16; i++) {
-        float v = trans.elements[i] / range * 0.5f + 0.5f;
-
-        CSDR sub = Unorm8ToCSDR(v);
-
-        res[i * 2 + 0] = sub[0];
-        res[i * 2 + 1] = sub[1];
-    }
-
-    return res;
-}
-
 int main() {
     std::mt19937 rng(time(nullptr));
-    std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
-    std::normal_distribution<float> nDist(0.0f, 1.0f);
 
     const float dt = 0.017f;
     const float zoomRate = 0.4f;
@@ -63,23 +32,11 @@ int main() {
     view.setCenter(0.0f, 0.0f);
     sf::View newView = view;
 
-    Matrix4x4f trans;
-    trans.setIdentity();
+    GridCells gc;
+    gc.init_random(4, 64, 64, 8, rng);
 
-    Vec3f pos(0.0f, 0.0f, 0.0f);
-    Vec3f rot(0.0f, 0.0f, 0.0f);
-    Vec3f lvel(0.0f, 0.0f, 0.0f);
-    Vec3f rvel(0.0f, 0.0f, 0.0f);
-
-    Matrix4x4f test = Matrix4x4f::rotateMatrix(Vec3f(0.9f, -0.4f, 0.3f));
-
-    std::cout << test.getUpperLeftMatrix3x3f().getEulerAngles() << std::endl;
-
-    Graph g;
-    g.init(16);
-
-    std::vector<int> path;
-    int waypointNodeIndex = -1;
+    Vec2f pos(0.0f, 0.0f);
+    std::vector<float> features(4, 0.0f);
 
     bool quit = false;
 
@@ -136,53 +93,22 @@ int main() {
             else if (sf::Keyboard::isKeyPressed(sf::Keyboard::W))
                 moveY = -speed;
 
-
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Q))
                 moveAngle = angleSpeed;
             else if (sf::Keyboard::isKeyPressed(sf::Keyboard::E))
                 moveAngle = -angleSpeed;
 
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::L))
-                waypointNodeIndex = g.lastN;
+            pos += Vec2f(moveX, moveY);
 
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::P)) {
-                if (g.lastN != -1 && waypointNodeIndex != -1)
-                    g.findPath(waypointNodeIndex, g.lastN, path);
-            }
+            Vec2f fpos = pos * 0.1f;
 
-            if (true) {
-                // Move
-                lvel += -10.0f * dt * lvel + Vec3f(moveX, moveY, 0.0f) * dt - 0.1f * dt * pos;
-                rvel += -10.0f * dt * rvel + Vec3f(0.0f, 0.0f, moveAngle) * dt; // nDist(rng) * 0.3f
+            // function of pos
+            features[0] = std::sin(fpos.x * 0.5f - fpos.y * 0.3f + 0.5f);
+            features[1] = std::sin(-fpos.x * 0.1f - fpos.y * 2.3f - 0.5f);
+            features[2] = std::sin(fpos.x * 0.1f - 2.5f);
+            features[3] = std::sin(-fpos.y * 2.1f + 0.9f);
 
-                pos += lvel * dt;
-                rot += rvel * dt;
-
-                if (pos.x > 1.0f)
-                    pos.x = 1.0f;
-                else if (pos.x < -1.0f)
-                    pos.x = -1.0f;
-
-                if (pos.y > 1.0f)
-                    pos.y = 1.0f;
-                else if (pos.y < -1.0f)
-                    pos.y = -1.0f;
-
-                Matrix4x4f inv;
-
-                trans.inverse(inv);
-
-                trans = Matrix4x4f::translateMatrix(pos) * Matrix4x4f::rotateMatrix(rot);
-
-                float driftNoise = 0.0f;
-                float rotNoise = 0.0f;
-                Matrix4x4f delta = trans * inv * Matrix4x4f::translateMatrix(Vec3f(nDist(rng) * driftNoise, nDist(rng) * driftNoise, 0.0f)) * Matrix4x4f::rotateMatrixZ(nDist(rng) * rotNoise);
-
-                // Add node
-                g.step(delta, transToCSDR(trans, 1.0f));
-
-                std::cout << pos << std::endl;
-            }
+            gc.step(features, moveX, moveY);
         }
 
         view.setCenter(view.getCenter() + (newView.getCenter() - view.getCenter()) * viewInterpolateRate * dt);
@@ -192,29 +118,16 @@ int main() {
 
         window.clear(sf::Color::Black);
 
-        const float renderScale = 400.0f;
+        const float render_scale = 4.0f;
 
-        g.renderXY(window, renderScale, path);
+        sf::Texture tex;
+        tex.loadFromImage(gc.get_states_image());
 
-        {
-            sf::CircleShape cs;
-            Vec3f transPos = trans * Vec3f(0.0f, 0.0f, 0.0f);
-            cs.setPosition(transPos.x * renderScale, transPos.y * renderScale);
-            cs.setRadius(4.0f);
-            cs.setOrigin(4.0f, 4.0f);
-            cs.setFillColor(sf::Color::Yellow);
-            window.draw(cs);
-        }
+        sf::Sprite s;
+        s.setTexture(tex);
+        s.setScale(sf::Vector2f(render_scale, render_scale));
 
-        {
-            sf::CircleShape cs;
-            Vec3f estPos = g.estimated * Vec3f(0.0f, 0.0f, 0.0f);
-            cs.setPosition(estPos.x * renderScale, estPos.y * renderScale);
-            cs.setRadius(4.0f);
-            cs.setOrigin(4.0f, 4.0f);
-            cs.setFillColor(sf::Color::Cyan);
-            window.draw(cs);
-        }
+        window.draw(s);
 
         window.display();
     } while (!quit);
