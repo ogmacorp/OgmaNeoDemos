@@ -208,7 +208,7 @@ int main(int argc, char *argv[])
 
     sf::Vector2i screenDimensions(winMainW, winH);
 
-	renderWindow.create(sf::VideoMode(winMainW, winH), "Wavy Classification", sf::Style::Default);
+	renderWindow.create(sf::VideoMode(winMainW, winH), "wavy Classification", sf::Style::Default);
 	renderWindow.setFramerateLimit(60);
 
 	guiControl guiC(screenDimensions);

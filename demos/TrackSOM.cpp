@@ -15,126 +15,124 @@
 
 #include <time.h>
 #include <iostream>
+#include <vector>
 #include <fstream>
 #include <random>
 #include <thread>
 #include <mutex>
-
-#include <aogmaneo/hierarchy.h>
-#include <aogmaneo/helpers.h>
-#include <aogmaneo/image_encoder.h>
 #include <cmath>
 
-using namespace aon;
 using namespace cv;
 
-class CustomStreamReader : public aon::Stream_Reader {
-public:
-    std::ifstream ins;
+const float pi = 3.141592f;
 
-    void read(
-        void* data,
-        long len
-    ) override {
-        ins.read(static_cast<char*>(data), len);
-    }
-};
+float min_angle_delta(float delta) {
+    return std::fmod(delta + pi, 2.0f * pi) - pi;
+}
 
-class CustomStreamWriter : public aon::Stream_Writer {
-public:
-    std::ofstream outs;
-
-    void write(
-        const void* data,
-        long len
-    ) override {
-        outs.write(static_cast<const char*>(data), len);
-    }
-};
+float length(const sf::Vector2f &v) {
+    return std::sqrt(v.x * v.x + v.y * v.y);
+}
 
 class LoopSOM1D {
-private:
-    int num_inputs;
-    int num_cells;
-
-    std::vector<float> dists;
-    std::vector<float> protos;
-
 public:
+    struct Node {
+        sf::Vector2f position;
+        float angle;
+
+        std::vector<float> proto;
+    };
+
+    int num_inputs;
+
+    std::vector<Node> nodes;
+
     float lr;
+    float mix;
+    float drift;
     float falloff;
-    float decay;
-    float jump_max_ratio;
     int t;
+
+    sf::Vector2f position;
+    float angle;
 
     LoopSOM1D()
     :
-    lr(1.0f),
-    falloff(0.01f),
-    decay(0.0001f),
-    jump_max_ratio(0.1f),
-    t(0)
+    lr(0.001f),
+    mix(3.0f),
+    drift(0.01f),
+    falloff(0.1f),
+    t(0),
+    position(0.0f, 0.0f),
+    angle(0.0f)
     {}
 
-    void init(int num_inputs, int num_cells, std::mt19937 &rng) {
+    void init(int num_inputs, int num_nodes, std::mt19937 &rng) {
         this->num_inputs = num_inputs;
-        this->num_cells = num_cells;
 
-        protos.resize(num_cells * num_inputs);
+        nodes.resize(num_nodes);
 
         std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
+        std::normal_distribution<float> ndist(0.0f, 1.0f);
 
-        for (int i = 0; i < protos.size(); i++)
-            protos[i] = dist01(rng);
+        for (int i = 0; i < nodes.size(); i++) {
+            nodes[i].proto.resize(num_inputs);
 
-        dists.resize(num_cells);
+            for (int j = 0; j < num_inputs; j++)
+                nodes[i].proto[j] = dist01(rng);
+
+            nodes[i].position.x = ndist(rng);
+            nodes[i].position.y = ndist(rng);
+            nodes[i].angle = dist01(rng) * 2.0f * pi;
+        }
     }
 
-    int step(const std::vector<float> &inputs, bool learn_enabled = true) {
-        int max_jump = jump_max_ratio * num_cells;
+    int step(float velocity, float turn, const std::vector<float> &inputs, bool learn_enabled = true) {
+        angle = std::fmod(angle + turn + 2.0f * pi, 2.0f * pi);
+        position += velocity * sf::Vector2f(std::cos(angle), std::sin(angle));
 
         // find bmu
         int bmu = 0;
         float min_dist = 999999.0f;
 
-        for (int i = 0; i < num_cells; i++) {
+        for (int i = 0; i < nodes.size(); i++) {
             float dist = 0.0f;
 
             for (int j = 0; j < num_inputs; j++) {
-                float diff = inputs[j] - protos[j + i * num_inputs];
+                float diff = inputs[j] - nodes[i].proto[j];
 
                 dist += diff * diff;
             }
+            
+            float mixed_dist = std::sqrt(dist) / num_inputs + mix * length(position - nodes[i].position);
 
-            dists[i] = dist;
-
-            if (dist < min_dist) {
-                min_dist = dist;
+            if (mixed_dist < min_dist) {
+                min_dist = mixed_dist;
                 bmu = i;
             }
         }
 
-        int delta_t = std::min(((t - bmu) + num_cells) % num_cells, ((bmu - t) + num_cells) % num_cells); // looping delta
+        t = bmu;
 
-        if (delta_t > max_jump)
-            t = bmu;
+        // attract to current
+        position += drift * (nodes[t].position - position);
+        angle = std::fmod(angle + drift * min_angle_delta(nodes[t].angle - angle) + 2.0f * pi, 2.0f * pi);
 
         if (learn_enabled) {
-            for (int i = 0; i < num_cells; i++) {
-                int delta = std::min(((i - t) + num_cells) % num_cells, ((t - i) + num_cells) % num_cells); // looping delta
+            for (int i = 0; i < nodes.size(); i++) {
+                int delta = std::min(((i - t) + nodes.size()) % nodes.size(), ((t - i) + nodes.size()) % nodes.size()); // looping delta
 
-                float rate = lr * std::exp(-falloff * delta * delta / std::max(0.0001f, lr));
+                float rate = lr * std::exp(-falloff * delta * delta);
 
                 for (int j = 0; j < num_inputs; j++) {
-                    float diff = inputs[j] - protos[j + i * num_inputs];
+                    float diff = inputs[j] - nodes[i].proto[j];
 
-                    protos[j + i * num_inputs] += rate * diff;
+                    nodes[i].proto[j] += rate * diff;
                 }
-            }
-            
-            lr *= 1.0f - decay;
 
-            t = (t + 1) % num_cells;
+                nodes[i].position += rate * (position - nodes[i].position);
+                nodes[i].angle = std::fmod(angle + rate * min_angle_delta(angle - nodes[i].angle) + 2.0f * pi, 2.0f * pi);
+            }
         }
 
         return t;
@@ -142,7 +140,21 @@ public:
 };
 
 int main() {
-    const std::string fileName = "resources/track.avi";
+    const std::string fileName = "resources/video0.avi";
+
+    std::ifstream ff("resources/control0.txt");
+
+    std::vector<std::tuple<float, float>> data;
+
+    while (ff.good() && !ff.eof()) {
+        float throttle, steer;
+
+        ff >> throttle >> steer;
+
+        data.push_back(std::make_tuple(throttle * 0.03f, steer * 0.003f));
+    }
+
+    ff.close();
 
     // Initialize a random number generator
     std::mt19937 rng(time(nullptr));
@@ -155,7 +167,7 @@ int main() {
     window.create(sf::VideoMode(windowWidth, windowHeight), "Video Test", sf::Style::Default);
 
     // Uncap framerate
-    window.setFramerateLimit(60);
+    window.setFramerateLimit(120);
 
     sf::Font font;
     font.loadFromFile("resources/Hack-Regular.ttf");
@@ -199,14 +211,14 @@ int main() {
             images[i][j] = frame.data[j] / 255.0f;
     }
         
-    std::cout << "Capture has " << captureLength << " frames" << std::endl;
+    std::cout << "Capture has " << captureLength << " frames. Commands has " << data.size() << std::endl;
 
     std::uniform_int_distribution<int> image_dist(0, images.size() - 1);
 
     for (int it = 0; it < 100000; it++) {
-        int rand_index = image_dist(rng);
+        int t = it % images.size();
 
-        som.step(images[rand_index], true);
+        som.step(std::get<0>(data[t]), std::get<1>(data[t]), images[t], true);
 
         if (it % 100 == 0)
             std::cout << it << std::endl;
@@ -218,7 +230,7 @@ int main() {
 
     std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
 
-    int fi = 0;
+    int fi = som.t;
     sf::Texture tex;
 
     do {
@@ -239,7 +251,7 @@ int main() {
                 quit = true;
         }
 
-        int bmu = som.step(images[fi], false);
+        int bmu = som.step(std::get<0>(data[fi]), std::get<1>(data[fi]), images[fi], true);
 
         std::cout << bmu << std::endl;
 
@@ -265,6 +277,23 @@ int main() {
         s.setScale(4.0f, 4.0f);
 
         window.draw(s);
+
+        sf::CircleShape cs;
+
+        cs.setRadius(2.0f);
+        cs.setOrigin(1.0f, 1.0f);
+        cs.setFillColor(sf::Color::Red);
+
+        for (int i = 0; i < som.nodes.size(); i++) {
+            cs.setPosition(som.nodes[i].position * 10.0f + sf::Vector2f(window.getSize().x * 0.5f, window.getSize().y * 0.5f));
+
+            window.draw(cs);
+        }
+
+        cs.setFillColor(sf::Color::Green);
+        cs.setPosition(som.position * 10.0f + sf::Vector2f(window.getSize().x * 0.5f, window.getSize().y * 0.5f));
+
+        window.draw(cs);
 
         fi++;
 

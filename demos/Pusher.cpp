@@ -2,7 +2,6 @@
 #include <SFML/Graphics.hpp>
 
 #include <aogmaneo/hierarchy.h>
-//#include <aogmaneo/ImageEncoder.h>
 #include <cmath>
 
 #include <time.h>
@@ -18,7 +17,7 @@ public:
 
     void read(
         void* data,
-        int len
+        long len
     ) override {
         ins.read(static_cast<char*>(data), len);
     }
@@ -30,7 +29,7 @@ public:
 
     void write(
         const void* data,
-        int len
+        long len
     ) override {
         outs.write(static_cast<const char*>(data), len);
     }
@@ -55,20 +54,20 @@ int main() {
     // Create hierarchy
     set_num_threads(8);
 
-    Array<Hierarchy::Layer_Desc> lds(2);
+    Array<Hierarchy::Layer_Desc> lds(3);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hidden_size = Int3(4, 4, 32);
+        lds[i].hidden_size = Int3(5, 5, 64);
         lds[i].ticks_per_update = 2;
         lds[i].temporal_horizon = 2;
     }
 
-    int sensorRes = 32;
+    int sensorRes = 16;
     int actionRes = 5;
 
     Array<Hierarchy::IO_Desc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IO_Desc(Int3(2, 2, sensorRes), IO_Type::prediction, 2, 2);
-    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 2, actionRes), IO_Type::action, 2, 2);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(2, 2, sensorRes), IO_Type::prediction, 4, 16);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 2, actionRes), IO_Type::action, 4, 16);
 
     Hierarchy h;
     h.init_random(ioDescs, lds);
@@ -117,8 +116,8 @@ int main() {
 
     sf::Vector2f targetPos(0.0f, 0.0f);
 
-    float objectRad = 0.08f;
-    float pusherRad = 0.08f;
+    float objectRad = 0.1f;
+    float pusherRad = 0.1f;
 
     bool learnMode = true;
 
@@ -194,7 +193,7 @@ int main() {
 
         // Exploration
         for (int i = 0; i < actionCIs.size(); i++) {
-            if (dist01(rng) < 0.1f) {
+            if (dist01(rng) < 0.03f) {
                 std::uniform_int_distribution<int> actionDist(0, actionRes - 1);
 
                 actionCIs[i] = actionDist(rng);
@@ -228,18 +227,18 @@ int main() {
         if (objectDistPrev == -1.0f)
             objectDistPrev = distToObject;
 
-        float reward = -1.0f * (distToCenter - distPrev) - 0.2f * (distToObject - objectDistPrev);
+        float reward = -10.0f * (distToCenter - distPrev) - 2.0f * (distToObject - objectDistPrev);
 
         distPrev = distToCenter;
         objectDistPrev = distToObject;
 
         bool outOfBounds = objectPos.x < -1.0f || objectPos.x > 1.0f || objectPos.y < -1.0f || objectPos.y > 1.0f;
 
-        if (distToCenter < 0.06f || outOfBounds) {
+        if (distToCenter < 0.08f || outOfBounds) {
             // Reset
             objectPos = sf::Vector2f(dist01(rng) * 2.0f - 1.0f, dist01(rng) * 2.0f - 1.0f) * 0.6f;
 
-            reward = outOfBounds ? -10.0f : 100.0f;
+            reward = outOfBounds ? -0.5f : 100.0f;
 
             if (reward == 100.0f) {
                 std::cout << "Made it!" << std::endl;
@@ -258,6 +257,10 @@ int main() {
         sensorCIs[1] = (pusherPos.y * 0.5f + 0.5f) * (sensorRes - 1) + 0.5f;
         sensorCIs[2] = (objectDelta.x * 0.5f + 0.5f) * (sensorRes - 1) + 0.5f;
         sensorCIs[3] = (objectDelta.y * 0.5f + 0.5f) * (sensorRes - 1) + 0.5f;
+
+        // clamp
+        for (int i = 0; i < sensorCIs.size(); i++)
+            sensorCIs[i] = std::min(sensorRes - 1, std::max(0, sensorCIs[i]));
 
         Array<Int_Buffer_View> inputCIs(2);
         inputCIs[0] = sensorCIs;

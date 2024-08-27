@@ -219,7 +219,7 @@ int main() {
                 actIndex = h.get_prediction_cis(2)[0];
 
                 if (speedMode) {
-                    if (dist01(rng) < 0.0f)
+                    if (dist01(rng) < (speedMode ? 1.0f : 0.0f))
                         actIndex = actionDist(rng);
                 }
 

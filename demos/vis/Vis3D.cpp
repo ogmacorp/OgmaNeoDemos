@@ -360,11 +360,11 @@ void Vis3D::update(
 
                     int wi = ffZ + hvld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex));
 
-                    float w = hvl.weights[wi] / 255.0f;
+                    float w = hvl.weights1[wi] / 255.0f;
 
                     ffWeights[offset.y + offset.x * diam] = w; 
 
-                    unsigned char wc = hvl.weights[wi];
+                    unsigned char wc = hvl.weights1[wi];
 
                     //int wi = offset.y + diam * (offset.x + diam * hiddenIndex);
 

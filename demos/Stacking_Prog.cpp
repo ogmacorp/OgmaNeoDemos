@@ -8,8 +8,8 @@
 #include <cmath>
 #include <random>
 
-#include <aogmaneo/Hierarchy.h>
-#include <aogmaneo/ImageEncoder.h>
+#include <aogmaneo/hierarchy.h>
+#include <aogmaneo/image_encoder.h>
 
 using namespace aon;
 
@@ -70,36 +70,36 @@ int main() {
 
     // --------------------------- Create the Hierarchy ---------------------------
     
-    setNumThreads(8);
+    set_num_threads(8);
 
     Int3 hiddenSize(3, 3, 8);
 
-    Array<ImageEncoder::VisibleLayerDesc> vlds(1);
+    Array<Image_Encoder::Visible_Layer_Desc> vlds(1);
     vlds[0].size = Int3(width, height, 1);
     vlds[0].radius = 0;
 
-    ImageEncoder enc;
-    enc.initRandom(hiddenSize, vlds);
+    Image_Encoder enc;
+    enc.init_random(hiddenSize, vlds);
 
-    Array<Hierarchy::LayerDesc> lds(5);
+    Array<Hierarchy::Layer_Desc> lds(5);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hiddenSize = Int3(5, 5, 16);
+        lds[i].hidden_size = Int3(5, 5, 16);
 
-        lds[i].ticksPerUpdate = 2;
-        lds[i].temporalHorizon = 4;
+        lds[i].ticks_per_update = 2;
+        lds[i].temporal_horizon = 4;
     }
 
-    Array<Hierarchy::IODesc> ioDescs(3);
-    ioDescs[0] = Hierarchy::IODesc(hiddenSize);
-    ioDescs[1] = Hierarchy::IODesc(Int3(1, 1, numActions));
-    ioDescs[2] = Hierarchy::IODesc(Int3(1, 1, width));
+    Array<Hierarchy::IO_Desc> ioDescs(3);
+    ioDescs[0] = Hierarchy::IO_Desc(hiddenSize);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 1, numActions));
+    ioDescs[2] = Hierarchy::IO_Desc(Int3(1, 1, width));
 
     Hierarchy h;
-    h.initRandom(ioDescs, lds);
+    h.init_random(ioDescs, lds);
 
-    IntBuffer goalCIs = h.getTopHiddenCIs();
-    IntBuffer randomCIs = h.getTopHiddenCIs();
+    Int_Buffer goalCIs = h.get_top_hidden_cis();
+    Int_Buffer randomCIs = h.get_top_hidden_cis();
 
     int actIndex = 0;
 
@@ -187,43 +187,43 @@ int main() {
             int numSubTicks = speedMode ? 100 : 1;
 
             for (int subTick = 0; subTick < numSubTicks; subTick++) {
-                FloatBuffer img(width * height, 0.0f);
+                Byte_Buffer img(width * height, 0);
 
                 for (int i = 0; i < width; i++) {
                     for (int j = 0; j < actualStacks[i]; j++)
-                        img[i * height + j] = 1.0f;
+                        img[i * height + j] = 255;
                 }
 
-                Array<const FloatBuffer*> encInputs(1);
-                encInputs[0] = &img;
+                Array<Byte_Buffer_View> encInputs(1);
+                encInputs[0] = img;
 
                 enc.step(encInputs, speedMode);
 
-                IntBuffer imgCIs = enc.getHiddenCIs();
+                Int_Buffer imgCIs = enc.get_hidden_cis();
 
-                IntBuffer actions(1);
+                Int_Buffer actions(1);
                 actions[0] = actIndex;
 
-                IntBuffer positions(1);
+                Int_Buffer positions(1);
                 positions[0] = actualPosition;
 
-                Array<const IntBuffer*> inputCIs(ioDescs.size());
-                inputCIs[0] = &imgCIs;
-                inputCIs[1] = &actions;
-                inputCIs[2] = &positions;
+                Array<Int_Buffer_View> inputCIs(ioDescs.size());
+                inputCIs[0] = imgCIs;
+                inputCIs[1] = actions;
+                inputCIs[2] = positions;
 
-                FloatBuffer goalImg(width * height, 0.0f);
+                Byte_Buffer goalImg(width * height, 0);
 
                 for (int i = 0; i < width; i++) {
                     for (int j = 0; j < targetStacks[i]; j++)
-                        goalImg[i * height + j] = 1.0f;
+                        goalImg[i * height + j] = 255;
                 }
 
-                encInputs[0] = &goalImg;
+                encInputs[0] = goalImg;
 
                 enc.step(encInputs, false);
 
-                IntBuffer goalImgCIs = enc.getHiddenCIs();
+                Int_Buffer goalImgCIs = enc.get_hidden_cis();
 
                 if (stateSaved) {
                     stateSaved = false;
@@ -232,36 +232,36 @@ int main() {
                     aon::Hierarchy copy = h;
 
                     for (int ss = 0; ss < 32; ss++) {
-                        IntBuffer noAction(1);
+                        Int_Buffer noAction(1);
                         noAction[0] = 0;
-                        IntBuffer noPosition(1);
+                        Int_Buffer noPosition(1);
                         noPosition[0] = 0;
 
-                        Array<const IntBuffer*> copyInputCIs(ioDescs.size());
-                        copyInputCIs[0] = &goalImgCIs;
-                        copyInputCIs[1] = &noAction;
-                        copyInputCIs[2] = &noPosition;
+                        Array<Int_Buffer_View> copyInputCIs(ioDescs.size());
+                        copyInputCIs[0] = goalImgCIs;
+                        copyInputCIs[1] = noAction;
+                        copyInputCIs[2] = noPosition;
 
-                        copy.step(copyInputCIs, &goalCIs, false);
+                        copy.step(copyInputCIs, goalCIs, false);
                         
-                        goalCIs = copy.getTopHiddenCIs();
+                        goalCIs = copy.get_top_hidden_cis();
                     }
                 }
 
                 if (speedMode) {
                     if (dist01(rng) < 0.1f) {
-                        std::uniform_int_distribution<int> goalDist(0, h.getTopHiddenSize().z);
+                        std::uniform_int_distribution<int> goalDist(0, h.get_top_hidden_size().z);
 
                         for (int i = 0; i < randomCIs.size(); i++)
                             randomCIs[i] = goalDist(rng);
                     }
 
-                    h.step(inputCIs, &randomCIs, speedMode);
+                    h.step(inputCIs, randomCIs, speedMode);
                 }
                 else
-                    h.step(inputCIs, &goalCIs, false);
+                    h.step(inputCIs, goalCIs, false);
 
-                actIndex = h.getPredictionCIs(1)[0];
+                actIndex = h.get_prediction_cis(1)[0];
 
                 if (speedMode)
                     actIndex = actionDist(rng);
@@ -306,7 +306,7 @@ int main() {
         float blockScale = windowWidth * 0.5f / width;
 
         // Predictions
-        enc.reconstruct(&h.getPredictionCIs(0));
+        enc.reconstruct(h.get_prediction_cis(0));
 
         std::cout << actIndex << std::endl;
 
@@ -315,11 +315,11 @@ int main() {
 
         for (int x = 0; x < width; x++)
             for (int y = 0; y < height; y++) {
-                float intensity = enc.getReconstruction(0)[y + x * height];
+                Byte intensity = enc.get_reconstruction(0)[y + x * height];
 
                 sf::Color c;
                 c.r = 255;
-                c.g = c.b = static_cast<sf::Uint8>(std::min(1.0f, std::max(0.0f, 1.0f - intensity)) * 255.0f);
+                c.g = c.b = static_cast<sf::Uint8>(std::min(1.0f, std::max(0.0f, 1.0f - intensity / 255.0f)) * 255.0f);
                 
                 predImg.setPixel(x, y, c);
             }

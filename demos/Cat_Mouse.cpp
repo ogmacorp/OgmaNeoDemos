@@ -42,7 +42,7 @@ public:
 int main() {
     bool load = false;
     bool manualControl = false;
-    float epsilon = 0.01f;
+    float epsilon = 0.05f;
 
     const std::string hCatFileName = "hCat.ohr";
     const std::string hMouseFileName = "hMouse.ohr";
@@ -73,7 +73,7 @@ int main() {
     // Create hierarchy
     set_num_threads(8);
 
-    Array<Hierarchy::Layer_Desc> lds(3);
+    Array<Hierarchy::Layer_Desc> lds(5);
 
     for (int i = 0; i < lds.size(); i++) {
         lds[i].hidden_size = Int3(5, 5, 32);

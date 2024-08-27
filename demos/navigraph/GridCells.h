@@ -15,18 +15,19 @@ private:
     int filter_radius;
 
     std::vector<float> inject_weights;
+    std::vector<float> injections;
     std::vector<float> states;
     std::vector<float> states_prev;
     std::vector<float> filter;
 
 public:
     // params
-    float alpha = 0.1f; // hat outer falloff
-    float beta = 0.05f; // hat inner falloff
+    float alpha = 0.2f; // hat outer falloff
+    float beta = 0.1f; // hat inner falloff
     float gamma = 0.6f; // hat dip
-    float energy = 0.4f; // inject energy
+    float energy = 0.05f; // inject energy
     float scale = 1.0f; // final activation scale
-    int iters = 2;
+    int iters = 3;
 
     void init_random(
         int num_inputs,
@@ -47,6 +48,11 @@ public:
     }
 
     sf::Image get_states_image() const;
+
+    void clear() {
+        std::fill(states.begin(), states.end(), 0.0f);
+        std::fill(states_prev.begin(), states_prev.end(), 0.0f);
+    }
 };
 
 

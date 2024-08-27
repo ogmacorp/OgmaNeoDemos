@@ -381,7 +381,7 @@ int main() {
         // this reward will be higher by higher speed
         float reward = 0.01f * std::abs(car.speed) * (carDir.x * trackDir.x + carDir.y * trackDir.y) + (reset ? -1.0f : 0.0f);
 
-        reward *= 10.0f;
+        reward *= 100.0f;
 
         averageReward = 0.99f * averageReward + 0.01f * reward;
 

@@ -25,6 +25,8 @@ void GridCells::init_random(
     int filter_diam = filter_radius * 2 + 1;
 
     filter.resize(filter_diam * filter_diam);
+
+    injections.resize(width * height);
 }
 
 void GridCells::step(
@@ -41,7 +43,7 @@ void GridCells::step(
             for (int i = 0; i < num_inputs; i++)
                 sum += inject_weights[i + num_inputs * state_index] * inputs[i];
 
-            states[state_index] += std::max(0.0f, sum) * energy;
+            injections[state_index] = std::max(0.0f, sum) * energy;
         }
 
     // determine filter
@@ -91,7 +93,7 @@ void GridCells::step(
                         total += w * w;
                     }
 
-                states[state_index] = std::tanhf(std::max(0.0f, sum / std::max(0.0001f, std::sqrt(total)) * scale));
+                states[state_index] = std::tanh(std::max(0.0f, injections[state_index] + sum / std::max(0.0001f, std::sqrt(total)) * scale));
             }
     }
 }
