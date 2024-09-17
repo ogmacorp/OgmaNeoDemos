@@ -229,8 +229,8 @@ void Vis3D::update(
         
         if (l < h.get_num_layers() - 1) {
             int numInputs = h.get_histories(0).size() * h.get_histories(0)[0].size();
-            pcsdr = h.get_encoder(l + 1).get_visible_layer(numInputs + h.get_ticks_per_update(l + 1) - 1 - h.get_ticks(l + 1)).recon_cis;
-            //pcsdr = h.get_decoder(l + 1, h.get_ticks_per_update(l + 1) - 1 - h.get_ticks(l + 1)).get_hidden_cis();
+            //pcsdr = h.get_encoder(l + 1).get_visible_layer(numInputs + h.get_ticks_per_update(l + 1) - 1 - h.get_ticks(l + 1)).recon_cis;
+            pcsdr = h.get_decoder(l + 1, h.get_ticks_per_update(l + 1) - 1 - h.get_ticks(l + 1)).get_hidden_cis();
             //pcsdr = h.get_decoder(l + 1, 0).get_hidden_cis();
         }
 
@@ -360,11 +360,11 @@ void Vis3D::update(
 
                     int wi = ffZ + hvld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex));
 
-                    float w = hvl.weights1[wi] / 255.0f;
+                    float w = hvl.weights[wi] / 255.0f;
 
                     ffWeights[offset.y + offset.x * diam] = w; 
 
-                    unsigned char wc = hvl.weights1[wi];
+                    unsigned char wc = hvl.weights[wi];
 
                     //int wi = offset.y + diam * (offset.x + diam * hiddenIndex);
 
@@ -475,20 +475,20 @@ void Vis3D::update(
                         aon::Int2 offset(ix - fieldLowerBound.x, iy - fieldLowerBound.y);
 
                         if (vld.size.z == 2) {
-                            unsigned char r = vl.weights0[0 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
-                            unsigned char g = vl.weights0[1 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
+                            unsigned char r = vl.weights[0 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
+                            unsigned char g = vl.weights[1 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
 
                             colors[offset.y + offset.x * diam] = (Color){ r, g, 0, 255 };
                         }
                         else if (vld.size.z == 3) {
-                            unsigned char r = vl.weights0[0 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
-                            unsigned char g = vl.weights0[1 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
-                            unsigned char b = vl.weights0[2 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
+                            unsigned char r = vl.weights[0 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
+                            unsigned char g = vl.weights[1 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
+                            unsigned char b = vl.weights[2 + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
 
                             colors[offset.y + offset.x * diam] = (Color){ r, g, b, 255 };
                         }
                         else {
-                            unsigned char c = vl.weights0[ffZ + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
+                            unsigned char c = vl.weights[ffZ + vld.size.z * (offset.y + diam * (offset.x + diam * hiddenIndex))];
 
                             colors[offset.y + offset.x * diam] = (Color){ c, c, c, 255 };
                         }

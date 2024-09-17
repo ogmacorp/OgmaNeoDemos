@@ -186,6 +186,37 @@ void scale_bilinear_3u8(const unsigned char src[], unsigned char dst[], int src_
     }
 }
 
+void scale_bilinear_1u8(const unsigned char src[], unsigned char dst[], int src_width, int src_height, int dst_width, int dst_height) {
+    float ratio_x = (float)(src_width - 1) / (float)dst_width;
+    float ratio_y = (float)(src_height - 1) / (float)dst_height;
+
+    for (int dst_y = 0; dst_y < dst_height; dst_y++) {
+        float src_y_f = (dst_y + 0.5f) * ratio_y;
+        int src_y = (int)src_y_f;
+        float interp_y = src_y_f - src_y;
+        float interp_y1 = 1.0f - interp_y;
+
+        int dst_offset = dst_width * dst_y;
+        int src_offset = src_width * src_y;
+
+        for (int dst_x = 0; dst_x < dst_width; dst_x++) {
+            float src_x_f = (dst_x + 0.5f) * ratio_x;
+            int src_x = (int)src_x_f;
+            float interp_x = src_x_f - src_x;
+
+            int dst_index = dst_x + dst_offset;
+            int src_index = src_x + src_offset;
+
+            float interp_x1 = 1.0f - interp_x;
+
+            float pr0 = interp_y1 * src[src_index    ] + interp_y * src[src_index + src_width];
+            float pr1 = interp_y1 * src[src_index + 1] + interp_y * src[src_index + src_width + 1];
+
+            dst[dst_index] = (unsigned char)(interp_x1 * pr0 + interp_x * pr1);
+        }
+    }
+}
+
 int main(int argc, char *argv[]) {
     std::mt19937 rng(time(nullptr));
 
@@ -198,31 +229,62 @@ int main(int argc, char *argv[]) {
     sf::Image dst;
     dst.create(32, 32);
 
-    Byte_Buffer src_data(src.getSize().x * src.getSize().y * 3);
-    Byte_Buffer dst_data(dst.getSize().x * dst.getSize().y * 3);
+    Byte_Buffer src_data(src.getSize().x * src.getSize().y * 1);
+    Byte_Buffer dst_data(dst.getSize().x * dst.getSize().y * 1);
 
     for (int x = 0; x < src.getSize().x; x++)
         for (int y = 0; y < src.getSize().y; y++) {
             sf::Color c = src.getPixel(x, y);
 
-            src_data[0 + 3 * (y + x * src.getSize().y)] = c.r;
-            src_data[1 + 3 * (y + x * src.getSize().y)] = c.g;
-            src_data[2 + 3 * (y + x * src.getSize().y)] = c.b;
+            sf::Uint8 gray = (c.r + c.b + c.g) * 0.333f * 255.0f;
+
+            src_data[y + x * src.getSize().y] = gray;
         }
 
-    scale_bilinear_3u8(&src_data[0], &dst_data[0], src.getSize().x, src.getSize().y, dst.getSize().x, dst.getSize().y);
+    scale_bilinear_1u8(&src_data[0], &dst_data[0], src.getSize().x, src.getSize().y, dst.getSize().x, dst.getSize().y);
 
     for (int x = 0; x < dst.getSize().x; x++)
         for (int y = 0; y < dst.getSize().y; y++) {
             sf::Color c;
-            c.r = dst_data[0 + 3 * (y + x * dst.getSize().y)];
-            c.g = dst_data[1 + 3 * (y + x * dst.getSize().y)];
-            c.b = dst_data[2 + 3 * (y + x * dst.getSize().y)];
+            c.r = dst_data[y + x * dst.getSize().y];
+            c.b = c.g = c.r;
 
             dst.setPixel(x, y, c);
         }
 
     dst.saveToFile("result1.png");
+
+    {
+        std::vector<long> test(16000000, 2);
+
+        sf::Clock c;
+
+        c.restart();
+
+        for (long i = 0; i < test.size(); i++) {
+            test[i] *= 3;
+        }
+
+        auto t = c.getElapsedTime();
+
+        std::cout << (t.asMicroseconds()) << std::endl;
+    }
+
+    {
+        std::vector<long> test(16000000, 2);
+
+        sf::Clock c;
+
+        c.restart();
+
+        for (long i = 0; i < test.size(); i += 16) {
+            test[i] *= 3;
+        }
+
+        auto t = c.getElapsedTime();
+
+        std::cout << (t.asMicroseconds()) << std::endl;
+    }
 
     //unsigned int windowWidth = 1000;
     //unsigned int windowHeight = 500;

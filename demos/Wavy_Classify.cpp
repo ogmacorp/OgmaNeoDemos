@@ -25,9 +25,74 @@
 #include "vis/Plot.hpp"
 #include "vis/guiControl_sfml.hpp"
 
+#include <valarray>
+
 #include <string>
 
 using namespace aon;
+
+const int S = 64;
+const int L = 32;
+const int N = S * L;
+const int N2 = N * N;
+
+typedef Hierarchy<S, L> Hierarchy1;
+typedef Vec<S, L> Vec1;
+typedef Bundle<S, L> Bundle1;
+
+Vec1 embedding1d(float x, const std::valarray<float> &loc) {
+    // mat mul
+    Vec1 p;
+
+    for (int i = 0; i < S; i++) {
+        float f = std::fmod(loc[i * 2] * x + loc[i * 2 + 1], 1.0f);
+
+        if (f < 0.0f)
+            f += 1.0f;
+
+        int v = static_cast<int>(f * (L - 1) + 0.5f);
+
+        p[i] = v;
+    }
+
+    return p;
+}
+
+Vec1 embedding2d(float x, float y, const std::valarray<float> &loc) {
+    // mat mul
+    Vec1 p;
+
+    for (int i = 0; i < S; i++) {
+        float f = std::fmod(loc[i * 3] * x + loc[i * 3 + 1] * y + loc[i * 3 + 2], 1.0f);
+
+        if (f < 0.0f)
+            f += 1.0f;
+
+        int v = static_cast<int>(f * (L - 1) + 0.5f);
+
+        p[i] = v;
+    }
+
+    return p;
+}
+
+Vec1 embedding3d(float x, float y, float z, const std::valarray<float> &loc) {
+    // mat mul
+    Vec1 p;
+
+    for (int i = 0; i < S; i++) {
+        float f = std::fmod(loc[i * 4] * x + loc[i * 4 + 1] * y + loc[i * 4 + 2] * z + loc[i * 4 + 3], 1.0f);
+
+        if (f < 0.0f)
+            f += 1.0f;
+
+        int v = static_cast<int>(f * (L - 1) + 0.5f);
+
+        p[i] = v;
+    }
+
+    return p;
+}
 
 void splitString(const std::string& s, std::string c, std::vector<std::string>& v)
 {
@@ -290,28 +355,20 @@ int main(int argc, char *argv[])
 
     set_num_threads(8);
 
-    Array<Hierarchy::Layer_Desc> lds(5);
+    Array<Hierarchy1::Layer_Desc> lds(5);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hidden_size = Int3(5, 5, 32);
-        lds[i].up_radius = 2;
-        lds[i].down_radius = 2;
-        //lds[i].recurrent_radius = 0;
-        //lds[i].errorSize = Int3(4, 4, 32);
-
-        //lds[i].hRadius = 2;
-        //lds[i].eRadius = 2;
-        //lds[i].dRadius = 2;
-        //lds[i].ticks_per_update = 2;
-        //lds[i].temporal_horizon = 4;
+        lds[i].hidden_size = Int2(1, 1);
+        lds[i].ticks_per_update = 2;
+        lds[i].temporal_horizon = 2;
     }
 
     // here we use the measuring data in 1st input     --> InputType = prediction
 	//             the labels data in 2nd input        --> InputType = prediction
-    Array<Hierarchy::IO_Desc> ioDescs(2);
+    Array<Hierarchy1::IO_Desc> ioDescs(2);
 
     //ioDescs[0] = Hierarchy::IODesc(Int3(1, numInputColumns, inputColumnSize), IOType::prediction, 4, 2, 2, 32);
-    ioDescs[0] = Hierarchy::IO_Desc(Int3(1, numInputColumns, inputColumnSize), IO_Type::prediction);
+    ioDescs[0] = Hierarchy1::IO_Desc(Int2(1, 1), IO_Type::prediction);
 
     const int label_width  = 1;
     const int label_height = 1;
@@ -322,9 +379,9 @@ int main(int argc, char *argv[])
 #endif    
     const int label_num_cells_per_column = numLabels;   // same as number of classes
     //ioDescs[1] = Hierarchy::IODesc(Int3(label_width, label_height, label_num_cells_per_column), IOType::prediction, 2, 2, 2, 32);
-    ioDescs[1] = Hierarchy::IO_Desc(Int3(label_width, label_height, label_num_cells_per_column), IO_Type::prediction);
+    ioDescs[1] = Hierarchy1::IO_Desc(Int2(1, 1), IO_Type::prediction);
 
-    Hierarchy h;
+    Hierarchy1 h;
     bool learnFlag = true;
 
     if (loadHierarchy)
@@ -339,8 +396,22 @@ int main(int argc, char *argv[])
 	else
 	{
 		h.init_random(ioDescs, lds);
-        h.params.ios[1].importance = 0.1f;
 	}
+
+    Array<Vec1> loc_vecs(inputColumnSize);
+
+    std::valarray<float> loc(2 * S);
+
+    for (int i = 0; i < loc.size(); i++)
+        loc[i] = aon::rand_normalf() * 1.0f;
+
+    for (int i = 0; i < loc_vecs.size(); i++)
+        loc_vecs[i] = embedding1d(static_cast<float>(i) / loc_vecs.size() * (maxY - minY) + minY, loc);
+
+    Array<Vec1> lab_vecs(numLabels);
+
+    for (int i = 0; i < lab_vecs.size(); i++)
+        lab_vecs[i] = Vec1::randomized();
 
     int hStateSize = h.state_size();
 
@@ -438,62 +509,76 @@ int main(int argc, char *argv[])
             }
 #endif
 
-            Array<Int_Buffer_View> inputCIs(ioDescs.size());
+            Array<Array_View<Vec<S, L>>> all_input_vecs(ioDescs.size());
 
-#ifdef SINGLE_COLUMN_ENCODER
             int encodedIn = static_cast<int>((value - minY) / (maxY - minY) * (inputColumnSize - 1) + 0.5f);
-            Int_Buffer input = Int_Buffer(1, encodedIn);
-#else
-            std::vector<int> encIn = Unorm8ToCSDR((value - minY) / (maxY - minY));
-            IntBuffer input = IntBuffer(numInputColumns, 0);
-            for (auto i = 0; i < numInputColumns; ++i) input[i] = encIn[i];
-#endif
-            inputCIs[0] = input;
 
-            Int_Buffer labelCI(1, sequenceID);
-            inputCIs[1] = labelCI;
-            
+            Array<Vec<S, L>> loc_input(1);
+            loc_input[0] = loc_vecs[encodedIn];
+
+            Array<Vec<S, L>> lab_input(1);
+            lab_input[0] = lab_vecs[sequenceID];
+
+            all_input_vecs[0] = loc_input;
+            all_input_vecs[1] = lab_input;
+
             if (!learnFlag || sf::Keyboard::isKeyPressed(sf::Keyboard::P))
             {
                 // Prediction mode
                 std::cout << "Prediction mode" << std::endl;
                 //inputCIs[0] = &h.get_prediction_cis(0); // memory prediction, independent in current input
-                inputCIs[1] = h.get_prediction_cis(1);
-                h.step(inputCIs, false);
+                all_input_vecs[1] = h.get_prediction_vecs(1);
+                h.step(all_input_vecs, false);
+
             }
             else {
                 // training mode
-                h.step(inputCIs, true);
+                h.step(all_input_vecs, true);
             }
 
-            for (int i = 0; i < h.get_encoder(0).get_hidden_cis().size(); i++)
-                std::cout << h.get_encoder(0).get_hidden_cis()[i] << " ";
-            std::cout << std::endl;
+            //for (int i = 0; i < h.get_encoder(0).get_hidden_cis().size(); i++)
+            //    std::cout << h.get_encoder(0).get_hidden_cis()[i] << " ";
+            //std::cout << std::endl;
             
-            if (numAdditionalStepsAhead)
+            Vec1 pred_loc_vec = h.get_prediction_vecs(0)[0];
+            Vec1 pred_lab_vec = h.get_prediction_vecs(1)[0];
+
+            float predValue = 0.0f;
+            int pred_label = 0;
+
             {
-                inputCIs[0] = h.get_prediction_cis(0);
+                // search for closest vector
+                int max_index = 0;
+                int max_similarity = -999999;
 
-                BufferWriter writer(hStateSize);
-                h.write_state(writer);
+                for (int i = 0; i < loc_vecs.size(); i++) {
+                    int similarity = pred_loc_vec.dot(loc_vecs[i]);
 
-                for (int step = 0; step < numAdditionalStepsAhead; step++)
-                    h.step(inputCIs, false);
+                    if (similarity > max_similarity) {
+                        max_similarity = similarity;
+                        max_index = i;
+                    }
+                }
 
-                BufferReader reader;
-                reader.buffer = &writer.buffer;
-                h.read_state(reader);
+                predValue = static_cast<float>(max_index) / loc_vecs.size() * (maxY - minY) + minY;
             }
-            
-            // Un-bin
-#ifdef SINGLE_COLUMN_ENCODER            
-            predIndex = h.get_prediction_cis(0)[0];
-            float predValue = static_cast<float>(predIndex) / static_cast<float>(inputColumnSize - 1) * (maxY - minY) + minY;
-#else            
-            std::vector<int> csdr = {h.get_prediction_cis(0)[0], h.get_prediction_cis(0)[1]};
-            float predValue = static_cast<float>(CSDRToUnorm8(csdr)) / static_cast<float>(inputColumnSize - 1) * (maxY - minY) + minY;
-#endif
-            int pred_label = h.get_prediction_cis(1)[0];
+
+            {
+                // search for closest vector
+                int max_index = 0;
+                int max_similarity = -999999;
+
+                for (int i = 0; i < lab_vecs.size(); i++) {
+                    int similarity = pred_lab_vec.dot(lab_vecs[i]);
+
+                    if (similarity > max_similarity) {
+                        max_similarity = similarity;
+                        max_index = i;
+                    }
+                }
+
+                pred_label = max_index;
+            }
 
             renderWindow.clear();
 
