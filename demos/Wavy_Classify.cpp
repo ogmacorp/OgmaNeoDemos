@@ -31,10 +31,8 @@
 
 using namespace aon;
 
-const int S = 64;
+const int S = 2048;
 const int L = 32;
-const int N = S * L;
-const int N2 = N * N;
 
 typedef Hierarchy<S, L> Hierarchy1;
 typedef Vec<S, L> Vec1;
@@ -45,12 +43,14 @@ Vec1 embedding1d(float x, const std::valarray<float> &loc) {
     Vec1 p;
 
     for (int i = 0; i < S; i++) {
-        float f = std::fmod(loc[i * 2] * x + loc[i * 2 + 1], 1.0f);
+        float f = loc[i * 2] * x + loc[i * 2 + 1];
 
         if (f < 0.0f)
-            f += 1.0f;
+            f = 1.0f - std::fmod(-f, 1.0f);
+        else
+            f = std::fmod(f, 1.0f);
 
-        int v = static_cast<int>(f * (L - 1) + 0.5f);
+        int v = static_cast<int>(f * L);
 
         p[i] = v;
     }
@@ -63,12 +63,14 @@ Vec1 embedding2d(float x, float y, const std::valarray<float> &loc) {
     Vec1 p;
 
     for (int i = 0; i < S; i++) {
-        float f = std::fmod(loc[i * 3] * x + loc[i * 3 + 1] * y + loc[i * 3 + 2], 1.0f);
+        float f = loc[i * 3] * x + loc[i * 3 + 1] * y + loc[i * 3 + 2];
 
         if (f < 0.0f)
-            f += 1.0f;
+            f = 1.0f - std::fmod(-f, 1.0f);
+        else
+            f = std::fmod(f, 1.0f);
 
-        int v = static_cast<int>(f * (L - 1) + 0.5f);
+        int v = static_cast<int>(f * L);
 
         p[i] = v;
     }
@@ -81,17 +83,37 @@ Vec1 embedding3d(float x, float y, float z, const std::valarray<float> &loc) {
     Vec1 p;
 
     for (int i = 0; i < S; i++) {
-        float f = std::fmod(loc[i * 4] * x + loc[i * 4 + 1] * y + loc[i * 4 + 2] * z + loc[i * 4 + 3], 1.0f);
+        float f = loc[i * 4] * x + loc[i * 4 + 1] * y + loc[i * 4 + 2] * z + loc[i * 4 + 3];
 
         if (f < 0.0f)
-            f += 1.0f;
+            f = 1.0f - std::fmod(-f, 1.0f);
+        else
+            f = std::fmod(f, 1.0f);
 
-        int v = static_cast<int>(f * (L - 1) + 0.5f);
+        int v = static_cast<int>(f * L);
 
         p[i] = v;
     }
 
     return p;
+}
+
+void print(const Vec1 &v) {
+    std::cout << "[ ";
+
+    for (int i = 0; i < v.segments(); i++)
+        std::cout << static_cast<int>(v[i]) << " ";
+
+    std::cout << " ]" << std::endl;
+}
+
+void print(const Bundle1 &b) {
+    std::cout << "[ ";
+
+    for (int i = 1; i < b.size(); i++)
+        std::cout << b[i] << " ";
+
+    std::cout << " ]" << std::endl;
 }
 
 void splitString(const std::string& s, std::string c, std::vector<std::string>& v)
@@ -233,7 +255,6 @@ float CSDRToF(std::vector<int> csdr, int cells_per_column, float scale_factor=0.
     return x;
 }
 
-
 int main(int argc, char *argv[])
 {
     std::string hFileName = "wavyClass.ohr";
@@ -355,20 +376,18 @@ int main(int argc, char *argv[])
 
     set_num_threads(8);
 
-    Array<Hierarchy1::Layer_Desc> lds(5);
+    Array<Layer_Desc> lds(1);
 
     for (int i = 0; i < lds.size(); i++) {
         lds[i].hidden_size = Int2(1, 1);
-        lds[i].ticks_per_update = 2;
-        lds[i].temporal_horizon = 2;
     }
 
     // here we use the measuring data in 1st input     --> InputType = prediction
 	//             the labels data in 2nd input        --> InputType = prediction
-    Array<Hierarchy1::IO_Desc> ioDescs(2);
+    Array<IO_Desc> ioDescs(2);
 
     //ioDescs[0] = Hierarchy::IODesc(Int3(1, numInputColumns, inputColumnSize), IOType::prediction, 4, 2, 2, 32);
-    ioDescs[0] = Hierarchy1::IO_Desc(Int2(1, 1), IO_Type::prediction);
+    ioDescs[0] = IO_Desc(Int2(1, 1), IO_Type::prediction);
 
     const int label_width  = 1;
     const int label_height = 1;
@@ -379,7 +398,7 @@ int main(int argc, char *argv[])
 #endif    
     const int label_num_cells_per_column = numLabels;   // same as number of classes
     //ioDescs[1] = Hierarchy::IODesc(Int3(label_width, label_height, label_num_cells_per_column), IOType::prediction, 2, 2, 2, 32);
-    ioDescs[1] = Hierarchy1::IO_Desc(Int2(1, 1), IO_Type::prediction);
+    ioDescs[1] = IO_Desc(Int2(1, 1), IO_Type::prediction);
 
     Hierarchy1 h;
     bool learnFlag = true;
@@ -412,6 +431,11 @@ int main(int argc, char *argv[])
 
     for (int i = 0; i < lab_vecs.size(); i++)
         lab_vecs[i] = Vec1::randomized();
+
+    Bundle<S, L> memory = 0.0f;
+    Vec<S, L> state = 0;
+    Vec<S, L> state_prev = 0;
+    Vec<S, L> pred_loc_vec = 0;
 
     int hStateSize = h.state_size();
 
@@ -451,6 +475,7 @@ int main(int argc, char *argv[])
     int index = -1;
     int sequenceID = 0;
     int predIndex;
+    int encodedInPrev = 0;
 
     do {
         guiC.eventHandling(renderWindow, quit);
@@ -485,7 +510,8 @@ int main(int argc, char *argv[])
             value = sensorData[index];
             sequenceID = labels[index];
 #else
-            float in0 = std::sin(0.025f * pi * index + 0.25f);
+            float in0 = (index % 12 == 0 || index % 5 == 0);//std::sin(0.025f * pi * index + 0.25f);
+            //float in0 = (index % 50 == 0 || index % 7 == 0 ? 1.0f : 0.0f);
             float in1 = std::sin(0.09f * pi * index + 1.5f);
             float in2 = std::sin(0.05f * pi * index - 0.1f);
 
@@ -522,6 +548,11 @@ int main(int argc, char *argv[])
             all_input_vecs[0] = loc_input;
             all_input_vecs[1] = lab_input;
 
+            Vec<S, L> input = loc_input[encodedIn];
+
+            state_prev = state;
+            state = (state + state * input).thin().permute();
+
             if (!learnFlag || sf::Keyboard::isKeyPressed(sf::Keyboard::P))
             {
                 // Prediction mode
@@ -534,14 +565,20 @@ int main(int argc, char *argv[])
             else {
                 // training mode
                 h.step(all_input_vecs, true);
+
+                bool update = (pred_loc_vec.dot(loc_vecs[encodedIn]) / (float)S) < (4.0f / 16.0f);
+
+                if (update) {
+                    memory *= 0.9999f;
+                    memory += state_prev.permute() * loc_vecs[encodedIn];
+                }
             }
 
-            //for (int i = 0; i < h.get_encoder(0).get_hidden_cis().size(); i++)
-            //    std::cout << h.get_encoder(0).get_hidden_cis()[i] << " ";
-            //std::cout << std::endl;
-            
-            Vec1 pred_loc_vec = h.get_prediction_vecs(0)[0];
-            Vec1 pred_lab_vec = h.get_prediction_vecs(1)[0];
+            encodedInPrev = encodedIn;
+
+            //Vec1 pred_loc_vec = h.get_prediction_vecs(0)[0];
+            //Vec1 pred_lab_vec = h.get_prediction_vecs(1)[0];
+            pred_loc_vec = memory.thin() / state.permute();
 
             float predValue = 0.0f;
             int pred_label = 0;
@@ -549,7 +586,7 @@ int main(int argc, char *argv[])
             {
                 // search for closest vector
                 int max_index = 0;
-                int max_similarity = -999999;
+                int max_similarity = 0;
 
                 for (int i = 0; i < loc_vecs.size(); i++) {
                     int similarity = pred_loc_vec.dot(loc_vecs[i]);
@@ -563,23 +600,7 @@ int main(int argc, char *argv[])
                 predValue = static_cast<float>(max_index) / loc_vecs.size() * (maxY - minY) + minY;
             }
 
-            {
-                // search for closest vector
-                int max_index = 0;
-                int max_similarity = -999999;
-
-                for (int i = 0; i < lab_vecs.size(); i++) {
-                    int similarity = pred_lab_vec.dot(lab_vecs[i]);
-
-                    if (similarity > max_similarity) {
-                        max_similarity = similarity;
-                        max_index = i;
-                    }
-                }
-
-                pred_label = max_index;
-            }
-
+            std::cout << value << " " << predValue << std::endl;
             renderWindow.clear();
 
             // plot target data

@@ -31,7 +31,7 @@ int main() {
 
     // Render target for scene
     sf::RenderTexture rescaleRT;
-    rescaleRT.create(32, 32);
+    rescaleRT.create(64, 64);
 
     // --------------------------- Create the Hierarchy ---------------------------
 
@@ -42,12 +42,12 @@ int main() {
 
     Array<Image_Encoder::Visible_Layer_Desc> imgVlds(1);
     imgVlds[0].size = Int3(rescaleRT.getSize().x, rescaleRT.getSize().y, 1);
-    imgVlds[0].radius = 4;
+    imgVlds[0].radius = 8;
 
     Image_Encoder enc;
     enc.init_random(hiddenSize, imgVlds);
 
-    Array<Hierarchy::Layer_Desc> lds(3);
+    Array<Hierarchy::Layer_Desc> lds(2);
 
     for (int i = 0; i < lds.size(); i++) {
         lds[i].hidden_size = Int3(8, 8, 32);

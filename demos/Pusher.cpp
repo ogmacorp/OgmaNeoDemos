@@ -54,12 +54,10 @@ int main() {
     // Create hierarchy
     set_num_threads(8);
 
-    Array<Hierarchy::Layer_Desc> lds(3);
+    Array<Hierarchy::Layer_Desc> lds(2);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hidden_size = Int3(5, 5, 64);
-        lds[i].ticks_per_update = 2;
-        lds[i].temporal_horizon = 2;
+        lds[i].hidden_size = Int3(5, 5, 32);
     }
 
     int sensorRes = 16;
