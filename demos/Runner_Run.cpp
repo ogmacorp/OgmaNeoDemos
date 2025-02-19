@@ -103,11 +103,11 @@ int main() {
     // Create the agent
     set_num_threads(8);
 
-    Array<Hierarchy::Layer_Desc> lds(2);
+    Array<Hierarchy::Layer_Desc> lds(1);
 
     for (int i = 0; i < lds.size(); i++) {
         lds[i].hidden_size = Int3(5, 5, 32);
-        //lds[i].spatial_activity = 16;
+        lds[i].temporal_size = 4;
     }
 
     const int sensorResolution = 16;
@@ -115,7 +115,7 @@ int main() {
 
     Array<Hierarchy::IO_Desc> ioDescs(2);
     ioDescs[0] = Hierarchy::IO_Desc(Int3(4, 6, sensorResolution), IO_Type::prediction);
-    ioDescs[1] = Hierarchy::IO_Desc(Int3(2, 4, actionResolution), IO_Type::action);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(2, 4, actionResolution), IO_Type::action, 16);
 
     Hierarchy h;
     h.init_random(ioDescs, lds);

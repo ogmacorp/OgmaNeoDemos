@@ -13,7 +13,7 @@ class CustomerStreamReader : public aon::Stream_Reader
 public:
   std::ifstream ins;
 
-  void read( void* data, int len ) 
+  void read( void* data, long len ) 
   {
     ins.read(static_cast<char*>(data), len);
   }

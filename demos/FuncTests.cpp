@@ -6,372 +6,190 @@
 //  in the OGMANEODEMOS_LICENSE.md file included in this distribution.
 // ----------------------------------------------------------------------------
 
-#include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 
-#include <aogmaneo/helpers.h>
+#include <aogmaneo/hierarchy.h>
+#include <aogmaneo/image_encoder.h>
 
-#include <fstream>
-#include <sstream>
+#include "vis/Plot.h"
+
+#include <time.h>
 #include <iostream>
-#include <cmath>
+#include <vector>
+#include <fstream>
 #include <random>
+#include <thread>
+#include <mutex>
+#include <cmath>
 
-#include <pmmintrin.h>
+int main() {
+    aon::set_num_threads(8);
 
-#include <opencv2/opencv.hpp>
-#include <opencv2/core/core.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/highgui.hpp>
-
-#include <omp.h>
-#include <memory.h>
-
-using namespace aon;
-
-#define RGBA32F_SIZE 16
-
-typedef unsigned char u8;
-typedef int i32;
-typedef long i64;
-typedef float f32;
-typedef double f64;
-
-static const __m128 c256 = _mm_set1_ps(256);
-
-void resize_nearest_4f32(f32 src[], f32 dst[], i32 src_width, i32 src_height, i32 dst_width, i32 dst_height) {
-    f32 ratio_x = (f32)src_width / (f32)dst_width;
-    f32 ratio_y = (f32)src_height / (f32)dst_height;
-
-    i32 dst_size = dst_width * dst_height;
-
-    for (i32 dst_x = 0; dst_x < dst_width; dst_x++) {
-        for (i32 dst_y = 0; dst_y < dst_height; dst_y++) {
-            i32 src_x = (i32)((dst_x + 0.5f) * ratio_x);
-            i32 src_y = (i32)((dst_y + 0.5f) * ratio_y);
-
-            memcpy(&dst[4 * (dst_y + dst_height * dst_x)], &src[4 * (src_y + src_height * src_x)], RGBA32F_SIZE);
-        }
-    }
-}
-
-void scale_bilinear_4f32(f32 src[], f32 dst[], i32 src_width, i32 src_height, i32 dst_width, i32 dst_height) {
-    f32 ratio_x = (f32)(src_width - 1) / (f32)dst_width;
-    f32 ratio_y = (f32)(src_height - 1) / (f32)dst_height;
-
-    for (i32 dst_x = 0; dst_x < dst_width; dst_x++) {
-        for (i32 dst_y = 0; dst_y < dst_height; dst_y++) {
-            f32 src_x_f = (dst_x + 0.5f) * ratio_x;
-            f32 src_y_f = (dst_y + 0.5f) * ratio_y;
-            i32 src_x = (i32)src_x_f;
-            i32 src_y = (i32)src_y_f;
-            f32 interp_x = src_x_f - src_x;
-            f32 interp_y = src_y_f - src_y;
-
-            i32 dst_start = 4 * (dst_y + dst_height * dst_x);
-
-            i32 src_start00 = 4 * (src_y + src_height * src_x);
-            i32 src_start01 = src_start00 + 4;
-            i32 src_start10 = src_start00 + src_height * 4;
-            i32 src_start11 = src_start10 + 4;
-
-            __m128 ix = _mm_set1_ps(interp_x);
-            __m128 ix1 = _mm_set1_ps(1.0f - interp_x);
-            __m128 iy = _mm_set1_ps(interp_y);
-            __m128 iy1 = _mm_set1_ps(1.0f - interp_y);
-
-            __m128 p00, p01, p10, p11;
-            p00 = _mm_load_ps(src + src_start00);
-            p01 = _mm_load_ps(src + src_start01);
-            p10 = _mm_load_ps(src + src_start10);
-            p11 = _mm_load_ps(src + src_start11);
-
-            p00 = _mm_add_ps(_mm_mul_ps(p00, ix1), _mm_mul_ps(p10, ix));
-            p01 = _mm_add_ps(_mm_mul_ps(p01, ix1), _mm_mul_ps(p11, ix));
-
-            p00 = _mm_add_ps(_mm_mul_ps(p00, iy1), _mm_mul_ps(p01, iy));
-
-            _mm_store_ps(dst + dst_start, p00);
-        }
-    }
-}
-
-void scale_bilinear_4f32_nosimd(f32 src[], f32 dst[], i32 src_width, i32 src_height, i32 dst_width, i32 dst_height) {
-    f32 ratio_x = (f32)(src_width - 1) / (f32)dst_width;
-    f32 ratio_y = (f32)(src_height - 1) / (f32)dst_height;
-
-    for (i32 dst_x = 0; dst_x < dst_width; dst_x++) {
-        for (i32 dst_y = 0; dst_y < dst_height; dst_y++) {
-            f32 src_x_f = (dst_x + 0.5f) * ratio_x;
-            f32 src_y_f = (dst_y + 0.5f) * ratio_y;
-            i32 src_x = (i32)src_x_f;
-            i32 src_y = (i32)src_y_f;
-            f32 interp_x = src_x_f - src_x;
-            f32 interp_y = src_y_f - src_y;
-
-            i32 dst_start = 4 * (dst_y + dst_height * dst_x);
-
-            i32 src_start00 = 4 * (src_y + src_height * src_x);
-            i32 src_start01 = src_start00 + 4;
-            i32 src_start10 = src_start00 + src_height * 4;
-            i32 src_start11 = src_start10 + 4;
-
-            f32 interp_x1 = 1.0f - interp_x;
-            f32 interp_y1 = 1.0f - interp_y;
-
-            f32 pr0 = interp_x1 * src[src_start00    ] + interp_x * src[src_start10    ];
-            f32 pr1 = interp_x1 * src[src_start01    ] + interp_x * src[src_start11    ];
-
-            f32 pg0 = interp_x1 * src[src_start00 + 1] + interp_x * src[src_start10 + 1];
-            f32 pg1 = interp_x1 * src[src_start01 + 1] + interp_x * src[src_start11 + 1];
-
-            f32 pb0 = interp_x1 * src[src_start00 + 2] + interp_x * src[src_start10 + 2];
-            f32 pb1 = interp_x1 * src[src_start01 + 2] + interp_x * src[src_start11 + 2];
-
-            f32 pa0 = interp_x1 * src[src_start00 + 3] + interp_x * src[src_start10 + 3];
-            f32 pa1 = interp_x1 * src[src_start01 + 3] + interp_x * src[src_start11 + 3];
-
-            dst[dst_start    ] = interp_y1 * pr0 + interp_y * pr1;
-            dst[dst_start + 1] = interp_y1 * pg0 + interp_y * pg1;
-            dst[dst_start + 2] = interp_y1 * pb0 + interp_y * pb1;
-            dst[dst_start + 3] = interp_y1 * pa0 + interp_y * pa1;
-        }
-    }
-}
-
-void scale_bilinear_3u8(const unsigned char src[], unsigned char dst[], int src_width, int src_height, int dst_width, int dst_height) {
-    float ratio_x = (float)(src_width - 1) / (float)dst_width;
-    float ratio_y = (float)(src_height - 1) / (float)dst_height;
-    int dst_width3 = dst_width * 3;
-
-    int src_width3s[8];
-    src_width3s[0] = src_width * 3;
-    
-    for (int i = 1; i < 6; i++)
-        src_width3s[i] = src_width3s[0] + i;
-
-    for (int dst_y = 0; dst_y < dst_height; dst_y++) {
-        float src_y_f = (dst_y + 0.5f) * ratio_y;
-        int src_y = (int)src_y_f;
-        float interp_y = src_y_f - src_y;
-        float interp_y1 = 1.0f - interp_y;
-
-        int dst_offset3 = dst_width3 * dst_y;
-        int src_offset3 = src_width3s[0] * src_y;
-
-        for (int dst_x = 0; dst_x < dst_width; dst_x++) {
-            float src_x_f = (dst_x + 0.5f) * ratio_x;
-            int src_x = (int)src_x_f;
-            float interp_x = src_x_f - src_x;
-
-            int dst_start = dst_x * 3 + dst_offset3;
-
-            int src_start00 = src_x * 3 + src_offset3;
-
-            float interp_x1 = 1.0f - interp_x;
-
-            float pr0 = interp_y1 * src[src_start00    ] + interp_y * src[src_start00 + src_width3s[0]];
-            float pr1 = interp_y1 * src[src_start00 + 3] + interp_y * src[src_start00 + src_width3s[3]];
-
-            float pg0 = interp_y1 * src[src_start00 + 1] + interp_y * src[src_start00 + src_width3s[1]];
-            float pg1 = interp_y1 * src[src_start00 + 4] + interp_y * src[src_start00 + src_width3s[4]];
-
-            float pb0 = interp_y1 * src[src_start00 + 2] + interp_y * src[src_start00 + src_width3s[2]];
-            float pb1 = interp_y1 * src[src_start00 + 5] + interp_y * src[src_start00 + src_width3s[5]];
-
-            dst[dst_start    ] = (unsigned char)(interp_x1 * pr0 + interp_x * pr1);
-            dst[dst_start + 1] = (unsigned char)(interp_x1 * pg0 + interp_x * pg1);
-            dst[dst_start + 2] = (unsigned char)(interp_x1 * pb0 + interp_x * pb1);
-        }
-    }
-}
-
-void scale_bilinear_1u8(const unsigned char src[], unsigned char dst[], int src_width, int src_height, int dst_width, int dst_height) {
-    float ratio_x = (float)(src_width - 1) / (float)dst_width;
-    float ratio_y = (float)(src_height - 1) / (float)dst_height;
-
-    for (int dst_y = 0; dst_y < dst_height; dst_y++) {
-        float src_y_f = (dst_y + 0.5f) * ratio_y;
-        int src_y = (int)src_y_f;
-        float interp_y = src_y_f - src_y;
-        float interp_y1 = 1.0f - interp_y;
-
-        int dst_offset = dst_width * dst_y;
-        int src_offset = src_width * src_y;
-
-        for (int dst_x = 0; dst_x < dst_width; dst_x++) {
-            float src_x_f = (dst_x + 0.5f) * ratio_x;
-            int src_x = (int)src_x_f;
-            float interp_x = src_x_f - src_x;
-
-            int dst_index = dst_x + dst_offset;
-            int src_index = src_x + src_offset;
-
-            float interp_x1 = 1.0f - interp_x;
-
-            float pr0 = interp_y1 * src[src_index    ] + interp_y * src[src_index + src_width];
-            float pr1 = interp_y1 * src[src_index + 1] + interp_y * src[src_index + src_width + 1];
-
-            dst[dst_index] = (unsigned char)(interp_x1 * pr0 + interp_x * pr1);
-        }
-    }
-}
-
-int main(int argc, char *argv[]) {
+    // Initialize a random number generator
     std::mt19937 rng(time(nullptr));
 
-    std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
+    const unsigned int windowWidth = 1200;
+    const unsigned int windowHeight = 800;
 
-    // --------------------------- Create the window(s) ---------------------------
+    sf::RenderWindow window;
 
-    sf::Image src;
-    src.loadFromFile("resources/test_color.png");
-    sf::Image dst;
-    dst.create(32, 32);
+    window.create(sf::VideoMode(windowWidth, windowHeight), "Video Test", sf::Style::Default);
 
-    Byte_Buffer src_data(src.getSize().x * src.getSize().y * 1);
-    Byte_Buffer dst_data(dst.getSize().x * dst.getSize().y * 1);
+    // Uncap framerate
+    window.setFramerateLimit(120);
 
-    for (int x = 0; x < src.getSize().x; x++)
-        for (int y = 0; y < src.getSize().y; y++) {
-            sf::Color c = src.getPixel(x, y);
+    sf::Font font;
+    font.loadFromFile("resources/Hack-Regular.ttf");
 
-            sf::Uint8 gray = (c.r + c.b + c.g) * 0.333f * 255.0f;
+    sf::Texture line_gradient;
+    line_gradient.loadFromFile("resources/lineGradient.png");
 
-            src_data[y + x * src.getSize().y] = gray;
+    const int num_points = 256;
+    vis::Plot plt;
+    plt.curves.resize(3);
+    plt.curves[0].shadow = 0.0f;
+    plt.curves[1].shadow = 0.0f;
+    plt.curves[2].shadow = 0.0f;
+
+    bool quit = false;
+
+    int t = 0;
+    float velocity = 0.0f;
+    float command = 0.0f;
+    float smooth_command = 0.0f;
+    char dir = 1;
+
+    float stopped_thresh = 0.5f;
+    bool stopped_prev = false;
+
+    int size = 32;
+    int rad = 16;
+    float ratio = 0.03f;
+
+    std::vector<float> grid(size * size);
+
+    for (int i = 0; i < grid.size(); i++)
+        grid[i] = aon::randf();
+
+    std::vector<float> igrid(size * size, 0.0f);
+
+    do {
+        sf::Event event;
+
+        while (window.pollEvent(event)) {
+            if (window.hasFocus()) {
+                switch (event.type) {
+                case sf::Event::Closed:
+                    quit = true;
+                    break;
+                }
+            }
         }
 
-    scale_bilinear_1u8(&src_data[0], &dst_data[0], src.getSize().x, src.getSize().y, dst.getSize().x, dst.getSize().y);
+        if (window.hasFocus()) {
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
+                quit = true;
 
-    for (int x = 0; x < dst.getSize().x; x++)
-        for (int y = 0; y < dst.getSize().y; y++) {
-            sf::Color c;
-            c.r = dst_data[y + x * dst.getSize().y];
-            c.b = c.g = c.r;
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::S)) {
+                for (int i = 0; i < grid.size(); i++)
+                    grid[i] = aon::randf();
+                
+                for (int x = 0; x < size; x++)
+                    for (int y = 0; y < size; y++) {
+                        int lower_x = std::max(0, x - rad);
+                        int lower_y = std::max(0, y - rad);
+                        int upper_x = std::min(size - 1, x + rad);
+                        int upper_y = std::min(size - 1, y + rad);
 
-            dst.setPixel(x, y, c);
+                        int num_higher = 0;
+                        int count = (upper_x - lower_x + 1) * (upper_y - lower_y + 1);
+
+                        for (int dx = lower_x; dx <= upper_x; dx++)
+                            for (int dy = lower_y; dy <= upper_y; dy++) {
+                                if (grid[dy + dx * size] > grid[y + x * size])
+                                    num_higher++;
+                            }
+
+                        float r = (float)num_higher / (float)count;
+
+                        igrid[y + x * size] = (r < ratio);
+                    }
+            }
+
+            if (plt.curves[0].points.size() < num_points) {
+                plt.curves[0].points.push_back(vis::Point());
+                plt.curves[1].points.push_back(vis::Point());
+                plt.curves[2].points.push_back(vis::Point());
+            }
+            else {
+                // shift old samples
+                for (int p = 0; p < num_points - 1; p++) {
+                    plt.curves[0].points[p] = plt.curves[0].points[p + 1];
+                    plt.curves[1].points[p] = plt.curves[1].points[p + 1];
+                    plt.curves[2].points[p] = plt.curves[2].points[p + 1];
+                }
+            }
+
+            const float dt = 0.1f;
+
+            command = std::sin(t * 0.03f) * 1.0f + aon::rand_normalf() * 1.0f;
+
+            velocity += (command + aon::rand_normalf() * 0.5f) * dt;
+            velocity -= 0.1f * velocity * dt;
+
+            float speed = std::abs(velocity);
+
+            bool stopped = speed < stopped_thresh;
+
+            if (stopped)
+                std::cout << "Stopped: " << speed << std::endl;
+
+            smooth_command += 1.0f * dt * (command - smooth_command);
+
+            if (!stopped && stopped_prev) {
+                // potential sign change
+                dir = command > 0.0f;
+            }
+
+            stopped_prev = stopped;
+
+            plt.curves[0].points[plt.curves[0].points.size() - 1].position = sf::Vector2f(t, velocity);
+            plt.curves[1].points[plt.curves[0].points.size() - 1].position = sf::Vector2f(t, command);;
+            plt.curves[2].points[plt.curves[0].points.size() - 1].position = sf::Vector2f(t, dir);
+
+            plt.curves[0].points[plt.curves[0].points.size() - 1].color = sf::Color::Red;
+            plt.curves[1].points[plt.curves[0].points.size() - 1].color = sf::Color::Blue;            
+            plt.curves[2].points[plt.curves[0].points.size() - 1].color = sf::Color::Green;
+
+            t++;
         }
 
-    dst.saveToFile("result1.png");
+        window.clear(sf::Color::Black);
 
-    {
-        std::vector<long> test(16000000, 2);
+        plt.draw(window, line_gradient, font, 0.5f, sf::Vector2f(t - num_points, t), sf::Vector2f(-10.0f, 10.0f), sf::Vector2f(32, 32), sf::Vector2f(10.0f, 5.0f), 2.0f, 2.0f, 2.0f, 6.0f, 1.0f, 2);
 
-        sf::Clock c;
+        sf::Image img;
+        img.create(size, size);
 
-        c.restart();
+        for (int y = 0; y < img.getSize().y; y++)
+            for (int x = 0; x < img.getSize().x; x++) {
+                sf::Color c = (igrid[y + x * size] > 0.0f ? sf::Color::White : sf::Color::Black);
 
-        for (long i = 0; i < test.size(); i++) {
-            test[i] *= 3;
-        }
+                img.setPixel(x, y, c);
+            }
 
-        auto t = c.getElapsedTime();
+        sf::Texture tex;
+        tex.loadFromImage(img);
 
-        std::cout << (t.asMicroseconds()) << std::endl;
-    }
+        sf::Sprite s;
+        s.setTexture(tex);
 
-    {
-        std::vector<long> test(16000000, 2);
+        s.setScale(4.0f, 4.0f);
 
-        sf::Clock c;
+        window.draw(s);
 
-        c.restart();
-
-        for (long i = 0; i < test.size(); i += 16) {
-            test[i] *= 3;
-        }
-
-        auto t = c.getElapsedTime();
-
-        std::cout << (t.asMicroseconds()) << std::endl;
-    }
-
-    //unsigned int windowWidth = 1000;
-    //unsigned int windowHeight = 500;
-
-    //sf::RenderWindow window;
-
-    //window.create(sf::VideoMode(windowWidth, windowHeight), "Wavy Test", sf::Style::Default);
-
-    //window.setVerticalSyncEnabled(false);
-    ////window.setFramerateLimit(60);
-
-    //vis::Plot plot;
-    ////plot.backgroundColor = sf::Color(64, 64, 64, 255);
-    //plot.plotXAxisTicks = true;
-    //plot.curves.resize(2);
-    //plot.curves[0].shadow = 0.0f; // Input
-    //plot.curves[1].shadow = 0.0f; // Prediction
-
-    //float minCurve = -1.25f;
-    //float maxCurve = 1.25f;
-
-    //sf::RenderTexture plotRT;
-    //plotRT.create(windowWidth, windowHeight, false);
-    //plotRT.setActive();
-    //plotRT.clear(sf::Color::White);
-
-    //sf::Texture lineGradient;
-    //lineGradient.loadFromFile("resources/lineGradient.png");
-
-    //sf::Font tickFont;
-    //tickFont.loadFromFile("resources/Hack-Regular.ttf");
-
-    //// Generate curve
-    //for (int i = 0; i < 200; i++) {
-    //    // Plot target data
-    //    float x = i * 0.02f;
-
-    //    vis::Point p;
-    //    p.position.x = x;
-    //    p.position.y = aon::powf(x, 3.0f);
-    //    p.color = sf::Color::Red;
-
-    //    plot.curves[0].points.push_back(p);
-
-    //    p.position.y = std::pow(x, 3.0f) + 0.1f;
-    //    p.color = sf::Color::Blue;
-
-    //    plot.curves[1].points.push_back(p);
-    //}
-
-    //bool quit = false;
-
-    //do {
-    //    sf::Event event;
-
-    //    while (window.pollEvent(event)) {
-    //        switch (event.type) {
-    //        case sf::Event::Closed:
-    //            quit = true;
-    //            break;
-    //        }
-    //    }
-
-    //    if (window.hasFocus()) {
-    //        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
-    //            quit = true;
-    //    }
-    //    window.clear();
-
-    //    plot.draw(
-    //        plotRT, lineGradient, tickFont, 0.5f,
-    //        sf::Vector2f(plot.curves[0].points.front().position.x, plot.curves[0].points.back().position.x),
-    //        sf::Vector2f(minCurve, maxCurve), sf::Vector2f(48.0f, 48.0f),
-    //        sf::Vector2f(plot.curves[0].points.back().position.x / 10.0f, (maxCurve - minCurve) / 10.0f),
-    //        2.0f, 4.0f, 2.0f, 6.0f, 2.0f, 4
-    //    );
-
-    //    plotRT.display();
-
-    //    sf::Sprite plotSprite;
-    //    plotSprite.setTexture(plotRT.getTexture());
-
-    //    window.draw(plotSprite);
-
-    //    window.display();
-    //} while (!quit);
+        window.display();
+    } while (!quit);
 
     return 0;
 }
-

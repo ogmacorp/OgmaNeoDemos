@@ -90,7 +90,7 @@ int main() {
     int slowTimer = 0;
     int slowTime = 30;
 
-    float randomizeChance = 0.1f;
+    float randomizeChance = 0.2f;
 
     // ---------------------------------------------------------------------
     
@@ -118,16 +118,6 @@ int main() {
                 targetStacks = buildStacks;
 
                 std::cout << "State saved." << std::endl;
-            }
-
-            if (speedMode && dist01(rng) < randomizeChance) {
-                std::fill(targetStacks.begin(), targetStacks.end(), 0.0f);
-
-                for (int i = 0; i < numBlocks; i++) {
-                    targetStacks[stackDist(rng)]++;
-                }
-
-                std::cout << "Randomized." << std::endl;
             }
 
             if (t && !tPrev) {
@@ -174,6 +164,16 @@ int main() {
         }
 
         if (speedMode || slowTimer >= slowTime) {
+            if (speedMode && dist01(rng) < randomizeChance) {
+                std::fill(targetStacks.begin(), targetStacks.end(), 0.0f);
+
+                for (int i = 0; i < numBlocks; i++) {
+                    targetStacks[stackDist(rng)]++;
+                }
+
+                std::cout << "Randomized." << std::endl;
+            }
+
             slowTimer = 0;
 
             int numSubTicks = speedMode ? 300 : 1;
@@ -212,7 +212,7 @@ int main() {
                 }
 
                 reward /= actualStates.size();
-                reward *= reward;
+                reward *= reward * reward;
 
                 h.step(inputCIs, true, reward);
 

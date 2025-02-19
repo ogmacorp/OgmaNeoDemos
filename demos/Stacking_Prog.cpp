@@ -72,26 +72,26 @@ int main() {
     
     set_num_threads(8);
 
-    Int3 hiddenSize(3, 3, 8);
+    //Int3 hiddenSize(3, 3, 8);
 
-    Array<Image_Encoder::Visible_Layer_Desc> vlds(1);
-    vlds[0].size = Int3(width, height, 1);
-    vlds[0].radius = 0;
+    //Array<Image_Encoder::Visible_Layer_Desc> vlds(1);
+    //vlds[0].size = Int3(width, height, 1);
+    //vlds[0].radius = 0;
 
-    Image_Encoder enc;
-    enc.init_random(hiddenSize, vlds);
+    //Image_Encoder enc;
+    //enc.init_random(hiddenSize, vlds);
 
-    Array<Hierarchy::Layer_Desc> lds(5);
+    Array<Hierarchy::Layer_Desc> lds(1);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hidden_size = Int3(5, 5, 16);
+        lds[i].hidden_size = Int3(3, 3, 128);
 
-        lds[i].ticks_per_update = 2;
-        lds[i].temporal_horizon = 4;
+        lds[i].ticks_per_update = 1;
+        lds[i].temporal_horizon = 1;
     }
 
     Array<Hierarchy::IO_Desc> ioDescs(3);
-    ioDescs[0] = Hierarchy::IO_Desc(hiddenSize);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(width, height, 2));
     ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 1, numActions));
     ioDescs[2] = Hierarchy::IO_Desc(Int3(1, 1, width));
 
@@ -188,18 +188,21 @@ int main() {
 
             for (int subTick = 0; subTick < numSubTicks; subTick++) {
                 Byte_Buffer img(width * height, 0);
+                Int_Buffer imgCIs(width * height, 0);
 
                 for (int i = 0; i < width; i++) {
-                    for (int j = 0; j < actualStacks[i]; j++)
+                    for (int j = 0; j < actualStacks[i]; j++) {
                         img[i * height + j] = 255;
+                        imgCIs[i * height + j] = 1;
+                    }
                 }
 
-                Array<Byte_Buffer_View> encInputs(1);
-                encInputs[0] = img;
+                //Array<Byte_Buffer_View> encInputs(1);
+                //encInputs[0] = img;
 
-                enc.step(encInputs, speedMode);
+                //enc.step(encInputs, speedMode);
 
-                Int_Buffer imgCIs = enc.get_hidden_cis();
+                //Int_Buffer imgCIs = enc.get_hidden_cis();
 
                 Int_Buffer actions(1);
                 actions[0] = actIndex;
@@ -213,17 +216,19 @@ int main() {
                 inputCIs[2] = positions;
 
                 Byte_Buffer goalImg(width * height, 0);
+                Int_Buffer goalImgCIs(width * height, 0);
+
 
                 for (int i = 0; i < width; i++) {
-                    for (int j = 0; j < targetStacks[i]; j++)
+                    for (int j = 0; j < targetStacks[i]; j++) {
                         goalImg[i * height + j] = 255;
+                        goalImgCIs[i * height + j] = 1;
+                    }
                 }
 
-                encInputs[0] = goalImg;
+                //encInputs[0] = goalImg;
 
-                enc.step(encInputs, false);
-
-                Int_Buffer goalImgCIs = enc.get_hidden_cis();
+                //enc.step(encInputs, false);
 
                 if (stateSaved) {
                     stateSaved = false;
@@ -256,7 +261,7 @@ int main() {
                             randomCIs[i] = goalDist(rng);
                     }
 
-                    h.step(inputCIs, randomCIs, speedMode);
+                    h.step(inputCIs, randomCIs, speedMode, true);
                 }
                 else
                     h.step(inputCIs, goalCIs, false);
@@ -306,7 +311,7 @@ int main() {
         float blockScale = windowWidth * 0.5f / width;
 
         // Predictions
-        enc.reconstruct(h.get_prediction_cis(0));
+        //enc.reconstruct(h.get_prediction_cis(0));
 
         std::cout << actIndex << std::endl;
 
@@ -315,7 +320,7 @@ int main() {
 
         for (int x = 0; x < width; x++)
             for (int y = 0; y < height; y++) {
-                Byte intensity = enc.get_reconstruction(0)[y + x * height];
+                Byte intensity = h.get_prediction_cis(0)[y + x * height] * 255;
 
                 sf::Color c;
                 c.r = 255;

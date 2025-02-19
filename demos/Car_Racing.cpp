@@ -141,10 +141,10 @@ int main() {
     set_num_threads(8);
 
     // Create hierarchy
-    Array<Hierarchy::Layer_Desc> lds(5);
+    Array<Hierarchy::Layer_Desc> lds(1);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hidden_size = Int3(4, 4, 32);
+        lds[i].hidden_size = Int3(5, 5, 32);
 
         //lds[i].ticksPerUpdate = 2;
         //lds[i].temporalHorizon = 2;
@@ -280,7 +280,7 @@ int main() {
         else
             actionIndex = h.get_prediction_cis(1)[0];
 
-        if (dist01(rng) < 0.01f) {
+        if (dist01(rng) < 0.02f) {
             std::uniform_int_distribution<int> steerDist(0, steerResolution - 1);
             actionIndex = steerDist(rng);
         }
@@ -476,7 +476,6 @@ int main() {
 
         inputCIs[1] = actionCIs;
 
-        // Step hierarchy with adapter's program
         h.step(inputCIs, true, reward);
     } while (!quit);
 

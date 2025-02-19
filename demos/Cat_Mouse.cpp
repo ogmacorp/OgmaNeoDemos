@@ -73,10 +73,10 @@ int main() {
     // Create hierarchy
     set_num_threads(8);
 
-    Array<Hierarchy::Layer_Desc> lds(5);
+    Array<Hierarchy::Layer_Desc> lds(2);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hidden_size = Int3(5, 5, 32);
+        lds[i].hidden_size = Int3(5, 5, 64);
         //lds[i].eRadius = 2;
         //lds[i].dRadius = 2;
         //lds[i].ticksPerUpdate = 4;
@@ -87,8 +87,8 @@ int main() {
     int actionRes = 5;
 
     Array<Hierarchy::IO_Desc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IO_Desc(Int3(7, 5, obsRes), IO_Type::prediction, 4, 8, 2, 2);
-    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 3, actionRes), IO_Type::action, 4, 8, 1, 2);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(7, 5, obsRes), IO_Type::prediction, 4, 2, 2);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 3, actionRes), IO_Type::action, 4, 1, 2);
 
     Hierarchy hCat;
     Hierarchy hMouse;
@@ -112,8 +112,8 @@ int main() {
         hCat.init_random(ioDescs, lds);
         hMouse.init_random(ioDescs, lds);
 
-        hCat.params.ios[1].importance = 0.1f;
-        hMouse.params.ios[1].importance = 0.1f;
+        hCat.params.ios[1].importance = 0.5f;
+        hMouse.params.ios[1].importance = 0.5f;
 
         std::cout << "Random init" << std::endl;
     }

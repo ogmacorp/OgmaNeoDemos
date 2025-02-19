@@ -31,7 +31,7 @@
 
 using namespace aon;
 
-const int S = 2048;
+const int S = 10000;
 const int L = 32;
 
 typedef Hierarchy<S, L> Hierarchy1;
@@ -376,10 +376,11 @@ int main(int argc, char *argv[])
 
     set_num_threads(8);
 
-    Array<Layer_Desc> lds(1);
+    Array<Layer_Desc> lds(4);
 
     for (int i = 0; i < lds.size(); i++) {
         lds[i].hidden_size = Int2(1, 1);
+        lds[i].temporal_horizon = 2;
     }
 
     // here we use the measuring data in 1st input     --> InputType = prediction
@@ -431,11 +432,6 @@ int main(int argc, char *argv[])
 
     for (int i = 0; i < lab_vecs.size(); i++)
         lab_vecs[i] = Vec1::randomized();
-
-    Bundle<S, L> memory = 0.0f;
-    Vec<S, L> state = 0;
-    Vec<S, L> state_prev = 0;
-    Vec<S, L> pred_loc_vec = 0;
 
     int hStateSize = h.state_size();
 
@@ -510,7 +506,8 @@ int main(int argc, char *argv[])
             value = sensorData[index];
             sequenceID = labels[index];
 #else
-            float in0 = (index % 12 == 0 || index % 5 == 0);//std::sin(0.025f * pi * index + 0.25f);
+            float in0 = std::sin(0.025f * pi * index + 0.25f);
+            //float in0 = std::fmod(index * 0.01f, 1.0f);
             //float in0 = (index % 50 == 0 || index % 7 == 0 ? 1.0f : 0.0f);
             float in1 = std::sin(0.09f * pi * index + 1.5f);
             float in2 = std::sin(0.05f * pi * index - 0.1f);
@@ -548,11 +545,6 @@ int main(int argc, char *argv[])
             all_input_vecs[0] = loc_input;
             all_input_vecs[1] = lab_input;
 
-            Vec<S, L> input = loc_input[encodedIn];
-
-            state_prev = state;
-            state = (state + state * input).thin().permute();
-
             if (!learnFlag || sf::Keyboard::isKeyPressed(sf::Keyboard::P))
             {
                 // Prediction mode
@@ -565,20 +557,12 @@ int main(int argc, char *argv[])
             else {
                 // training mode
                 h.step(all_input_vecs, true);
-
-                bool update = (pred_loc_vec.dot(loc_vecs[encodedIn]) / (float)S) < (4.0f / 16.0f);
-
-                if (update) {
-                    memory *= 0.9999f;
-                    memory += state_prev.permute() * loc_vecs[encodedIn];
-                }
             }
 
             encodedInPrev = encodedIn;
 
-            //Vec1 pred_loc_vec = h.get_prediction_vecs(0)[0];
-            //Vec1 pred_lab_vec = h.get_prediction_vecs(1)[0];
-            pred_loc_vec = memory.thin() / state.permute();
+            Vec1 pred_loc_vec = h.get_prediction_vecs(0)[0];
+            Vec1 pred_lab_vec = h.get_prediction_vecs(1)[0];
 
             float predValue = 0.0f;
             int pred_label = 0;

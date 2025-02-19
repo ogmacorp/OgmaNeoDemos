@@ -35,7 +35,8 @@ using namespace cv;
 using namespace aon;
 
 float gumble(float x, float mean, float scale) {
-    return mean - scale * logf(-logf(max(limit_small, x)));
+    return 0.0f;
+    //return mean - scale * logf(-logf(max(limit_small, x)));
 }
 
 template<int Height = 5, int BarWidth = 1, int Padding = 1, int Offset = 0, class Seq>

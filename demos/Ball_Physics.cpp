@@ -17,6 +17,8 @@
 #include <aogmaneo/hierarchy.h>
 #include <aogmaneo/image_encoder.h>
 
+#include "vis/visadapter.h"
+
 using namespace aon;
 
 int main() {
@@ -150,6 +152,8 @@ int main() {
     Byte_Buffer imgb(rescaleRT.getSize().x * rescaleRT.getSize().y, 0.0f);
     Array<Byte_Buffer_View> imgs(1);
     imgs[0] = imgb;
+
+    Vis_Adapter va;
 
     do {
         // ----------------------------- Input -----------------------------
@@ -288,6 +292,8 @@ int main() {
 
             h.step(inputCIs, true);
         }
+
+        va.update(h, { &enc });
 
         // Reconstruct
         enc.reconstruct(h.get_prediction_cis(0));
