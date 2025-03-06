@@ -107,18 +107,19 @@ int main() {
 
     for (int i = 0; i < lds.size(); i++) {
         lds[i].hidden_size = Int3(5, 5, 32);
-        lds[i].temporal_size = 4;
     }
 
     const int sensorResolution = 16;
     const int actionResolution = 9;
 
     Array<Hierarchy::IO_Desc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IO_Desc(Int3(4, 6, sensorResolution), IO_Type::prediction);
-    ioDescs[1] = Hierarchy::IO_Desc(Int3(2, 4, actionResolution), IO_Type::action, 16);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(4, 6, sensorResolution), IO_Type::prediction, 4, 8, 4, 2);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(2, 4, actionResolution), IO_Type::action, 32, 64);
 
     Hierarchy h;
     h.init_random(ioDescs, lds);
+
+    h.get_encoder(0).get_visible_layer(1).importance = 0.1f;
 
     // ---------------------------- Game Loop -----------------------------
 

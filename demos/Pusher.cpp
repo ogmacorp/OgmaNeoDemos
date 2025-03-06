@@ -42,7 +42,7 @@ int main() {
 
     sf::RenderWindow window;
 
-    window.create(sf::VideoMode(1024, 1024), "Pusher", sf::Style::Default);
+    window.create(sf::VideoMode(sf::Vector2u(1024, 1024)), "Pusher", sf::Style::Default);
 
     window.setFramerateLimit(20);
 
@@ -93,7 +93,7 @@ int main() {
 
     sf::View view;
 
-    view.setCenter(0.0f, 0.0f);
+    view.setCenter(sf::Vector2f(0.0f, 0.0f));
 
     view.setSize(sf::Vector2f(2.0f, 2.0f));
 
@@ -104,7 +104,7 @@ int main() {
     // Used for speed mode to render slower
     int renderCounter = 0;
 
-    float averageReward = 0.0f;
+    float average_reward = 0.0f;
 
     float distPrev = -1.0f;
     float objectDistPrev = -1.0f;
@@ -119,33 +119,30 @@ int main() {
 
     bool learnMode = true;
 
+    long steps = 0;
+
     do {
         clock.restart();
 
         // ----------------------------- Input -----------------------------
 
-        sf::Event windowEvent;
-
-        while (window.pollEvent(windowEvent)) {
-            switch (windowEvent.type) {
-            case sf::Event::Closed:
+        while (const std::optional event = window.pollEvent()) {
+            if (event->is<sf::Event::Closed>())
                 quit = true;
-                break;
-            }
         }
 
         if (window.hasFocus()) {
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape))
                 quit = true;
 
-            bool tPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::T);
+            bool tPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::T);
 
             if (tPressed && !tPressedPrev)
                 speedMode = !speedMode;
 
             tPressedPrev = tPressed;
 
-            bool sPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::S);
+            bool sPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S);
 
             if (sPressed && !sPressedPrev) {
                 CustomStreamWriter writer;
@@ -155,7 +152,7 @@ int main() {
 
             sPressedPrev = sPressed;
 
-            bool lPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::L);
+            bool lPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::L);
 
             if (lPressed && !lPressedPrev)
                 learnMode = !learnMode;
@@ -264,7 +261,9 @@ int main() {
         inputCIs[0] = sensorCIs;
         inputCIs[1] = actionCIs;
 
-        h.step(inputCIs, true, reward * 10.0f);
+        h.step(inputCIs, true, reward);
+
+        average_reward += 0.0001f * (reward - average_reward);
 
         if (!speedMode || renderCounter >= 300) {
             window.clear();
@@ -274,22 +273,22 @@ int main() {
             sf::CircleShape cs;
 
             cs.setRadius(objectRad);
-            cs.setOrigin(objectRad, objectRad);
+            cs.setOrigin(sf::Vector2f(objectRad, objectRad));
             cs.setPosition(objectPos);
             cs.setFillColor(sf::Color::Red);
 
             window.draw(cs);
 
             cs.setRadius(pusherRad);
-            cs.setOrigin(pusherRad, pusherRad);
+            cs.setOrigin(sf::Vector2f(pusherRad, pusherRad));
             cs.setPosition(pusherPos);
             cs.setFillColor(sf::Color::Blue);
 
             window.draw(cs);
 
             cs.setRadius(0.01f);
-            cs.setOrigin(0.01f, 0.01f);
-            cs.setPosition(0.0f, 0.0f);
+            cs.setOrigin(sf::Vector2f(0.01f, 0.01f));
+            cs.setPosition(sf::Vector2f(0.0f, 0.0f));
             cs.setFillColor(sf::Color::Green);
 
             window.draw(cs);
@@ -298,6 +297,11 @@ int main() {
         }
 
         renderCounter++;
+
+        steps++;
+
+        if (steps % 10000 == 9999)
+            std::cout << "Steps: " << steps << " Avg. Reward: " << average_reward << std::endl;
     } while (!quit);
 
     return 0;

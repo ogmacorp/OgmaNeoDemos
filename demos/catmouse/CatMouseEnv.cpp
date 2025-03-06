@@ -41,7 +41,7 @@ float CatMouseEnv::getDepth(
         if (xi < 0 || xi >= map.getSize().x || yi < 0 || yi >= map.getSize().y)
             return depthStep * s;
 
-        sf::Color color = map.getPixel(xi, yi);
+        sf::Color color = map.getPixel(sf::Vector2u(xi, yi));
 
         if (color == sf::Color::Black)
             return depthStep * s;
@@ -57,7 +57,7 @@ void CatMouseEnv::init(
     rng.seed(seed);
 
     this->map = map;
-    mapTex.loadFromImage(map);
+    mapTex = sf::Texture(map);
 
     reset();
 }
@@ -68,7 +68,7 @@ void CatMouseEnv::reset() {
     
     for (int x = 0; x < map.getSize().x; x++)
         for (int y = 0; y < map.getSize().y; y++) {
-            sf::Color color = map.getPixel(x, y);
+            sf::Color color = map.getPixel(sf::Vector2u(x, y));
 
             if (color != sf::Color::Black)
                 openPositions.push_back(sf::Vector2i(x, y));
@@ -270,7 +270,7 @@ sf::Vector2f CatMouseEnv::collide(
         int checkxi = xi - 1;
         int checkyi = yi;
 
-        if (checkxi < 0 || map.getPixel(checkxi, checkyi) == sf::Color::Black) {
+        if (checkxi < 0 || map.getPixel(sf::Vector2u(checkxi, checkyi)) == sf::Color::Black) {
             if (agent.pos.x - radius < xi) {
                 offset.x = xi + radius - agent.pos.x;
 
@@ -284,7 +284,7 @@ sf::Vector2f CatMouseEnv::collide(
         int checkxi = xi + 1;
         int checkyi = yi;
 
-        if (checkxi >= map.getSize().x || map.getPixel(checkxi, checkyi) == sf::Color::Black) {
+        if (checkxi >= map.getSize().x || map.getPixel(sf::Vector2u(checkxi, checkyi)) == sf::Color::Black) {
             if (agent.pos.x + radius > xi + 1) {
                 offset.x = xi + 1 - radius - agent.pos.x;
 
@@ -298,7 +298,7 @@ sf::Vector2f CatMouseEnv::collide(
         int checkxi = xi;
         int checkyi = yi - 1;
 
-        if (checkyi < 0 || map.getPixel(checkxi, checkyi) == sf::Color::Black) {
+        if (checkyi < 0 || map.getPixel(sf::Vector2u(checkxi, checkyi)) == sf::Color::Black) {
             if (agent.pos.y - radius < yi) {
                 offset.y = yi + radius - agent.pos.y;
 
@@ -312,7 +312,7 @@ sf::Vector2f CatMouseEnv::collide(
         int checkxi = xi;
         int checkyi = yi + 1;
 
-        if (checkyi >= map.getSize().y || map.getPixel(checkxi, checkyi) == sf::Color::Black) {
+        if (checkyi >= map.getSize().y || map.getPixel(sf::Vector2u(checkxi, checkyi)) == sf::Color::Black) {
             if (agent.pos.y + radius > yi + 1) {
                 offset.y = yi + 1 - radius - agent.pos.y;
 
@@ -369,15 +369,13 @@ void CatMouseEnv::step(
 void CatMouseEnv::render(
     sf::RenderWindow &window
 ) {
-    sf::Sprite s;
-
-    s.setTexture(mapTex);
+    sf::Sprite s(mapTex);
 
     window.draw(s);
 
     sf::CircleShape cs;
     cs.setRadius(radius);
-    cs.setOrigin(radius, radius);
+    cs.setOrigin(sf::Vector2f(radius, radius));
 
     cs.setPosition(cat.pos);
     cs.setFillColor(sf::Color::Magenta);
@@ -392,7 +390,7 @@ void CatMouseEnv::render(
     // Scan lines
     {
         sf::VertexArray vs;
-        vs.setPrimitiveType(sf::Lines);
+        vs.setPrimitiveType(sf::PrimitiveType::Lines);
         vs.resize(scanRays * 2);
 
         float startAngle = cat.angle - fov * 0.5f;
@@ -422,7 +420,7 @@ void CatMouseEnv::render(
 
     {
         sf::VertexArray vs;
-        vs.setPrimitiveType(sf::Lines);
+        vs.setPrimitiveType(sf::PrimitiveType::Lines);
         vs.resize(scanRays * 2);
 
         float startAngle = mouse.angle - fov * 0.5f;

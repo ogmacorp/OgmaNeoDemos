@@ -6,7 +6,6 @@
 #  in the AOGMANEODEMOS_LICENSE.md file included in this distribution.
 # ----------------------------------------------------------------------------
 
-# CMake version 3.1+ is required to enable C++14 features cleanly
 cmake_minimum_required(VERSION 3.5)
 
 project(AOgmaNeoDemo)
@@ -62,51 +61,14 @@ include_directories(${AOGMANEO_INCLUDE_DIRS})
 ############################################################################
 # Find SFML include and libs
 
-#set(SFML_STATIC_LIBRARIES TRUE)
-find_package(SFML 2.5 COMPONENTS system window graphics audio network)
-
-if(SFML_FOUND)
-    #message(STATUS "Found existing SFML in ${SFML_INCLUDE_DIR}")
-    message(STATUS "SFML dependencies: ${SFML_DEPENDENCIES}")
-    message(STATUS "SFML libraries: ${SFML_LIBRARIES}")
-    include_directories(${SFML_INCLUDE_DIR})
-else()
-    message(STATUS "-- SFML will be downloaded and built from source")
-    ExternalProject_Add(
-        SFML
-        PREFIX SFML
-        URL "https://github.com/SFML/SFML/archive/2.4.0.zip"
-        CMAKE_ARGS
-            "-DCMAKE_INSTALL_PREFIX=${3RDPARTY_PATH}"
-            "-DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS}"
-            #"-DSFML_STATIC_LIBRARIES=${SFML_STATIC_LIBRARIES}"
-            "-DSFML_BUILD_EXAMPLES=OFF"
-            "-DSFML_BUILD_DOC=OFF"
-    )
-    set(SFML_INCLUDE_DIR "${3RDPARTY_PATH}/include")
-
-    if(${SFML_STATIC_LIBRARIES} OR ${SFML_STATIC})
-        set(SFML_BUILD_SUFFIX "-s")
-        set(SFML_LIB_SUFFIX "${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    else()
-        set(SFML_BUILD_SUFFIX "")
-        set(SFML_LIB_SUFFIX "${CMAKE_SHARED_LIBRARY_SUFFIX}")
-    endif()
-
-    set(SFML_SYSTEM_LIBRARY debug "sfml-system${SFML_BUILD_SUFFIX}-d${SFML_LIB_SUFFIX}" optimized "sfml-system${SFML_BUILD_SUFFIX}${SFML_LIB_SUFFIX}")
-    set(SFML_WINDOW_LIBRARY debug "sfml-window${SFML_BUILD_SUFFIX}-d${SFML_LIB_SUFFIX}" optimized "sfml-window${SFML_BUILD_SUFFIX}${SFML_LIB_SUFFIX}")
-    set(SFML_GRAPHICS_LIBRARY debug "sfml-graphics${SFML_BUILD_SUFFIX}-d${SFML_LIB_SUFFIX}" optimized "sfml-graphics${SFML_BUILD_SUFFIX}${SFML_LIB_SUFFIX}")
-    set(SFML_AUDIO_LIBRARY debug "sfml-audio${SFML_BUILD_SUFFIX}-d${SFML_LIB_SUFFIX}" optimized "sfml-audio${SFML_BUILD_SUFFIX}${SFML_LIB_SUFFIX}")
-    set(SFML_NETWORK_LIBRARY debug "sfml-network${SFML_BUILD_SUFFIX}-d${SFML_LIB_SUFFIX}" optimized "sfml-network${SFML_BUILD_SUFFIX}${SFML_LIB_SUFFIX}")
-
-    if(NOT ${SFML_STATIC_LIBRARIES})
-        set(SFML_MAIN_LIBRARY debug "sfml-main${SFML_BUILD_SUFFIX}-d${SFML_LIB_SUFFIX}" optimized "sfml-main${SFML_BUILD_SUFFIX}${SFML_LIB_SUFFIX}")
-    else()
-        set(SFML_MAIN_LIBRARY "")
-    endif()
-
-    set(SFML_LIBRARIES ${SFML_MAIN_LIBRARY} ${SFML_WINDOW_LIBRARY} ${SFML_GRAPHICS_LIBRARY} ${SFML_AUDIO_LIBRARY} ${SFML_NETWORK_LIBRARY} ${SFML_SYSTEM_LIBRARY})
-endif()
+include(FetchContent)
+FetchContent_Declare(SFML
+    GIT_REPOSITORY https://github.com/SFML/SFML.git
+    GIT_TAG 3.0.0
+    GIT_SHALLOW ON
+    EXCLUDE_FROM_ALL
+    SYSTEM)
+FetchContent_MakeAvailable(SFML)
 
 
 ############################################################################
@@ -200,12 +162,12 @@ include_directories("${PROJECT_SOURCE_DIR}/demos")
 #list(APPEND DEMO_SOURCES_LIST LOOP_COUNTER_SRCS)
 #list(APPEND DEMO_DEPENDS_LIST LOOP_COUNTER_DEPS)
 
-list(APPEND CAR_TRACKER_SRCS "demos/Car_Tracker.cpp")
-list(APPEND CAR_TRACKER_DEPS "SFML")
-list(APPEND CAR_TRACKER_DEPS "OPENCV")
-list(APPEND DEMO_PROJECTS_LIST "Car_Tracker")
-list(APPEND DEMO_SOURCES_LIST CAR_TRACKER_SRCS)
-list(APPEND DEMO_DEPENDS_LIST CAR_TRACKER_DEPS)
+#list(APPEND CAR_TRACKER_SRCS "demos/Car_Tracker.cpp")
+#list(APPEND CAR_TRACKER_DEPS "SFML")
+#list(APPEND CAR_TRACKER_DEPS "OPENCV")
+#list(APPEND DEMO_PROJECTS_LIST "Car_Tracker")
+#list(APPEND DEMO_SOURCES_LIST CAR_TRACKER_SRCS)
+#list(APPEND DEMO_DEPENDS_LIST CAR_TRACKER_DEPS)
 
 #list(APPEND SDC_CONTROLLER_TEST_SRCS "demos/SDC_Controller_Test.cpp")
 #list(APPEND SDC_CONTROLLER_TEST_SRCS "demos/sdc/sdc_controller.cpp")
@@ -240,18 +202,18 @@ list(APPEND DEMO_DEPENDS_LIST CAR_TRACKER_DEPS)
 #list(APPEND DEMO_SOURCES_LIST IMAGE_ENCODER_TEST_SRCS)
 #list(APPEND DEMO_DEPENDS_LIST IMAGE_ENCODER_TEST_DEPS)
 
-list(APPEND WAVY_LINE_SRCS "demos/Wavy_Line.cpp")
-list(APPEND WAVY_LINE_SRCS "demos/vis/Plot.cpp")
-list(APPEND WAVY_LINE_DEPS "SFML")
-list(APPEND DEMO_PROJECTS_LIST "Wavy_Line")
-list(APPEND DEMO_SOURCES_LIST WAVY_LINE_SRCS)
-list(APPEND DEMO_DEPENDS_LIST WAVY_LINE_DEPS)
+#list(APPEND WAVY_LINE_SRCS "demos/Wavy_Line.cpp")
+#list(APPEND WAVY_LINE_SRCS "demos/vis/Plot.cpp")
+#list(APPEND WAVY_LINE_DEPS "SFML")
+#list(APPEND DEMO_PROJECTS_LIST "Wavy_Line")
+#list(APPEND DEMO_SOURCES_LIST WAVY_LINE_SRCS)
+#list(APPEND DEMO_DEPENDS_LIST WAVY_LINE_DEPS)
 
-list(APPEND WAVY_CLASSIFY_SRCS "demos/Wavy_Classify_Old.cpp")
-list(APPEND WAVY_CLASSIFY_DEPS "SFML")
-list(APPEND DEMO_PROJECTS_LIST "Wavy_Classify")
-list(APPEND DEMO_SOURCES_LIST WAVY_CLASSIFY_SRCS)
-list(APPEND DEMO_DEPENDS_LIST WAVY_CLASSIFY_DEPS)
+#list(APPEND WAVY_CLASSIFY_SRCS "demos/Wavy_Classify.cpp")
+#list(APPEND WAVY_CLASSIFY_DEPS "SFML")
+#list(APPEND DEMO_PROJECTS_LIST "Wavy_Classify")
+#list(APPEND DEMO_SOURCES_LIST WAVY_CLASSIFY_SRCS)
+#list(APPEND DEMO_DEPENDS_LIST WAVY_CLASSIFY_DEPS)
 
 #list(APPEND SWARM_TEST_SRCS "demos/Swarm_Test.cpp")
 #list(APPEND SWARM_TEST_SRCS "demos/swarm/Swarm.cpp")
@@ -266,11 +228,11 @@ list(APPEND DEMO_DEPENDS_LIST WAVY_CLASSIFY_DEPS)
 #list(APPEND DEMO_SOURCES_LIST C_TEST_SRCS)
 #list(APPEND DEMO_DEPENDS_LIST C_TEST_DEPS)
 
-list(APPEND CAR_RACING_SRCS "demos/Car_Racing.cpp")
-list(APPEND CAR_RACING_DEPS "SFML")
-list(APPEND DEMO_PROJECTS_LIST "Car_Racing")
-list(APPEND DEMO_SOURCES_LIST CAR_RACING_SRCS)
-list(APPEND DEMO_DEPENDS_LIST CAR_RACING_DEPS)
+#list(APPEND CAR_RACING_SRCS "demos/Car_Racing.cpp")
+#list(APPEND CAR_RACING_DEPS "SFML")
+#list(APPEND DEMO_PROJECTS_LIST "Car_Racing")
+#list(APPEND DEMO_SOURCES_LIST CAR_RACING_SRCS)
+#list(APPEND DEMO_DEPENDS_LIST CAR_RACING_DEPS)
 
 #list(APPEND STACKING_RL_SRCS "demos/Stacking_RL.cpp")
 #list(APPEND STACKING_RL_DEPS "SFML")
@@ -372,13 +334,13 @@ list(APPEND DEMO_DEPENDS_LIST CAT_MOUSE_DEPS)
 #list(APPEND DEMO_SOURCES_LIST EVO_SRCS)
 #list(APPEND DEMO_DEPENDS_LIST EVO_DEPS)
 
-list(APPEND RUNNER_RUN_SRCS "demos/Runner_Run.cpp")
-list(APPEND RUNNER_RUN_SRCS "demos/runner/Runner.cpp")
-list(APPEND RUNNER_RUN_DEPS "SFML")
-list(APPEND RUNNER_RUN_DEPS "BOX2D")
-list(APPEND DEMO_PROJECTS_LIST "Runner_Run")
-list(APPEND DEMO_SOURCES_LIST RUNNER_RUN_SRCS)
-list(APPEND DEMO_DEPENDS_LIST RUNNER_RUN_DEPS)
+#list(APPEND RUNNER_RUN_SRCS "demos/Runner_Run.cpp")
+#list(APPEND RUNNER_RUN_SRCS "demos/runner/Runner.cpp")
+#list(APPEND RUNNER_RUN_DEPS "SFML")
+#list(APPEND RUNNER_RUN_DEPS "BOX2D")
+#list(APPEND DEMO_PROJECTS_LIST "Runner_Run")
+#list(APPEND DEMO_SOURCES_LIST RUNNER_RUN_SRCS)
+#list(APPEND DEMO_DEPENDS_LIST RUNNER_RUN_DEPS)
 
 #list(APPEND REACHER_RUN_SRCS "demos/Reacher.cpp")
 #list(APPEND REACHER_RUN_DEPS "SFML")
@@ -433,11 +395,11 @@ list(APPEND DEMO_DEPENDS_LIST RUNNER_RUN_DEPS)
 #list(APPEND DEMO_SOURCES_LIST TOPO_TEST_AON_SRCS)
 #list(APPEND DEMO_DEPENDS_LIST TOPO_TEST_AON_DEPS)
 
-list(APPEND FLUID_SRCS "demos/Fluid.cpp")
-list(APPEND FLUID_DEPS "SFML")
-list(APPEND DEMO_PROJECTS_LIST "Fluid")
-list(APPEND DEMO_SOURCES_LIST FLUID_SRCS)
-list(APPEND DEMO_DEPENDS_LIST FLUID_DEPS)
+#list(APPEND FLUID_SRCS "demos/Fluid.cpp")
+#list(APPEND FLUID_DEPS "SFML")
+#list(APPEND DEMO_PROJECTS_LIST "Fluid")
+#list(APPEND DEMO_SOURCES_LIST FLUID_SRCS)
+#list(APPEND DEMO_DEPENDS_LIST FLUID_DEPS)
 
 #list(APPEND CARTPOLE_SRCS "demos/CartPole.cpp")
 #list(APPEND CARTPOLE_SRCS "demos/cartpole/cartpole.cpp")
@@ -488,12 +450,12 @@ list(APPEND DEMO_DEPENDS_LIST FLUID_DEPS)
 #list(APPEND DEMO_SOURCES_LIST VSA_CHAR_RECALL_SRCS)
 #list(APPEND DEMO_DEPENDS_LIST VSA_CHAR_RECALL_DEPS)
 
-list(APPEND FUNC_TESTS_SRCS "demos/FuncTests.cpp")
-list(APPEND FUNC_TESTS_SRCS "demos/vis/Plot.cpp")
-list(APPEND FUNC_TESTS_DEPS "SFML")
-list(APPEND DEMO_PROJECTS_LIST "FuncTests")
-list(APPEND DEMO_SOURCES_LIST FUNC_TESTS_SRCS)
-list(APPEND DEMO_DEPENDS_LIST FUNC_TESTS_DEPS)
+#list(APPEND FUNC_TESTS_SRCS "demos/FuncTests.cpp")
+#list(APPEND FUNC_TESTS_SRCS "demos/vis/Plot.cpp")
+#list(APPEND FUNC_TESTS_DEPS "SFML")
+#list(APPEND DEMO_PROJECTS_LIST "FuncTests")
+#list(APPEND DEMO_SOURCES_LIST FUNC_TESTS_SRCS)
+#list(APPEND DEMO_DEPENDS_LIST FUNC_TESTS_DEPS)
 
 message(STATUS "Demos to build: ${DEMO_PROJECTS_LIST}")
 
@@ -530,11 +492,7 @@ foreach(i RANGE ${num_demos})
     # Does this demo require SFML?
     list(FIND ${DEMO_DEPENDS} "SFML" _sfml_depends_index)
     if (${_sfml_depends_index} GREATER -1)
-        if(NOT SFML_FOUND)
-            add_dependencies(${DEMO_PROJECT} SFML)
-        endif()
-        target_link_libraries(${DEMO_PROJECT} ${SFML_DEPENDENCIES})
-        target_link_libraries(${DEMO_PROJECT} ${SFML_LIBRARIES})
+        target_link_libraries(${DEMO_PROJECT} SFML::Window SFML::Graphics)
     endif()
 
     # Does this demo require Box2D?

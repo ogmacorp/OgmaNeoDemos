@@ -40,11 +40,11 @@ int main() {
     set_num_threads(8);
 
     // Create hierarchy
-    Int3 hiddenSize(16, 16, 16);
+    Int3 hiddenSize(20, 20, 16);
 
     Array<Image_Encoder::Visible_Layer_Desc> imgVlds(1);
     imgVlds[0].size = Int3(rescaleRT.getSize().x, rescaleRT.getSize().y, 1);
-    imgVlds[0].radius = 8;
+    imgVlds[0].radius = 6;
 
     Image_Encoder enc;
     enc.init_random(hiddenSize, imgVlds);
@@ -52,13 +52,15 @@ int main() {
     Array<Hierarchy::Layer_Desc> lds(2);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hidden_size = Int3(8, 8, 32);
+        lds[i].hidden_size = Int3(10, 10, 16);
+        //lds[i].temporal_size = 8;
         //lds[i].spatial_activity = 8;
     }
 
     Array<Hierarchy::IO_Desc> ioDescs(1);
     ioDescs[0].size = hiddenSize;
     ioDescs[0].type = prediction;
+    ioDescs[0].up_radius = 4;
 
     Hierarchy h;
     h.init_random(ioDescs, lds);

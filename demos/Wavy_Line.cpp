@@ -204,7 +204,7 @@ int main(int argc, char *argv[])
     for (auto i=0; i < numInputs; ++i)
         ioDescs[i] = Hierarchy::IO_Desc(Int3(1, 1, inputColumnSize), IO_Type::prediction, num_dendrites_per_cell, eRadius, dRadius);
 
-    const int numLayers = 2;    // the last layer updates its value every 2^(numLayers-1) = 32 steps
+    const int numLayers = 1;    // the last layer updates its value every 2^(numLayers-1) = 32 steps
                                 // each hidden layer has 4 x 4 elementsx, but we get only prediction by the 1st element
                                 // What do other elements of hidden layers mean????
                                 // update period of each hidden layer is fixed --> no context information here, because context should
@@ -214,7 +214,7 @@ int main(int argc, char *argv[])
     for (auto i=0; i < numInputs; ++i)
         ioDescs[i] = Hierarchy::IO_Desc(Int3(1, 2, inputColumnSize), IO_Type::prediction, num_dendrites_per_cell, eRadius, dRadius);
 
-    const int numLayers = 2;
+    const int numLayers = 1;
 #endif
 
 
@@ -224,12 +224,12 @@ int main(int argc, char *argv[])
     Array<Hierarchy::Layer_Desc> lds(numLayers);
     for (int i = 0; i < lds.size(); i++) {
 #ifdef USE_SIMPLE_FLOAT_ENCODER_
-        lds[i].hidden_size              = Int3(5, 5, 16);
+        lds[i].hidden_size              = Int3(5, 5, 32);
 #else
-        lds[i].hidden_size              = Int3(5, 5, 16);
+        lds[i].hidden_size              = Int3(5, 5, 32);
 #endif
-        lds[i].num_dendrites_per_cell   = num_dendrites_per_cell;
-        lds[i].temporal_size = 16;
+        //lds[i].num_dendrites_per_cell   = num_dendrites_per_cell;
+        //lds[i].temporal_size = 16;
         //lds[i].ticks_per_update         = ticks_per_update;
         //lds[i].temporal_horizon         = temporal_horizon;
     }

@@ -52,7 +52,7 @@ int main() {
 
     sf::RenderWindow window;
 
-    window.create(sf::VideoMode(1024, 1024), "Cat Mouse", sf::Style::Default);
+    window.create(sf::VideoMode(sf::Vector2u(1024, 1024)), "Cat Mouse", sf::Style::Default);
 
     window.setFramerateLimit(120);
 
@@ -62,8 +62,7 @@ int main() {
     float catRewardTotal = 0.0f;
     float mouseRewardTotal = 0.0f;
 
-    sf::Image map;
-    map.loadFromFile("resources/map0.png");
+    sf::Image map("resources/map0.png");
 
     CatMouseEnv env;
     env.init(map);
@@ -151,7 +150,7 @@ int main() {
 
     sf::View view;
 
-    view.setCenter(map.getSize().x * 0.5f, map.getSize().y * 0.5f);
+    view.setCenter(sf::Vector2f(map.getSize().x * 0.5f, map.getSize().y * 0.5f));
     view.zoom(0.0625f);
 
     window.setView(view);
@@ -164,30 +163,23 @@ int main() {
         for (int ss = 0; ss < numSubSteps; ss++) {
             // ----------------------------- Input -----------------------------
 
-            sf::Event windowEvent;
-
-            while (window.pollEvent(windowEvent)) {
-                switch (windowEvent.type) {
-                case sf::Event::Closed:
+            while (const std::optional event = window.pollEvent()) {
+                if (event->is<sf::Event::Closed>())
                     quit = true;
-                    break;
-                default:
-                    break;
-                }
             }
 
             if (window.hasFocus()) {
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape))
                     quit = true;
 
-                bool tPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::T);
+                bool tPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::T);
 
                 if (tPressed && !tPressedPrev)
                     speedMode = !speedMode;
 
                 tPressedPrev = tPressed;
 
-                bool sPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::S);
+                bool sPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S);
 
                 if (sPressed && !sPressedPrev && !manualControl) {
                     {
@@ -290,38 +282,38 @@ int main() {
                 catActions[1] = 0.5f;
                 catActions[2] = 0.5f;
 
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::K))
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::K))
                     catActions[0] = 0.0f;
-                else if (sf::Keyboard::isKeyPressed(sf::Keyboard::I))
+                else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::I))
                     catActions[0] = 1.0f;
 
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::J))
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::J))
                     catActions[1] = 0.0f;
-                else if (sf::Keyboard::isKeyPressed(sf::Keyboard::L))
+                else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::L))
                     catActions[1] = 1.0f;
 
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::U))
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::U))
                     catActions[2] = 0.0f;
-                else if (sf::Keyboard::isKeyPressed(sf::Keyboard::O))
+                else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::O))
                     catActions[2] = 1.0f;
 
                 mouseActions[0] = 0.5f;
                 mouseActions[1] = 0.5f;
                 mouseActions[2] = 0.5f;
 
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::S))
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S))
                     mouseActions[0] = 0.0f;
-                else if (sf::Keyboard::isKeyPressed(sf::Keyboard::W))
+                else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W))
                     mouseActions[0] = 1.0f;
 
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::A))
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A))
                     mouseActions[1] = 0.0f;
-                else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D))
+                else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D))
                     mouseActions[1] = 1.0f;
 
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Q))
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Q))
                     mouseActions[2] = 0.0f;
-                else if (sf::Keyboard::isKeyPressed(sf::Keyboard::E))
+                else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::E))
                     mouseActions[2] = 1.0f;
             }
 
