@@ -40,9 +40,9 @@ public:
 };
 
 int main() {
-    bool load = false;
+    bool load = true;
     bool manualControl = false;
-    float epsilon = 0.05f;
+    float epsilon = 0.01f;
 
     const std::string hCatFileName = "hCat.ohr";
     const std::string hMouseFileName = "hMouse.ohr";
@@ -62,7 +62,7 @@ int main() {
     float catRewardTotal = 0.0f;
     float mouseRewardTotal = 0.0f;
 
-    sf::Image map("resources/map0.png");
+    sf::Image map("resources/map_test.png");
 
     CatMouseEnv env;
     env.init(map);
@@ -72,7 +72,7 @@ int main() {
     // Create hierarchy
     set_num_threads(8);
 
-    Array<Hierarchy::Layer_Desc> lds(2);
+    Array<Hierarchy::Layer_Desc> lds(1);
 
     for (int i = 0; i < lds.size(); i++) {
         lds[i].hidden_size = Int3(5, 5, 64);
@@ -86,8 +86,8 @@ int main() {
     int actionRes = 5;
 
     Array<Hierarchy::IO_Desc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IO_Desc(Int3(7, 5, obsRes), IO_Type::prediction, 4, 2, 2);
-    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 3, actionRes), IO_Type::action, 4, 1, 2);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(7, 5, obsRes), IO_Type::prediction, 4, 16, 2, 2);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 3, actionRes), IO_Type::action, 4, 16, 1, 2);
 
     Hierarchy hCat;
     Hierarchy hMouse;
@@ -111,8 +111,14 @@ int main() {
         hCat.init_random(ioDescs, lds);
         hMouse.init_random(ioDescs, lds);
 
-        hCat.params.ios[1].importance = 0.5f;
-        hMouse.params.ios[1].importance = 0.5f;
+        hCat.params.ios[1].importance = 0.1f;
+        hMouse.params.ios[1].importance = 0.1f;
+
+        //hCat.params.ios[1].actor.discount = 0.999f;
+        //hCat.params.ios[1].actor.smoothing = 0.002f;
+
+        //hMouse.params.ios[1].actor.discount = 0.999f;
+        //hMouse.params.ios[1].actor.smoothing = 0.002f;
 
         std::cout << "Random init" << std::endl;
     }
@@ -245,35 +251,35 @@ int main() {
 
                 catRewardTotal = 0.0f;
                 mouseRewardTotal = 0.0f;
+
+                std::uniform_int_distribution<int> actionDist(0, actionRes - 1);
+
+                for (int i = 0; i < catActions.size(); i++) {
+                    if (dist01(rng) < epsilon)
+                        catActionsi[i] = actionDist(rng);
+                    else
+                        catActionsi[i] = hCat.get_prediction_cis(1)[i];
+
+                    if (dist01(rng) < epsilon)
+                        mouseActionsi[i] = actionDist(rng);
+                    else
+                        mouseActionsi[i] = hMouse.get_prediction_cis(1)[i];
+
+                    catActions[i] = catActionsi[i] / static_cast<float>(actionRes - 1);
+                    mouseActions[i] = mouseActionsi[i] / static_cast<float>(actionRes - 1);
+
+                    //std::cout << "Action " << i << ": ";
+
+                    //for (int j = 0; j < actionRes; j++)
+                    //    std::cout << hCat.get_prediction_acts(1)[j + i * actionRes] << " ";
+
+                    //std::cout << std::endl;
+                }
             }
 
             aiTimer += dt;
 
-            std::uniform_int_distribution<int> actionDist(0, actionRes - 1);
-
             //std::cout << "FRAME" << std::endl;
-
-            for (int i = 0; i < catActions.size(); i++) {
-                if (dist01(rng) < epsilon)
-                    catActionsi[i] = actionDist(rng);
-                else
-                    catActionsi[i] = hCat.get_prediction_cis(1)[i];
-
-                if (dist01(rng) < epsilon)
-                    mouseActionsi[i] = actionDist(rng);
-                else
-                    mouseActionsi[i] = hMouse.get_prediction_cis(1)[i];
-
-                catActions[i] = catActionsi[i] / static_cast<float>(actionRes - 1);
-                mouseActions[i] = mouseActionsi[i] / static_cast<float>(actionRes - 1);
-
-                //std::cout << "Action " << i << ": ";
-
-                //for (int j = 0; j < actionRes; j++)
-                //    std::cout << hCat.get_prediction_acts(1)[j + i * actionRes] << " ";
-
-                //std::cout << std::endl;
-            }
 
             //std::cout << std::endl;
 
