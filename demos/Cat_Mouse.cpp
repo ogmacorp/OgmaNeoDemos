@@ -40,7 +40,7 @@ public:
 };
 
 int main() {
-    bool load = true;
+    bool load = false;
     bool manualControl = false;
     float epsilon = 0.01f;
 
@@ -62,7 +62,7 @@ int main() {
     float catRewardTotal = 0.0f;
     float mouseRewardTotal = 0.0f;
 
-    sf::Image map("resources/map_test.png");
+    sf::Image map("resources/map0.png");
 
     CatMouseEnv env;
     env.init(map);
@@ -86,8 +86,8 @@ int main() {
     int actionRes = 5;
 
     Array<Hierarchy::IO_Desc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IO_Desc(Int3(7, 5, obsRes), IO_Type::prediction, 4, 16, 2, 2);
-    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 3, actionRes), IO_Type::action, 4, 16, 1, 2);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(7, 5, obsRes), IO_Type::prediction, 8, 2, 2);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 3, actionRes), IO_Type::action, 8, 1, 2);
 
     Hierarchy hCat;
     Hierarchy hMouse;
@@ -229,8 +229,8 @@ int main() {
 
             catCuriosity /= catObsi.size();
                 
-            float catReward = env.getDone() * 10.0f;// + catCuriosity * 0.1f + catVisual * 1.0f;
-            float mouseReward = env.getDone() * -10.0f;
+            float catReward = env.getDone() * 100.0f;// + catCuriosity * 0.1f + catVisual * 1.0f;
+            float mouseReward = env.getDone() * -100.0f;
 
             catRewardTotal += catReward;
             mouseRewardTotal += mouseReward;

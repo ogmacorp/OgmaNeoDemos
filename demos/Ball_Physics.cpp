@@ -17,7 +17,7 @@
 #include <aogmaneo/hierarchy.h>
 #include <aogmaneo/image_encoder.h>
 
-#include "vis/visadapter.h"
+//#include "vis/visadapter.h"
 
 using namespace aon;
 
@@ -26,14 +26,12 @@ int main() {
 
     std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
 
-    sf::RenderWindow window;
+    sf::RenderWindow window(sf::VideoMode(sf::Vector2u(800, 800)), "Physics Test", sf::Style::Default);
+
     window.setFramerateLimit(0); // No limit
 
-    window.create(sf::VideoMode(800, 800), "Physics Test", sf::Style::Default);
-
     // Render target for scene
-    sf::RenderTexture rescaleRT;
-    rescaleRT.create(64, 64);
+    sf::RenderTexture rescaleRT(sf::Vector2u(64, 64));
 
     // --------------------------- Create the Hierarchy ---------------------------
 
@@ -52,7 +50,7 @@ int main() {
     Array<Hierarchy::Layer_Desc> lds(2);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hidden_size = Int3(10, 10, 16);
+        lds[i].hidden_size = Int3(10, 10, 32);
         //lds[i].temporal_size = 8;
         //lds[i].spatial_activity = 8;
     }
@@ -155,29 +153,20 @@ int main() {
     Array<Byte_Buffer_View> imgs(1);
     imgs[0] = imgb;
 
-    Vis_Adapter va;
-
     do {
         // ----------------------------- Input -----------------------------
 
         // Receive events
-        sf::Event windowEvent;
-
-        while (window.pollEvent(windowEvent))
-        {
-            switch (windowEvent.type)
-            {
-            case sf::Event::Closed:
+        while (const std::optional event = window.pollEvent()) {
+            if (event->is<sf::Event::Closed>())
                 quit = true;
-                break;
-            }
         }
 
         if (window.hasFocus()) {
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape))
                 quit = true;
 
-            bool gPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::G);
+            bool gPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::G);
 
             if (gPressed && !gPressedPrev)
                 genMode = !genMode;
@@ -270,7 +259,7 @@ int main() {
         // Load into input field
         for (int x = 0; x < rescaleRT.getSize().x; x++)
             for (int y = 0; y < rescaleRT.getSize().y; y++) {
-                sf::Color c = rescaleImg.getPixel(x, y);
+                sf::Color c = rescaleImg.getPixel(sf::Vector2u(x, y));
 
                 float mono = 0.333f * (c.r / 255.0f + c.g / 255.0f + c.b / 255.0f);
 
@@ -286,7 +275,7 @@ int main() {
             h.step(inputCIs, false);
         }
         else {
-            enc.step(imgs, true);
+            enc.step(imgs, true, true);
 
             Array<Int_Buffer_View> inputCIs(1);
 
@@ -295,8 +284,6 @@ int main() {
             h.step(inputCIs, true);
         }
 
-        va.update(h, { &enc });
-
         // Reconstruct
         enc.reconstruct(h.get_prediction_cis(0));
 
@@ -304,9 +291,7 @@ int main() {
         Byte_Buffer pred = enc.get_reconstruction(0);
 
         // Display prediction
-        sf::Image img;
-
-        img.create(rescaleRT.getSize().x, rescaleRT.getSize().y);
+        sf::Image img(sf::Vector2u(rescaleRT.getSize().x, rescaleRT.getSize().y));
 
         // Load back into image
         for (int x = 0; x < rescaleRT.getSize().x; x++)
@@ -315,7 +300,7 @@ int main() {
 
                 c.r = c.g = c.b = pred[y + x * rescaleRT.getSize().y];
 
-                img.setPixel(x, y, c);
+                img.setPixel(sf::Vector2u(x, y), c);
             }
 
         // Load image into texture
@@ -324,12 +309,9 @@ int main() {
         tex.loadFromImage(img);
 
         // Display
-        sf::Sprite s;
+        sf::Sprite s(genMode ? tex : rescaleRT.getTexture());
 
-        s.setPosition(window.getSize().x * 0.5f, window.getSize().y * 0.5f);
-
-        // If in generation mode, show prediction, otherwise show the training data
-        s.setTexture(genMode ? tex : rescaleRT.getTexture());
+        s.setPosition(sf::Vector2f(window.getSize().x * 0.5f, window.getSize().y * 0.5f));
 
         s.setOrigin(sf::Vector2f(tex.getSize().x * 0.5f, tex.getSize().y * 0.5f));
 
@@ -339,6 +321,17 @@ int main() {
         s.setScale(sf::Vector2f(scale, scale));
 
         window.draw(s);
+
+        Float3 pos = h.get_integrator(0).get_integrals()[0];
+
+        float pos_scale = 100.0f;
+
+        sf::CircleShape cs;
+        cs.setRadius(2.0f);
+
+        cs.setFillColor(sf::Color::Red);
+        cs.setPosition(sf::Vector2f(window.getSize().x * 0.5f + pos.x * pos_scale, window.getSize().y * 0.5f + pos.y * pos_scale));
+        window.draw(cs);
 
         window.display();
     } while (!quit);

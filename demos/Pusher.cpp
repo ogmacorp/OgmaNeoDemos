@@ -57,15 +57,15 @@ int main() {
     Array<Hierarchy::Layer_Desc> lds(1);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hidden_size = Int3(5, 5, 32);
+        lds[i].hidden_size = Int3(5, 5, 64);
     }
 
     int sensorRes = 16;
     int actionRes = 5;
 
     Array<Hierarchy::IO_Desc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IO_Desc(Int3(2, 2, sensorRes), IO_Type::prediction, 4);
-    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 2, actionRes), IO_Type::action, 8);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(2, 2, sensorRes), IO_Type::prediction, 8);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 2, actionRes), IO_Type::action, 16);
 
     Hierarchy h;
     h.init_random(ioDescs, lds);
@@ -188,7 +188,7 @@ int main() {
 
         // Exploration
         for (int i = 0; i < actionCIs.size(); i++) {
-            if (dist01(rng) < 0.0f) {
+            if (dist01(rng) < 0.01f) {
                 std::uniform_int_distribution<int> actionDist(0, actionRes - 1);
 
                 actionCIs[i] = actionDist(rng);
@@ -261,7 +261,7 @@ int main() {
         inputCIs[0] = sensorCIs;
         inputCIs[1] = actionCIs;
 
-        h.step(inputCIs, true, reward);
+        h.step(inputCIs, true, reward * 1.0f);
 
         average_reward += 0.0001f * (reward - average_reward);
 
