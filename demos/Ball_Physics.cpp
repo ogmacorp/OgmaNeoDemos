@@ -322,16 +322,16 @@ int main() {
 
         window.draw(s);
 
-        Float3 pos = h.get_integrator(0).get_integrals()[0];
+        //Float3 pos = h.get_integrator(0).get_integrals()[0];
 
-        float pos_scale = 100.0f;
+        //float pos_scale = 100.0f;
 
-        sf::CircleShape cs;
-        cs.setRadius(2.0f);
+        //sf::CircleShape cs;
+        //cs.setRadius(2.0f);
 
-        cs.setFillColor(sf::Color::Red);
-        cs.setPosition(sf::Vector2f(window.getSize().x * 0.5f + pos.x * pos_scale, window.getSize().y * 0.5f + pos.y * pos_scale));
-        window.draw(cs);
+        //cs.setFillColor(sf::Color::Red);
+        //cs.setPosition(sf::Vector2f(window.getSize().x * 0.5f + pos.x * pos_scale, window.getSize().y * 0.5f + pos.y * pos_scale));
+        //window.draw(cs);
 
         window.display();
     } while (!quit);

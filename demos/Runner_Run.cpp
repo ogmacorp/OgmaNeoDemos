@@ -27,9 +27,8 @@ int main() {
     sf::RenderWindow window;
 
     sf::ContextSettings glContextSettings;
-    glContextSettings.antialiasingLevel = 4;
 
-    window.create(sf::VideoMode(800, 600), "Runner Demo", sf::Style::Default, glContextSettings);
+    sf::RenderWindow window(sf::VideoMode(800, 600), "Runner Demo", sf::Style::Default, glContextSettings);
 
     window.setFramerateLimit(60);
     window.setVerticalSyncEnabled(true);
