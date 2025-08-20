@@ -40,15 +40,12 @@ int main() {
     unsigned int windowWidth = 1280;
     unsigned int windowHeight = 720;
 
-    sf::RenderWindow window;
-
-    window.create(sf::VideoMode(windowWidth, windowHeight), "Stacking", sf::Style::Default);
+    sf::RenderWindow window(sf::VideoMode(sf::Vector2u(windowWidth, windowHeight)), "Stacking", sf::Style::Default);
 
     //window.setVerticalSyncEnabled(true);
     window.setFramerateLimit(60);
 
-    sf::Font font;
-    font.loadFromFile("resources/Hack-Regular.ttf");
+    sf::Font font("resources/Hack-Regular.ttf");
 
     bool quit = false;
 
@@ -84,10 +81,7 @@ int main() {
     Array<Hierarchy::Layer_Desc> lds(1);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hidden_size = Int3(3, 3, 128);
-
-        lds[i].ticks_per_update = 1;
-        lds[i].temporal_horizon = 1;
+        lds[i].hidden_size = Int3(5, 5, 32);
     }
 
     Array<Hierarchy::IO_Desc> ioDescs(3);
@@ -111,24 +105,17 @@ int main() {
     // ---------------------------------------------------------------------
     
     do {
-        sf::Event event;
-
-        while (window.pollEvent(event)) {
-            if (window.hasFocus()) {
-                switch (event.type) {
-                case sf::Event::Closed:
-                    quit = true;
-                    break;
-                }
-            }
+        while (const std::optional event = window.pollEvent()) {
+            if (event->is<sf::Event::Closed>())
+                quit = true;
         }
 
         if (window.hasFocus()) {
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape))
                 quit = true;
 
-            bool space = sf::Keyboard::isKeyPressed(sf::Keyboard::Space);
-            bool t = sf::Keyboard::isKeyPressed(sf::Keyboard::T);
+            bool space = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space);
+            bool t = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::T);
 
             if (space && !spacePrev) {
                 targetStacks = buildStacks;
@@ -144,10 +131,10 @@ int main() {
                 std::cout << "Speed mode: " << speedMode << std::endl;
             }
 
-            bool w = sf::Keyboard::isKeyPressed(sf::Keyboard::W);
-            bool a = sf::Keyboard::isKeyPressed(sf::Keyboard::A);
-            bool s = sf::Keyboard::isKeyPressed(sf::Keyboard::S);
-            bool d = sf::Keyboard::isKeyPressed(sf::Keyboard::D);
+            bool w = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W);
+            bool a = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A);
+            bool s = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S);
+            bool d = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D);
 
             if (s && !sPrev) {
                 if (!buildHolding && buildStacks[buildPosition] > 0) {
@@ -255,13 +242,13 @@ int main() {
 
                 if (speedMode) {
                     if (dist01(rng) < 0.1f) {
-                        std::uniform_int_distribution<int> goalDist(0, h.get_top_hidden_size().z);
+                        std::uniform_int_distribution<int> goalDist(0, h.get_top_hidden_size().z - 1);
 
                         for (int i = 0; i < randomCIs.size(); i++)
                             randomCIs[i] = goalDist(rng);
                     }
 
-                    h.step(inputCIs, randomCIs, speedMode, true);
+                    h.step(inputCIs, randomCIs, speedMode);
                 }
                 else
                     h.step(inputCIs, goalCIs, false);
@@ -302,8 +289,8 @@ int main() {
 
         sf::RectangleShape rs;
         rs.setSize(sf::Vector2f(windowWidth, windowWidth * 0.5f));
-        rs.setPosition(windowWidth * 0.5f, windowHeight * 0.5f);
-        rs.setOrigin(windowWidth * 0.5f, windowWidth * 0.25f);
+        rs.setPosition(sf::Vector2f(windowWidth * 0.5f, windowHeight * 0.5f));
+        rs.setOrigin(sf::Vector2f(windowWidth * 0.5f, windowWidth * 0.25f));
         rs.setFillColor(sf::Color::White);
 
         window.draw(rs);
@@ -311,44 +298,39 @@ int main() {
         float blockScale = windowWidth * 0.5f / width;
 
         // Predictions
-        //enc.reconstruct(h.get_prediction_cis(0));
-
         std::cout << actIndex << std::endl;
 
-        sf::Image predImg;
-        predImg.create(width, height);
+        sf::Image predImg(sf::Vector2u(width, height));
 
         for (int x = 0; x < width; x++)
             for (int y = 0; y < height; y++) {
-                Byte intensity = h.get_prediction_cis(0)[y + x * height] * 255;
+                float intensity = h.get_prediction_cis(1)[y + x * height];
 
                 sf::Color c;
                 c.r = 255;
-                c.g = c.b = static_cast<sf::Uint8>(std::min(1.0f, std::max(0.0f, 1.0f - intensity / 255.0f)) * 255.0f);
+                c.g = c.b = static_cast<std::uint8_t>(std::min(1.0f, std::max(0.0f, 1.0f - intensity)) * 255.0f);
                 
-                predImg.setPixel(x, y, c);
+                predImg.setPixel(sf::Vector2u(x, y), c);
             }
 
-        sf::Texture predTex;
-        predTex.loadFromImage(predImg);
+        sf::Texture predTex(predImg);
 
         // Left side
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < actualStacks[i]; j++) {
                 sf::RectangleShape bs;
                 bs.setSize(sf::Vector2f(blockScale, blockScale));
-                bs.setPosition(i * blockScale, windowHeight * 0.5f + windowWidth * 0.25f - (j + 1) * blockScale);
+                bs.setPosition(sf::Vector2f(i * blockScale, windowHeight * 0.5f + windowWidth * 0.25f - (j + 1) * blockScale));
                 bs.setFillColor(sf::Color::Green);
 
                 window.draw(bs);
             }
         }
 
-        if (window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::P)) {
-            sf::Sprite s;
-            s.setTexture(predTex);
-            s.setPosition(0.0f, windowHeight * 0.5f + windowWidth * 0.25f);
-            s.setScale(blockScale, -blockScale);
+        if (window.hasFocus() && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::P)) {
+            sf::Sprite s(predTex);
+            s.setPosition(sf::Vector2f(0.0f, windowHeight * 0.5f + windowWidth * 0.25f));
+            s.setScale(sf::Vector2f(blockScale, -blockScale));
 
             window.draw(s);
         }
@@ -358,7 +340,7 @@ int main() {
             for (int j = 0; j < buildStacks[i]; j++) {
                 sf::RectangleShape bs;
                 bs.setSize(sf::Vector2f(blockScale, blockScale));
-                bs.setPosition((width + i) * blockScale, windowHeight * 0.5f + windowWidth * 0.25f - (j + 1) * blockScale);
+                bs.setPosition(sf::Vector2f((width + i) * blockScale, windowHeight * 0.5f + windowWidth * 0.25f - (j + 1) * blockScale));
                 bs.setFillColor(sf::Color::Blue);
 
                 window.draw(bs);
@@ -368,23 +350,23 @@ int main() {
         // Show position
         sf::RectangleShape as;
         as.setSize(sf::Vector2f(blockScale * 0.2f, blockScale * 0.4f));
-        as.setOrigin(blockScale * 0.05f - blockScale * 0.5f, blockScale * 0.1f);
+        as.setOrigin(sf::Vector2f(blockScale * 0.05f - blockScale * 0.5f, blockScale * 0.1f));
 
         as.setFillColor(actualHolding ? sf::Color::Red : sf::Color::Yellow);
-        as.setPosition(actualPosition * blockScale, windowHeight * 0.5f - windowWidth * 0.25f);
+        as.setPosition(sf::Vector2f(actualPosition * blockScale, windowHeight * 0.5f - windowWidth * 0.25f));
 
         window.draw(as);
 
         as.setFillColor(buildHolding ? sf::Color::Red : sf::Color::Yellow);
-        as.setPosition((width + buildPosition) * blockScale, windowHeight * 0.5f - windowWidth * 0.25f);
+        as.setPosition(sf::Vector2f((width + buildPosition) * blockScale, windowHeight * 0.5f - windowWidth * 0.25f));
 
         window.draw(as);
 
         // Divider
         sf::RectangleShape div;
         div.setSize(sf::Vector2f(windowWidth * 0.01f, windowHeight));
-        div.setPosition(windowWidth * 0.5f, windowHeight * 0.5f);
-        div.setOrigin(div.getSize().x * 0.5f, div.getSize().y * 0.5f);
+        div.setPosition(sf::Vector2f(windowWidth * 0.5f, windowHeight * 0.5f));
+        div.setOrigin(sf::Vector2f(div.getSize().x * 0.5f, div.getSize().y * 0.5f));
 
         div.setFillColor(sf::Color::Black);
 
