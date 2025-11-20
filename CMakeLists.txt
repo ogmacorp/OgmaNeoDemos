@@ -6,7 +6,7 @@
 #  in the AOGMANEODEMOS_LICENSE.md file included in this distribution.
 # ----------------------------------------------------------------------------
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 4.1)
 
 project(AOgmaNeoDemo)
 
@@ -74,29 +74,29 @@ FetchContent_MakeAvailable(SFML)
 ############################################################################
 # Find Box2D include and libs
 
-find_package(BOX2D)
-
-if(BOX2D_FOUND)
-    include_directories(${BOX2D_INCLUDE_DIRS})
-    message(STATUS "Found existing Box2D in ${BOX2D_INCLUDE_DIRS}")
-else()
-    message(STATUS "-- Box2D will be downloaded and built from source")
-    ExternalProject_Add(
-        Box2D
-        PREFIX Box2D
-        URL "https://github.com/erincatto/Box2D/archive/v2.3.0.zip"
-
-        # Box2D's source isn't in the top level directory so add a dummy file to set cmake right
-        PATCH_COMMAND ${CMAKE_COMMAND} -E echo ADD_SUBDIRECTORY(Box2D) > <SOURCE_DIR>/CMakeLists.txt
-
-        CMAKE_ARGS
-            "-DCMAKE_INSTALL_PREFIX=${3RDPARTY_PATH}"
-            "-DBOX2D_INSTALL=ON"
-            "-DBOX2D_BUILD_EXAMPLES=OFF"
-    )
-    set(BOX2D_INCLUDE_DIRS "${3RDPARTY_PATH}/include")
-    set(BOX2D_LIBRARIES "Box2D${CMAKE_STATIC_LIBRARY_SUFFIX}")
-endif()
+#find_package(BOX2D)
+#
+#if(BOX2D_FOUND)
+#    include_directories(${BOX2D_INCLUDE_DIRS})
+#    message(STATUS "Found existing Box2D in ${BOX2D_INCLUDE_DIRS}")
+#else()
+#    message(STATUS "-- Box2D will be downloaded and built from source")
+#    ExternalProject_Add(
+#        Box2D
+#        PREFIX Box2D
+#        URL "https://github.com/erincatto/Box2D/archive/v2.3.0.zip"
+#
+#        # Box2D's source isn't in the top level directory so add a dummy file to set cmake right
+#        PATCH_COMMAND ${CMAKE_COMMAND} -E echo ADD_SUBDIRECTORY(Box2D) > <SOURCE_DIR>/CMakeLists.txt
+#
+#        CMAKE_ARGS
+#            "-DCMAKE_INSTALL_PREFIX=${3RDPARTY_PATH}"
+#            "-DBOX2D_INSTALL=ON"
+#            "-DBOX2D_BUILD_EXAMPLES=OFF"
+#    )
+#    set(BOX2D_INCLUDE_DIRS "${3RDPARTY_PATH}/include")
+#    set(BOX2D_LIBRARIES "Box2D${CMAKE_STATIC_LIBRARY_SUFFIX}")
+#endif()
 
 
 ############################################################################
@@ -215,10 +215,10 @@ include_directories("${PROJECT_SOURCE_DIR}/demos")
 #list(APPEND DEMO_SOURCES_LIST WAVY_CLASSIFY_SRCS)
 #list(APPEND DEMO_DEPENDS_LIST WAVY_CLASSIFY_DEPS)
 
-list(APPEND SWARM_TEST_SRCS "demos/Swarm_Test.cpp")
-list(APPEND DEMO_PROJECTS_LIST "Swarm_Test")
-list(APPEND DEMO_SOURCES_LIST SWARM_TEST_SRCS)
-list(APPEND DEMO_DEPENDS_LIST SWARM_TEST_DEPS)
+#list(APPEND SWARM_TEST_SRCS "demos/Swarm_Test.cpp")
+#list(APPEND DEMO_PROJECTS_LIST "Swarm_Test")
+#list(APPEND DEMO_SOURCES_LIST SWARM_TEST_SRCS)
+#list(APPEND DEMO_DEPENDS_LIST SWARM_TEST_DEPS)
 
 #list(APPEND C_TEST_SRCS "demos/C_Test.cpp")
 #list(APPEND C_TEST_DEPS "SFML")
@@ -257,13 +257,13 @@ list(APPEND DEMO_PROJECTS_LIST "Cat_Mouse")
 list(APPEND DEMO_SOURCES_LIST CAT_MOUSE_SRCS)
 list(APPEND DEMO_DEPENDS_LIST CAT_MOUSE_DEPS)
 
-list(APPEND EXPLORE_SRCS "demos/Explore.cpp")
-list(APPEND EXPLORE_SRCS "demos/explore/ExploreEnv.cpp")
-list(APPEND EXPLORE_SRCS "demos/helpers.cpp")
-list(APPEND EXPLORE_DEPS "SFML")
-list(APPEND DEMO_PROJECTS_LIST "Explore")
-list(APPEND DEMO_SOURCES_LIST EXPLORE_SRCS)
-list(APPEND DEMO_DEPENDS_LIST EXPLORE_DEPS)
+#list(APPEND EXPLORE_SRCS "demos/Explore.cpp")
+#list(APPEND EXPLORE_SRCS "demos/explore/ExploreEnv.cpp")
+#list(APPEND EXPLORE_SRCS "demos/helpers.cpp")
+#list(APPEND EXPLORE_DEPS "SFML")
+#list(APPEND DEMO_PROJECTS_LIST "Explore")
+#list(APPEND DEMO_SOURCES_LIST EXPLORE_SRCS)
+#list(APPEND DEMO_DEPENDS_LIST EXPLORE_DEPS)
 
 #list(APPEND CAT_MOUSE_POS_SRCS "demos/Cat_Mouse_Pos.cpp")
 #list(APPEND CAT_MOUSE_POS_SRCS "demos/catmouse/CatMouseEnv.cpp")
@@ -367,12 +367,12 @@ list(APPEND DEMO_DEPENDS_LIST EXPLORE_DEPS)
 #list(APPEND DEMO_SOURCES_LIST STDP_RUN_SRCS)
 #list(APPEND DEMO_DEPENDS_LIST STDP_RUN_DEPS)
 
-list(APPEND BALL_PHYSICS_SRCS "demos/Ball_Physics.cpp")
-list(APPEND BALL_PHYSICS_DEPS "SFML")
-list(APPEND BALL_PHYSICS_DEPS "BOX2D")
-list(APPEND DEMO_PROJECTS_LIST "Ball_Physics")
-list(APPEND DEMO_SOURCES_LIST BALL_PHYSICS_SRCS)
-list(APPEND DEMO_DEPENDS_LIST BALL_PHYSICS_DEPS)
+#list(APPEND BALL_PHYSICS_SRCS "demos/Ball_Physics.cpp")
+#list(APPEND BALL_PHYSICS_DEPS "SFML")
+#list(APPEND BALL_PHYSICS_DEPS "BOX2D")
+#list(APPEND DEMO_PROJECTS_LIST "Ball_Physics")
+#list(APPEND DEMO_SOURCES_LIST BALL_PHYSICS_SRCS)
+#list(APPEND DEMO_DEPENDS_LIST BALL_PHYSICS_DEPS)
 
 #list(APPEND BALL_PHYSICS_VEC_RUN_SRCS "demos/Ball_Physics_Vec.cpp")
 #list(APPEND BALL_PHYSICS_VEC_RUN_DEPS "SFML")
@@ -437,12 +437,12 @@ list(APPEND DEMO_DEPENDS_LIST BALL_PHYSICS_DEPS)
 #list(APPEND DEMO_SOURCES_LIST VSA_COMP_SRCS)
 #list(APPEND DEMO_DEPENDS_LIST VSA_COMP_DEPS)
 
-list(APPEND VSA_COMP2_SRCS "demos/VSA_Tests_Comp2.cpp")
-list(APPEND VSA_COMP2_SRCS "demos/helpers.cpp")
-list(APPEND VSA_COMP2_DEPS "SFML")
-list(APPEND DEMO_PROJECTS_LIST "VSA_Comp2")
-list(APPEND DEMO_SOURCES_LIST VSA_COMP2_SRCS)
-list(APPEND DEMO_DEPENDS_LIST VSA_COMP2_DEPS)
+#list(APPEND VSA_COMP2_SRCS "demos/VSA_Tests_Comp2.cpp")
+#list(APPEND VSA_COMP2_SRCS "demos/helpers.cpp")
+#list(APPEND VSA_COMP2_DEPS "SFML")
+#list(APPEND DEMO_PROJECTS_LIST "VSA_Comp2")
+#list(APPEND DEMO_SOURCES_LIST VSA_COMP2_SRCS)
+#list(APPEND DEMO_DEPENDS_LIST VSA_COMP2_DEPS)
 
 list(APPEND VSA_CHAR_SINGLE_SRCS "demos/VSA_Char_Single.cpp")
 list(APPEND VSA_CHAR_SINGLE_SRCS "demos/helpers.cpp")
@@ -509,13 +509,13 @@ foreach(i RANGE ${num_demos})
     endif()
 
     # Does this demo require Box2D?
-    list(FIND ${DEMO_DEPENDS} "BOX2D" _box2d_depends_index)
-    if (${_box2d_depends_index} GREATER -1)
-        if(NOT BOX2D_FOUND)
-            add_dependencies(${DEMO_PROJECT} Box2D)
-        endif()
-        target_link_libraries(${DEMO_PROJECT} ${BOX2D_LIBRARIES})
-    endif()
+    #list(FIND ${DEMO_DEPENDS} "BOX2D" _box2d_depends_index)
+    #if (${_box2d_depends_index} GREATER -1)
+    #    if(NOT BOX2D_FOUND)
+    #        add_dependencies(${DEMO_PROJECT} Box2D)
+    #    endif()
+    #    target_link_libraries(${DEMO_PROJECT} ${BOX2D_LIBRARIES})
+    #endif()
 
     # Does this demo require OpenCV?
     list(FIND ${DEMO_DEPENDS} "OPENCV" _opencv_depends_index)

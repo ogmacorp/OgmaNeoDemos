@@ -149,8 +149,8 @@ int main() {
 
     bool gPressedPrev = false;
 
-    Byte_Buffer imgb(rescaleRT.getSize().x * rescaleRT.getSize().y, 0.0f);
-    Array<Byte_Buffer_View> imgs(1);
+    U8_Array imgb(rescaleRT.getSize().x * rescaleRT.getSize().y, 0.0f);
+    Array<U8_Array_View> imgs(1);
     imgs[0] = imgb;
 
     do {
@@ -268,7 +268,7 @@ int main() {
 
         // Feed first 5 frames from image, even when generating ("seed" sequence)
         if (simFrame > 5 && genMode) {
-            Array<Int_Buffer_View> inputCIs(1);
+            Array<S32_Array_View> inputCIs(1);
 
             inputCIs[0] = h.get_prediction_cis(0);
 
@@ -277,7 +277,7 @@ int main() {
         else {
             enc.step(imgs, true, true);
 
-            Array<Int_Buffer_View> inputCIs(1);
+            Array<S32_Array_View> inputCIs(1);
 
             inputCIs[0] = enc.get_hidden_cis();
 
@@ -288,7 +288,7 @@ int main() {
         enc.reconstruct(h.get_prediction_cis(0));
 
         // Retrieve reconstructed prediction
-        Byte_Buffer pred = enc.get_reconstruction(0);
+        U8_Array pred = enc.get_reconstruction(0);
 
         // Display prediction
         sf::Image img(sf::Vector2u(rescaleRT.getSize().x, rescaleRT.getSize().y));

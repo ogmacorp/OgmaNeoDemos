@@ -86,8 +86,8 @@ int main() {
     int actionRes = 5;
 
     Array<Hierarchy::IO_Desc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IO_Desc(Int3(7, 5, obsRes), IO_Type::prediction, 8, 2, 2);
-    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 3, actionRes), IO_Type::action, 8, 1, 2);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(7, 5, obsRes), IO_Type::none, 20, 8,  2, 2);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 3, actionRes), IO_Type::action, 20, 8, 1, 2);
 
     Hierarchy hCat;
     Hierarchy hMouse;
@@ -123,16 +123,16 @@ int main() {
         std::cout << "Random init" << std::endl;
     }
 
-    Int_Buffer catObsi(ioDescs[0].size.x * ioDescs[0].size.y, 0);
-    Int_Buffer mouseObsi(catObsi.size(), 0);
-    Int_Buffer catActionsi(env.actionsSize(), 0);
-    Int_Buffer mouseActionsi(env.actionsSize(), 0);
+    S32_Array catObsi(ioDescs[0].size.x * ioDescs[0].size.y, 0);
+    S32_Array mouseObsi(catObsi.size(), 0);
+    S32_Array catActionsi(env.actionsSize(), 0);
+    S32_Array mouseActionsi(env.actionsSize(), 0);
     
-    Array<Int_Buffer_View> catInputs(2);
+    Array<S32_Array_View> catInputs(2);
     catInputs[0] = catObsi;
     catInputs[1] = catActionsi;
 
-    Array<Int_Buffer_View> mouseInputs(2);
+    Array<S32_Array_View> mouseInputs(2);
     mouseInputs[0] = mouseObsi;
     mouseInputs[1] = mouseActionsi;
 
@@ -244,7 +244,7 @@ int main() {
             if (aiTimer >= aiDT) {
                 aiTimer = std::fmod(aiTimer, aiDT);
 
-                const float rewardScale = 1.0f;
+                const float rewardScale = 10.0f;
 
                 hCat.step(catInputs, true, catRewardTotal * rewardScale);
                 hMouse.step(mouseInputs, true, mouseRewardTotal * rewardScale);

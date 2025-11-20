@@ -57,20 +57,20 @@ int main() {
     Array<Hierarchy::Layer_Desc> lds(1);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hidden_size = Int3(5, 5, 64);
+        lds[i].hidden_size = Int3(5, 5, 32);
     }
 
     int sensorRes = 16;
     int actionRes = 5;
 
     Array<Hierarchy::IO_Desc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IO_Desc(Int3(2, 2, sensorRes), IO_Type::prediction, 8);
-    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 2, actionRes), IO_Type::action, 16);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(2, 2, sensorRes), IO_Type::prediction);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 2, actionRes), IO_Type::action, 18, 8);
 
     Hierarchy h;
     h.init_random(ioDescs, lds);
 
-    Int_Buffer actionCIs = h.get_prediction_cis(1);
+    S32_Array actionCIs = h.get_prediction_cis(1);
 
     //CustomStreamReader reader;
     //reader.ins.open(hFileName.c_str(), std::ios::out | std::ios::binary);
@@ -247,7 +247,7 @@ int main() {
         }
         //std::cout << reward << std::endl;
 
-        Int_Buffer sensorCIs(4);
+        S32_Array sensorCIs(4);
         sensorCIs[0] = (pusherPos.x * 0.5f + 0.5f) * (sensorRes - 1) + 0.5f;
         sensorCIs[1] = (pusherPos.y * 0.5f + 0.5f) * (sensorRes - 1) + 0.5f;
         sensorCIs[2] = (objectDelta.x * 0.5f + 0.5f) * (sensorRes - 1) + 0.5f;
@@ -257,11 +257,11 @@ int main() {
         for (int i = 0; i < sensorCIs.size(); i++)
             sensorCIs[i] = std::min(sensorRes - 1, std::max(0, sensorCIs[i]));
 
-        Array<Int_Buffer_View> inputCIs(2);
+        Array<S32_Array_View> inputCIs(2);
         inputCIs[0] = sensorCIs;
         inputCIs[1] = actionCIs;
 
-        h.step(inputCIs, true, reward * 1.0f);
+        h.step(inputCIs, true, reward * 10.0f);
 
         average_reward += 0.0001f * (reward - average_reward);
 

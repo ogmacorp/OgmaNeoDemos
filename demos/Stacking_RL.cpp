@@ -169,27 +169,27 @@ int main() {
             int numSubTicks = speedMode ? 300 : 1;
 
             for (int subTick = 0; subTick < numSubTicks; subTick++) {
-                Int_Buffer actualStates(width * height, 0);
+                S32_Array actualStates(width * height, 0);
 
                 for (int i = 0; i < width; i++) {
                     for (int j = 0; j < actualStacks[i]; j++)
                         actualStates[j + i * height] = 1;
                 }
 
-                Int_Buffer goalStates(width * height, 0);
+                S32_Array goalStates(width * height, 0);
 
                 for (int i = 0; i < width; i++) {
                     for (int j = 0; j < targetStacks[i]; j++)
                         goalStates[j + i * height] = 1;
                 }
 
-                Int_Buffer actions(1);
+                S32_Array actions(1);
                 actions[0] = actIndex;
 
-                Int_Buffer positions(1);
+                S32_Array positions(1);
                 positions[0] = actualPosition;
 
-                Array<Int_Buffer_View> inputCIs(ioDescs.size());
+                Array<S32_Array_View> inputCIs(ioDescs.size());
                 inputCIs[0] = goalStates;
                 inputCIs[1] = actualStates;
                 inputCIs[2] = actions;
