@@ -65,7 +65,7 @@ int main() {
 
     Array<Hierarchy::IO_Desc> ioDescs(2);
     ioDescs[0] = Hierarchy::IO_Desc(Int3(2, 2, sensorRes), IO_Type::prediction);
-    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 2, actionRes), IO_Type::action, 18, 8);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 2, actionRes), IO_Type::action);
 
     Hierarchy h;
     h.init_random(ioDescs, lds);

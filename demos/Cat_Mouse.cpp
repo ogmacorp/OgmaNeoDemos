@@ -86,8 +86,8 @@ int main() {
     int actionRes = 5;
 
     Array<Hierarchy::IO_Desc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IO_Desc(Int3(7, 5, obsRes), IO_Type::none, 20, 8,  2, 2);
-    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 3, actionRes), IO_Type::action, 20, 8, 1, 2);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(7, 5, obsRes), IO_Type::none, 8,  2);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 3, actionRes), IO_Type::action, 8, 1);
 
     Hierarchy hCat;
     Hierarchy hMouse;
