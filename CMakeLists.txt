@@ -6,8 +6,7 @@
 #  in the OGMANEODEMOS_LICENSE.md file included in this distribution.
 # ----------------------------------------------------------------------------
 
-# CMake version 3.1+ is required to enable C++14 features cleanly
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 4.1)
 
 project(OgmaNeoDemos)
 
