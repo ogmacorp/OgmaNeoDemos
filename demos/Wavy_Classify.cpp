@@ -48,68 +48,68 @@ void splitString(const std::string& s, std::string c, std::vector<std::string>& 
 }
 
 class CustomStreamReader : public aon::Stream_Reader {
-public:
-    std::ifstream ins;
+    public:
+        std::ifstream ins;
 
-    void read(
-        void* data,
-        long len
-    ) override {
-        ins.read(static_cast<char*>(data), len);
-    }
+        void read(
+                void* data,
+                long len
+                ) override {
+            ins.read(static_cast<char*>(data), len);
+        }
 };
 
 class CustomStreamWriter : public aon::Stream_Writer {
-public:
-    std::ofstream outs;
+    public:
+        std::ofstream outs;
 
-    void write(
-        const void* data,
-        long len
-    ) override {
-        outs.write(static_cast<const char*>(data), len);
-    }
+        void write(
+                const void* data,
+                long len
+                ) override {
+            outs.write(static_cast<const char*>(data), len);
+        }
 };
 
 class BufferReader : public aon::Stream_Reader {
-public:
-    int start;
-    const std::vector<unsigned char>* buffer;
+    public:
+        int start;
+        const std::vector<unsigned char>* buffer;
 
-    BufferReader() :
-      start(0), buffer(nullptr)
+        BufferReader() :
+            start(0), buffer(nullptr)
     {}
 
-    void read( void* data, long len ) override
-    {
-      for (int i = 0; i < len; i++)
-        static_cast<unsigned char*>(data)[i] = (*buffer)[start + i];
+        void read( void* data, long len ) override
+        {
+            for (int i = 0; i < len; i++)
+                static_cast<unsigned char*>(data)[i] = (*buffer)[start + i];
 
-      start += len;
-    };
+            start += len;
+        };
 };
 
 class BufferWriter : public aon::Stream_Writer {
-public:
-    int start;
+    public:
+        int start;
 
-    std::vector<unsigned char> buffer;
+        std::vector<unsigned char> buffer;
 
-    BufferWriter(int size ) :
-      start(0)
+        BufferWriter(int size ) :
+            start(0)
     {
         buffer.resize(size);
     }
 
-    void write( const void* data, long len) override
-    {
-      assert(buffer.size() >= start + len);
+        void write( const void* data, long len) override
+        {
+            assert(buffer.size() >= start + len);
 
-      for (int i = 0; i < len; i++)
-          buffer[start + i] = static_cast<const unsigned char*>(data)[i];
+            for (int i = 0; i < len; i++)
+                buffer[start + i] = static_cast<const unsigned char*>(data)[i];
 
-      start += len;
-    };
+            start += len;
+        };
 };
 
 
@@ -180,41 +180,40 @@ int main(int argc, char *argv[])
     int numAdditionalStepsAhead = 0;
 
     int opt;
-	while ((opt = getopt(argc, argv, "p:h:")) != -1) {  // for each option...
-		switch (opt) {
-		case 'p':			
-			numAdditionalStepsAhead = std::stoi(optarg);
-			break;        
-		case 'h':
-			loadHierarchy = std::stoi(optarg);
-			break;
-		case '?':
-			std::cerr << "valid option -p num_prediction_steps or -h load__model!" << std::endl;
-			break;
-		}
-	}
+    while ((opt = getopt(argc, argv, "p:h:")) != -1) {  // for each option...
+        switch (opt) {
+            case 'p':			
+                numAdditionalStepsAhead = std::stoi(optarg);
+                break;        
+            case 'h':
+                loadHierarchy = std::stoi(optarg);
+                break;
+            case '?':
+                std::cerr << "valid option -p num_prediction_steps or -h load__model!" << std::endl;
+                break;
+        }
+    }
 
     bool saveHierarchy  = !loadHierarchy;
     // --------------------------- Create the window(s) ---------------------------
 
-    sf::RenderWindow renderWindow;
-	int winW = 1000, winH=800, winMainW=1800;
-	int numPlots = 2;
- 
-	int subWinH = static_cast<int>(winH / numPlots);
-	int plotHeight = subWinH - 5;
+    int winW = 1000, winH=800, winMainW=1800;
+    int numPlots = 2;
+
+    int subWinH = static_cast<int>(winH / numPlots);
+    int plotHeight = subWinH - 5;
     int plotWidth = winMainW -5;
     const int maxBufferSize = 500;
 
     sf::Vector2i screenDimensions(winMainW, winH);
 
-	renderWindow.create(sf::VideoMode(winMainW, winH), "wavy Classification", sf::Style::Default);
-	renderWindow.setFramerateLimit(60);
+    sf::RenderWindow renderWindow(sf::VideoMode(sf::Vector2u(winMainW, winH)), "wavy Classification", sf::Style::Default);
+    renderWindow.setFramerateLimit(60);
 
-	guiControl guiC(screenDimensions);
+    guiControl guiC(screenDimensions);
 
-    vis::Plot plot(sf::Vector2f(0,0), sf::Vector2i(plotWidth, plotHeight), 2, "index", "input/prediction", maxBufferSize);
-	vis::Plot plotClass(sf::Vector2f(0,subWinH), sf::Vector2i(plotWidth, plotHeight), 2, "index", "pred/GT Class", maxBufferSize);
+    vis::Plot plot(sf::Vector2f(0,0), sf::Vector2u(plotWidth, plotHeight), 2, "index", "input/prediction", maxBufferSize);
+    vis::Plot plotClass(sf::Vector2f(0,subWinH), sf::Vector2u(plotWidth, plotHeight), 2, "index", "pred/GT Class", maxBufferSize);
 
     int cRadius  = 30;
     int cRadius2 = cRadius / 2;
@@ -225,11 +224,9 @@ int main(int argc, char *argv[])
     float minY = -3.0f;
     float maxY = +3.0f;
 
-    sf::Texture lineGradient;
-    lineGradient.loadFromFile("resources/lineGradient.png");
+    sf::Texture lineGradient("resources/lineGradient.png");
 
-    sf::Font tickFont;
-    tickFont.loadFromFile("resources/Hack-Regular.ttf");
+    sf::Font tickFont("resources/Hack-Regular.ttf");
 
     //for (float x = 0.1f; x <= 10.0f; x += 0.1f)
     //    std::cout << std::log2(x) << std::endl;
@@ -261,8 +258,7 @@ int main(int argc, char *argv[])
 
     // generate RNG image
     {
-        sf::Image img;
-        img.create(512, 512);
+        sf::Image img(sf::Vector2u(512, 512));
 
         for (int x = 0; x < img.getSize().x; x++)
             for (int y = 0; y < img.getSize().y; y++) {
@@ -270,16 +266,16 @@ int main(int argc, char *argv[])
                 unsigned char g = aon::rand() % 256;
                 unsigned char b = aon::rand() % 256;
 
-                img.setPixel(x, y, sf::Color(r, g, b));
+                img.setPixel(sf::Vector2u(x, y), sf::Color(r, g, b));
             }
 
-        img.saveToFile("rng_test.png");
+        auto res = img.saveToFile("rng_test.png");
     }
 
     // --------------------------- Create the Hierarchy ---------------------------
 
     const int inputColumnSize = 32;
-//#define USE_SENSOR_DATA
+    //#define USE_SENSOR_DATA
 
 #define SINGLE_COLUMN_ENCODER
 #ifdef SINGLE_COLUMN_ENCODER
@@ -307,7 +303,7 @@ int main(int argc, char *argv[])
     }
 
     // here we use the measuring data in 1st input     --> InputType = prediction
-	//             the labels data in 2nd input        --> InputType = prediction
+    //             the labels data in 2nd input        --> InputType = prediction
     Array<Hierarchy::IO_Desc> ioDescs(2);
 
     //ioDescs[0] = Hierarchy::IODesc(Int3(1, numInputColumns, inputColumnSize), IOType::prediction, 4, 2, 2, 32);
@@ -321,26 +317,26 @@ int main(int argc, char *argv[])
     const int numLabels    = 5;
 #endif    
     const int label_num_cells_per_column = numLabels;   // same as number of classes
-    //ioDescs[1] = Hierarchy::IODesc(Int3(label_width, label_height, label_num_cells_per_column), IOType::prediction, 2, 2, 2, 32);
+                                                        //ioDescs[1] = Hierarchy::IODesc(Int3(label_width, label_height, label_num_cells_per_column), IOType::prediction, 2, 2, 2, 32);
     ioDescs[1] = Hierarchy::IO_Desc(Int3(label_width, label_height, label_num_cells_per_column), IO_Type::prediction);
 
     Hierarchy h;
     bool learnFlag = true;
 
     if (loadHierarchy)
-	{
+    {
         std::cout << "load hierarchy..";
-		CustomStreamReader reader;
-		reader.ins.open(hFileName.c_str(), std::ios::binary);
-		h.read(reader);
+        CustomStreamReader reader;
+        reader.ins.open(hFileName.c_str(), std::ios::binary);
+        h.read(reader);
         std::cout << "... finished" << std::endl;
         learnFlag = false;
-	}
-	else
-	{
-		h.init_random(ioDescs, lds);
+    }
+    else
+    {
+        h.init_random(ioDescs, lds);
         h.params.ios[1].importance = 0.1f;
-	}
+    }
 
     int hStateSize = h.state_size();
 
@@ -354,7 +350,7 @@ int main(int argc, char *argv[])
         std::cerr << "Could not open " << fname << "!" << std::endl;
         return 1;
     }
- 
+
     std::vector<float> sensorData;
     std::vector<int> labels, timeStamp;
     std::string tab = std::string("") + '\t';
@@ -365,7 +361,7 @@ int main(int argc, char *argv[])
         // get data
         std::vector<std::string> v;
         splitString(str, tab, v);
-	    timeStamp.push_back(std::stoi(v[0]));
+        timeStamp.push_back(std::stoi(v[0]));
         sensorData.push_back(std::stof(v[1]));
         labels.push_back(std::stoi(v[2]));
     }
@@ -384,32 +380,32 @@ int main(int argc, char *argv[])
     do {
         guiC.eventHandling(renderWindow, quit);
 
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape))
             quit = true;
 
-        bool spacePressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Space);
+        bool spacePressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space);
 
         if (spacePressed && !spacePressedPrev)
             autoplay = !autoplay;
 
         spacePressedPrev = spacePressed;
 
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::L)) learnFlag = 1;
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::P)) learnFlag = 0;
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::L)) learnFlag = 1;
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::P)) learnFlag = 0;
 
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num0)) sequenceID = 0;
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num1)) sequenceID = 1;
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num2)) sequenceID = 2;
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num3)) sequenceID = 3;
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num4)) sequenceID = 4;
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Num0)) sequenceID = 0;
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Num1)) sequenceID = 1;
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Num2)) sequenceID = 2;
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Num3)) sequenceID = 3;
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Num4)) sequenceID = 4;
 
-        if (autoplay || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
+        if (autoplay || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) {
             index++;
 
             if (index % 1000 == 0)
                 std::cout << "Step: " << index << std::endl;
 
-            float value;
+            float value = 0.0f;
 #ifdef USE_SENSOR_DATA
             value = sensorData[index];
             sequenceID = labels[index];
@@ -420,40 +416,40 @@ int main(int argc, char *argv[])
 
             switch (sequenceID)
             {
-            case 0:
-                value = in0;
-                break;
-            case 1:
-                value = in1;
-                break;
-            case 2:
-                value = in2;
-                break;
-            case 3:
-                value = in0 + in1;
-                break;
-            case 4:
-                value = in0 + in1 + in2;
-                break;
+                case 0:
+                    value = in0;
+                    break;
+                case 1:
+                    value = in1;
+                    break;
+                case 2:
+                    value = in2;
+                    break;
+                case 3:
+                    value = in0 + in1;
+                    break;
+                case 4:
+                    value = in0 + in1 + in2;
+                    break;
             }
 #endif
 
-            Array<Int_Buffer_View> inputCIs(ioDescs.size());
+            Array<S32_Array_View> inputCIs(ioDescs.size());
 
 #ifdef SINGLE_COLUMN_ENCODER
             int encodedIn = static_cast<int>((value - minY) / (maxY - minY) * (inputColumnSize - 1) + 0.5f);
-            Int_Buffer input = Int_Buffer(1, encodedIn);
+            S32_Array input(1, encodedIn);
 #else
             std::vector<int> encIn = Unorm8ToCSDR((value - minY) / (maxY - minY));
-            IntBuffer input = IntBuffer(numInputColumns, 0);
+            S32_Array input(numInputColumns, 0);
             for (auto i = 0; i < numInputColumns; ++i) input[i] = encIn[i];
 #endif
             inputCIs[0] = input;
 
-            Int_Buffer labelCI(1, sequenceID);
+            S32_Array labelCI(1, sequenceID);
             inputCIs[1] = labelCI;
-            
-            if (!learnFlag || sf::Keyboard::isKeyPressed(sf::Keyboard::P))
+
+            if (!learnFlag || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::P))
             {
                 // Prediction mode
                 std::cout << "Prediction mode" << std::endl;
@@ -469,7 +465,7 @@ int main(int argc, char *argv[])
             for (int i = 0; i < h.get_encoder(0).get_hidden_cis().size(); i++)
                 std::cout << h.get_encoder(0).get_hidden_cis()[i] << " ";
             std::cout << std::endl;
-            
+
             if (numAdditionalStepsAhead)
             {
                 inputCIs[0] = h.get_prediction_cis(0);
@@ -484,7 +480,7 @@ int main(int argc, char *argv[])
                 reader.buffer = &writer.buffer;
                 h.read_state(reader);
             }
-            
+
             // Un-bin
 #ifdef SINGLE_COLUMN_ENCODER            
             predIndex = h.get_prediction_cis(0)[0];
@@ -498,31 +494,31 @@ int main(int argc, char *argv[])
             renderWindow.clear();
 
             // plot target data
-			vis::Point p;
+            vis::Point p;
             p._position.x = index;
-			p._position.y = value;
-			p._color = sf::Color::Red;
-			plot.updateBuffer(0, p);
+            p._position.y = value;
+            p._color = sf::Color::Red;
+            plot.updateBuffer(0, p);
 
-			// plot predicted data
-			vis::Point p1;
-			p1._position.y = predValue;
-			p1._color = sf::Color::Blue;
-			plot.updateBuffer(1, p1);
-			plot.draw(renderWindow, sf::Vector2f(1.5*minY, 1.5*maxY), 5);
+            // plot predicted data
+            vis::Point p1;
+            p1._position.y = predValue;
+            p1._color = sf::Color::Blue;
+            plot.updateBuffer(1, p1);
+            plot.draw(renderWindow, sf::Vector2f(1.5*minY, 1.5*maxY), 5);
 
             vis::Point pC;
             pC._position.x = index;
-			pC._position.y = sequenceID;
-			pC._color = sf::Color::Red;
-			plotClass.updateBuffer(0, pC);
+            pC._position.y = sequenceID;
+            pC._color = sf::Color::Red;
+            plotClass.updateBuffer(0, pC);
 
-			// plot predicted data
-			vis::Point pC1;
-			pC1._position.y = pred_label;
-			pC1._color = sf::Color::Blue;
-			plotClass.updateBuffer(1, pC1);
-			plotClass.draw(renderWindow, sf::Vector2f(0, 5), 5);
+            // plot predicted data
+            vis::Point pC1;
+            pC1._position.y = pred_label;
+            pC1._color = sf::Color::Blue;
+            plotClass.updateBuffer(1, pC1);
+            plotClass.draw(renderWindow, sf::Vector2f(0, 5), 5);
 
             // display learn state + framerate
             if (learnFlag)

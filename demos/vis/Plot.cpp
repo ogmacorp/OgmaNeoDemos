@@ -167,7 +167,7 @@ void Plot::draw(sf::RenderTarget &target, const sf::Texture &lineGradientTexture
 
 				for (int v = 0; v < shadowArray.getVertexCount(); v++) {
 					shadowArray[v].position += curves[c].shadowOffset;
-					shadowArray[v].color = sf::Color(0, 0, 0, static_cast<sf::Uint8>(curves[c].shadow * 255.0f));
+					shadowArray[v].color = sf::Color(0, 0, 0, static_cast<std::uint8_t>(curves[c].shadow * 255.0f));
 				}
 
 				target.draw(shadowArray, &lineGradientTexture);
@@ -229,12 +229,10 @@ void Plot::draw(sf::RenderTarget &target, const sf::Texture &lineGradientTexture
 			os.str("");
 			os << value;
 
-			sf::Text xTickText;
-			xTickText.setString(os.str());
-			xTickText.setFont(tickFont);
+			sf::Text xTickText(tickFont, os.str());
 			xTickText.setPosition(sf::Vector2f(xTick.getPosition().x, xTick.getPosition().y + tickLength + textTickOffset));
-			xTickText.setRotation(45.0f);
-			xTickText.setColor(axesColor);
+			xTickText.setRotation(sf::degrees(45.0f));
+			xTickText.setFillColor(axesColor);
 			xTickText.setScale(sf::Vector2f(tickTextScale, tickTextScale));
 
 			target.draw(xTickText);
@@ -278,13 +276,11 @@ void Plot::draw(sf::RenderTarget &target, const sf::Texture &lineGradientTexture
 			os.str("");
 			os << value;
 
-			sf::Text yTickText;
-			yTickText.setString(os.str());
-			yTickText.setFont(tickFont);
+			sf::Text yTickText(tickFont, os.str());
 			sf::FloatRect bounds = yTickText.getLocalBounds();
-			yTickText.setPosition(sf::Vector2f(yTick.getPosition().x - bounds.width * 0.5f - tickLength * 0.5f - textTickOffset, yTick.getPosition().y - bounds.height * 0.5f));
-			yTickText.setRotation(0.0f);
-			yTickText.setColor(axesColor);
+			yTickText.setPosition(sf::Vector2f(yTick.getPosition().x - bounds.size.x * 0.5f - tickLength * 0.5f - textTickOffset, yTick.getPosition().y - bounds.size.y * 0.5f));
+			yTickText.setRotation(sf::radians(0.0f));
+			yTickText.setFillColor(axesColor);
 			yTickText.setScale(sf::Vector2f(tickTextScale, tickTextScale));
 
 			target.draw(yTickText);

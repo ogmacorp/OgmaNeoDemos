@@ -57,7 +57,7 @@ int main() {
     Array<Hierarchy::Layer_Desc> lds(1);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hidden_size = Int3(5, 5, 32);
+        lds[i].hidden_size = Int3(5, 5, 64);
     }
 
     int sensorRes = 16;
@@ -77,6 +77,15 @@ int main() {
     //h.read(reader);
 
     // -------------------------- Game Resources --------------------------
+
+    sf::VertexArray arrow(sf::PrimitiveType::Lines, 6);
+
+    arrow[0].position = sf::Vector2f(0.0f, 0.0f);
+    arrow[1].position = sf::Vector2f(1.0f, 0.0f);
+    arrow[2].position = sf::Vector2f(1.0f, 0.0f);
+    arrow[3].position = sf::Vector2f(0.8f, -0.2f);
+    arrow[4].position = sf::Vector2f(1.0f, 0.0f);
+    arrow[5].position = sf::Vector2f(0.8f, 0.2f);
 
     // ---------------------------- Game Loop -----------------------------
 
@@ -100,6 +109,15 @@ int main() {
     window.setView(view);
 
     sf::Texture whitenedTex;
+
+    int vwidth = 64;
+    int vheight = 64;
+    float vrate = 0.1f;
+
+    std::vector<sf::Vector2f> vecs(vwidth * vheight, { 0.0f, 0.0f });
+
+    for (int i = 0; i < vecs.size(); i++)
+        vecs[i] = sf::Vector2f(dist01(rng) * 2.0f - 1.0f, dist01(rng) * 2.0f - 1.0f) * 0.001f;
 
     // Used for speed mode to render slower
     int renderCounter = 0;
@@ -210,6 +228,27 @@ int main() {
         else if (pusherPos.y < -1.0f)
             pusherPos.y = -1.0f;
 
+        sf::Vector2f pusherPosVec((pusherPos.x * 0.5f + 0.5f) * 0.9999f * vwidth, (pusherPos.y * 0.5f + 0.5f) * 0.9999f * vheight);
+
+        int px = static_cast<int>(pusherPosVec.x);
+        int py = static_cast<int>(pusherPosVec.y);
+        int npx = std::ceil(pusherPosVec.x);
+        int npy = std::ceil(pusherPosVec.y);
+
+        float lx = pusherPosVec.x - px;
+        float ly = pusherPosVec.y - py;
+
+        vecs[py + vheight * px] += vrate * (1.0f - ly) * (1.0f - lx) * (delta - vecs[py + vheight * px]);
+
+        if (npx < vwidth)
+            vecs[py + vheight * npx] += vrate * (1.0f - ly) * lx * (delta - vecs[py + vheight * npx]);
+
+        if (npy < vheight)
+            vecs[npy + vheight * px] += vrate * ly * (1.0f - lx) * (delta - vecs[npy + vheight * px]);
+
+        if (npx < vwidth && npy < vheight)
+            vecs[npy + vheight * npx] += vrate * ly * lx * (delta - vecs[npy + vheight * npx]);
+
         float distToCenter = std::sqrt(objectPos.x * objectPos.x + objectPos.y * objectPos.y);
 
         sf::Vector2f objectDelta = objectPos - pusherPos;
@@ -261,7 +300,7 @@ int main() {
         inputCIs[0] = sensorCIs;
         inputCIs[1] = actionCIs;
 
-        h.step(inputCIs, true, reward * 10.0f);
+        h.step(inputCIs, true, reward * 1.0f);
 
         average_reward += 0.0001f * (reward - average_reward);
 
@@ -269,6 +308,28 @@ int main() {
             window.clear();
 
             renderCounter = 0;
+
+
+            sf::RenderStates rs;
+            rs.coordinateType = sf::CoordinateType::Normalized;
+            rs.transform = sf::Transform::Identity;
+
+            // draw vectors
+            for (int x = 0; x < vwidth; x++)
+                for (int y = 0; y < vheight; y++) {
+                    rs.transform = sf::Transform::Identity;
+                    rs.transform.translate(sf::Vector2f((x + 0.5f) / vwidth * 2.0f - 1.0f, (y + 0.5f) / vheight * 2.0f - 1.0f));
+
+                    sf::Vector2f v = vecs[y + x * vwidth];
+
+                    float angle = std::atan2(v.y, v.x);
+                    float mag = v.length();
+
+                    rs.transform.rotate(sf::radians(angle));
+                    rs.transform.scale(sf::Vector2f(mag, mag) * 0.9f);
+
+                    window.draw(arrow, rs);
+                }
             
             sf::CircleShape cs;
 
