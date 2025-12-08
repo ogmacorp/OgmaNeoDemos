@@ -24,11 +24,9 @@ int main() {
     std::mt19937 rng(time(nullptr));
 
     // Create window
-    sf::RenderWindow window;
-
     sf::ContextSettings glContextSettings;
 
-    sf::RenderWindow window(sf::VideoMode(800, 600), "Runner Demo", sf::Style::Default, glContextSettings);
+    sf::RenderWindow window(sf::VideoMode(sf::Vector2u(800, 600)), "Runner Demo", sf::Style::Default, sf::State::Windowed, glContextSettings);
 
     window.setFramerateLimit(60);
     window.setVerticalSyncEnabled(true);

@@ -11,7 +11,7 @@
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 
-#include <Box2D/Box2D.h>
+#include <box2d/box2d.h>
 
 #include <memory>
 #include <cmath>
@@ -44,9 +44,9 @@ public:
     };
 
     struct LimbSegment {
-        b2PolygonShape bodyShape;
-        b2Body* body;
-        b2RevoluteJoint* joint;
+        b2ShapeId bodyShape;
+        b2BodyId body;
+        b2JointId joint;
 
         float maxSpeed;
         float minAngle;
@@ -56,11 +56,12 @@ public:
     struct Limb {
         std::vector<LimbSegment> segments;
 
-        void create(b2World* world, const std::vector<LimbSegmentDesc> &descs, b2Body* attachBody, const b2Vec2 &localAttachPoint, uint16 categoryBits, uint16 maskBits);
-        void remove(b2World* world);
+        void create(b2WorldId world, const std::vector<LimbSegmentDesc> &descs, b2BodyId attachBody, const b2Vec2 &localAttachPoint, std::uint16_t categoryBits, std::uint16_t maskBits);
+        void remove(b2WorldId world);
     };
 private:
-    b2World* world;
+    bool initialized;
+    b2WorldId world;
     std::vector<float> whiskerResults;
     b2Vec2 lVelPrev;
     float rVelPrev;
@@ -78,8 +79,8 @@ public:
             c1.b * c2.b * byteInv);
     }
 
-    b2PolygonShape bodyShape;
-    b2Body* body;
+    b2ShapeId bodyShape;
+    b2BodyId body;
 
     Limb leftBackLimb;
     Limb leftFrontLimb;
@@ -87,10 +88,10 @@ public:
     Limb rightFrontLimb;
 
     Runner()
-    : world(nullptr)
+        : initialized(false)
     {}
 
-    void createDefault(b2World* world, const b2Vec2 &position, float angle, int layer);
+    void createDefault(b2WorldId world, const b2Vec2 &position, float angle, int layer);
     void destroy();
 
     ~Runner();

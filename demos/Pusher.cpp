@@ -57,15 +57,15 @@ int main() {
     Array<Hierarchy::Layer_Desc> lds(1);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hidden_size = Int3(5, 5, 64);
+        lds[i].hidden_size = Int3(7, 7, 64);
     }
 
     int sensorRes = 16;
     int actionRes = 5;
 
     Array<Hierarchy::IO_Desc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IO_Desc(Int3(2, 2, sensorRes), IO_Type::prediction);
-    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 2, actionRes), IO_Type::action);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(2, 2, sensorRes), IO_Type::prediction, 2, 3);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 2, actionRes), IO_Type::action, 0, 3);
 
     Hierarchy h;
     h.init_random(ioDescs, lds);

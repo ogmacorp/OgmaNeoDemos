@@ -74,29 +74,12 @@ FetchContent_MakeAvailable(SFML)
 ############################################################################
 # Find Box2D include and libs
 
-#find_package(BOX2D)
-#
-#if(BOX2D_FOUND)
-#    include_directories(${BOX2D_INCLUDE_DIRS})
-#    message(STATUS "Found existing Box2D in ${BOX2D_INCLUDE_DIRS}")
-#else()
-#    message(STATUS "-- Box2D will be downloaded and built from source")
-#    ExternalProject_Add(
-#        Box2D
-#        PREFIX Box2D
-#        URL "https://github.com/erincatto/Box2D/archive/v2.3.0.zip"
-#
-#        # Box2D's source isn't in the top level directory so add a dummy file to set cmake right
-#        PATCH_COMMAND ${CMAKE_COMMAND} -E echo ADD_SUBDIRECTORY(Box2D) > <SOURCE_DIR>/CMakeLists.txt
-#
-#        CMAKE_ARGS
-#            "-DCMAKE_INSTALL_PREFIX=${3RDPARTY_PATH}"
-#            "-DBOX2D_INSTALL=ON"
-#            "-DBOX2D_BUILD_EXAMPLES=OFF"
-#    )
-#    set(BOX2D_INCLUDE_DIRS "${3RDPARTY_PATH}/include")
-#    set(BOX2D_LIBRARIES "Box2D${CMAKE_STATIC_LIBRARY_SUFFIX}")
-#endif()
+find_package(box2d)
+
+if(box2d_FOUND)
+    include_directories(${box2d_INCLUDE_DIRS})
+    message(STATUS "Found existing box2d in ${box2d_INCLUDE_DIRS}")
+endif()
 
 
 ############################################################################
@@ -346,13 +329,13 @@ list(APPEND DEMO_DEPENDS_LIST CAT_MOUSE_DEPS)
 #list(APPEND DEMO_SOURCES_LIST EVO_SRCS)
 #list(APPEND DEMO_DEPENDS_LIST EVO_DEPS)
 
-#list(APPEND RUNNER_RUN_SRCS "demos/Runner_Run.cpp")
-#list(APPEND RUNNER_RUN_SRCS "demos/runner/Runner.cpp")
-#list(APPEND RUNNER_RUN_DEPS "SFML")
-#list(APPEND RUNNER_RUN_DEPS "BOX2D")
-#list(APPEND DEMO_PROJECTS_LIST "Runner_Run")
-#list(APPEND DEMO_SOURCES_LIST RUNNER_RUN_SRCS)
-#list(APPEND DEMO_DEPENDS_LIST RUNNER_RUN_DEPS)
+list(APPEND RUNNER_RUN_SRCS "demos/Runner_Run.cpp")
+list(APPEND RUNNER_RUN_SRCS "demos/runner/Runner.cpp")
+list(APPEND RUNNER_RUN_DEPS "SFML")
+list(APPEND RUNNER_RUN_DEPS "BOX2D")
+list(APPEND DEMO_PROJECTS_LIST "Runner_Run")
+list(APPEND DEMO_SOURCES_LIST RUNNER_RUN_SRCS)
+list(APPEND DEMO_DEPENDS_LIST RUNNER_RUN_DEPS)
 
 #list(APPEND REACHER_RUN_SRCS "demos/Reacher.cpp")
 #list(APPEND REACHER_RUN_DEPS "SFML")
@@ -509,13 +492,10 @@ foreach(i RANGE ${num_demos})
     endif()
 
     # Does this demo require Box2D?
-    #list(FIND ${DEMO_DEPENDS} "BOX2D" _box2d_depends_index)
-    #if (${_box2d_depends_index} GREATER -1)
-    #    if(NOT BOX2D_FOUND)
-    #        add_dependencies(${DEMO_PROJECT} Box2D)
-    #    endif()
-    #    target_link_libraries(${DEMO_PROJECT} ${BOX2D_LIBRARIES})
-    #endif()
+    list(FIND ${DEMO_DEPENDS} "BOX2D" _box2d_depends_index)
+    if (${_box2d_depends_index} GREATER -1)
+        target_link_libraries(${DEMO_PROJECT} ${box2d_LIBRARIES})
+    endif()
 
     # Does this demo require OpenCV?
     list(FIND ${DEMO_DEPENDS} "OPENCV" _opencv_depends_index)

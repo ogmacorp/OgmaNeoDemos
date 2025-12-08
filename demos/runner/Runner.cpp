@@ -8,8 +8,6 @@
 
 #include "Runner.h"
 
-#include <unordered_set>
-#include <cmath>
 #include <iostream>
 
 const float bodyWidth = 0.45f;
@@ -22,74 +20,48 @@ const int numWhiskers = 6;
 const float whiskerLen = 1.5f;
 const float whiskerSpread = 0.25f;
 
-class RunnerRayCastCallback : public b2RayCastCallback {
-public:
-    std::unordered_set<b2Body*> ignore;
-    float result;
-
-    RunnerRayCastCallback()
-    : result(1.0f)
-    {}
-
-    float ReportFixture(b2Fixture* fixture, const b2Vec2 &point, const b2Vec2 &normal, float fraction) {
-        if (ignore.find(fixture->GetBody()) != ignore.end()) {
-            return 1.0f;
-        }
-
-        result = fraction;
-
-        return fraction;
-    }
-};
-
-void Runner::Limb::create(b2World* world, const std::vector<LimbSegmentDesc> &descs, b2Body* attachBody, const b2Vec2 &localAttachPoint, uint16 categoryBits, uint16 maskBits) {
+void Runner::Limb::create(b2WorldId world, const std::vector<LimbSegmentDesc> &descs, b2BodyId attachBody, const b2Vec2 &localAttachPoint, std::uint16_t categoryBits, std::uint16_t maskBits) {
     segments.resize(descs.size());
 
-    b2Body* prevBody = attachBody;
+    b2BodyId prevBody = attachBody;
     b2Vec2 prevAttachPoint = localAttachPoint;
 
     for (int si = 0; si < segments.size(); si++) {
-        b2BodyDef bodyDef;
+        b2BodyDef bodyDef = b2DefaultBodyDef();
 
         bodyDef.type = b2_dynamicBody;
 
         float offset = descs[si].length * 0.5f - descs[si].thickness * 0.5f;
 
-        float angle = prevBody->GetAngle() + descs[si].relativeAngle;
+        float angle = b2Rot_GetAngle(b2Body_GetRotation(prevBody)) + descs[si].relativeAngle;
 
-        bodyDef.position = prevBody->GetWorldPoint(prevAttachPoint) + b2Vec2(std::cos(angle) * offset, std::sin(angle) * offset);
-        bodyDef.angle = angle;
-        bodyDef.allowSleep = false;
+        b2Vec2 p = b2Body_GetWorldPoint(prevBody, prevAttachPoint);
 
-        segments[si].body = world->CreateBody(&bodyDef);
+        bodyDef.position = (b2Vec2){p.x + std::cos(angle) * offset, p.y + std::sin(angle) * offset};
+        bodyDef.rotation = b2MakeRot(angle);
+        bodyDef.enableSleep = false;
 
-        segments[si].bodyShape = b2PolygonShape();
-        segments[si].bodyShape.SetAsBox(descs[si].length * 0.5f, descs[si].thickness * 0.5f);
+        segments[si].body = b2CreateBody(world, &bodyDef);
 
-        b2FixtureDef fixtureDef;
+        b2Polygon box = b2MakeBox(descs[si].length * 0.5f, descs[si].thickness * 0.5f);
+        b2ShapeDef shape = b2DefaultShapeDef();
+        shape.density = descs[si].density;
+        shape.material.friction = descs[si].friction;
+        shape.material.restitution = descs[si].restitution;
+        shape.filter.categoryBits = categoryBits;
+        shape.filter.maskBits = maskBits;
 
-        fixtureDef.shape = &segments[si].bodyShape;
+        segments[si].bodyShape = b2CreatePolygonShape(segments[si].body, &shape, &box);
 
-        fixtureDef.density = descs[si].density;
+        b2RevoluteJointDef jointDef = b2RevoluteJointDef();
 
-        fixtureDef.friction = descs[si].friction;
+        jointDef.bodyIdA = prevBody;
 
-        fixtureDef.restitution = descs[si].restitution;
-
-        fixtureDef.filter.categoryBits = categoryBits;
-        fixtureDef.filter.maskBits = maskBits;
-
-        segments[si].body->CreateFixture(&fixtureDef);
-
-        b2RevoluteJointDef jointDef;
-
-        jointDef.bodyA = prevBody;
-
-        jointDef.bodyB = segments[si].body;
+        jointDef.bodyIdB = segments[si].body;
 
         jointDef.referenceAngle = descs[si].relativeAngle;
         jointDef.localAnchorA = prevAttachPoint;
-        jointDef.localAnchorB = b2Vec2(-offset, 0.0f);
+        jointDef.localAnchorB = (b2Vec2){-offset, 0.0f};
         jointDef.collideConnected = false;
         jointDef.lowerAngle = descs[si].minAngle;
         jointDef.upperAngle = descs[si].maxAngle;
@@ -102,17 +74,17 @@ void Runner::Limb::create(b2World* world, const std::vector<LimbSegmentDesc> &de
         segments[si].minAngle = descs[si].minAngle;
         segments[si].maxAngle = descs[si].maxAngle;
 
-        segments[si].joint = static_cast<b2RevoluteJoint*>(world->CreateJoint(&jointDef));
+        segments[si].joint = b2CreateRevoluteJoint(world, &jointDef);
 
         prevBody = segments[si].body;
-        prevAttachPoint = b2Vec2(offset, 0.0f);
+        prevAttachPoint = (b2Vec2){offset, 0.0f};
     }
 }
 
-void Runner::Limb::remove(b2World* world) {
+void Runner::Limb::remove(b2WorldId world) {
     for (int si = segments.size() - 1; si >= 0; si--) {
-        world->DestroyJoint(segments[si].joint);
-        world->DestroyBody(segments[si].body);
+        b2DestroyJoint(segments[si].joint);
+        b2DestroyBody(segments[si].body);
     }
 }
 
@@ -121,20 +93,18 @@ Runner::~Runner() {
 }
 
 void Runner::destroy() {
-    if (world != nullptr) {
+    if (initialized) {
         leftBackLimb.remove(world);
         leftFrontLimb.remove(world);
 
         rightBackLimb.remove(world);
         rightFrontLimb.remove(world);
 
-        world->DestroyBody(body);
-
-        world = nullptr;
+        b2DestroyBody(body);
     }
 }
 
-void Runner::createDefault(b2World* world, const b2Vec2 &position, float angle, int layer) {
+void Runner::createDefault(b2WorldId world, const b2Vec2 &position, float angle, int layer) {
     destroy();
 
     this->world = world;
@@ -155,68 +125,63 @@ void Runner::createDefault(b2World* world, const b2Vec2 &position, float angle, 
     rightSegments[0].length = 0.15f;
     rightSegments[1].length = 0.15f;
 
-    b2BodyDef bodyDef;
+    b2BodyDef bodyDef = b2DefaultBodyDef();
 
     bodyDef.type = b2_dynamicBody;
 
     bodyDef.position = position;
-    bodyDef.angle = angle;
-    bodyDef.allowSleep = false;
+    bodyDef.rotation = b2MakeRot(angle);
+    bodyDef.enableSleep = false;
 
-    body = world->CreateBody(&bodyDef);
+    body = b2CreateBody(world, &bodyDef);
 
-    bodyShape = b2PolygonShape();
-    bodyShape.SetAsBox(bodyWidth * 0.5f, bodyHeight * 0.5f);
+    b2Polygon box = b2MakeBox(bodyWidth * 0.5f, bodyHeight * 0.5f);
+    b2ShapeDef shape = b2DefaultShapeDef();
+    shape.density = bodyDensity;
+    shape.material.friction = bodyFriction;
+    shape.material.restitution = bodyRestitution;
+    shape.filter.categoryBits = 1 << layer;
+    shape.filter.maskBits = 1;
 
-    b2FixtureDef fixtureDef;
+    bodyShape = b2CreatePolygonShape(body, &shape, &box);
 
-    fixtureDef.shape = &bodyShape;
+    leftBackLimb.create(world, leftSegments, body, (b2Vec2){-bodyWidth * 0.5f + legInset, -bodyHeight * 0.5f}, 1 << layer, 1);
+    leftFrontLimb.create(world, leftSegments, body, (b2Vec2){-bodyWidth * 0.5f + legInset, -bodyHeight * 0.5f}, 1 << layer, 1);
 
-    fixtureDef.density = bodyDensity;
-
-    fixtureDef.friction = bodyFriction;
-
-    fixtureDef.restitution = bodyRestitution;
-
-    fixtureDef.filter.categoryBits = 1 << layer;
-    fixtureDef.filter.maskBits = 1;
-
-    body->CreateFixture(&fixtureDef);
-
-    leftBackLimb.create(world, leftSegments, body, b2Vec2(-bodyWidth * 0.5f + legInset, -bodyHeight * 0.5f), 1 << layer, 1);
-    leftFrontLimb.create(world, leftSegments, body, b2Vec2(-bodyWidth * 0.5f + legInset, -bodyHeight * 0.5f), 1 << layer, 1);
-
-    rightBackLimb.create(world, rightSegments, body, b2Vec2(bodyWidth * 0.5f - legInset, -bodyHeight * 0.5f), 1 << (layer + 1), 1);
-    rightFrontLimb.create(world, rightSegments, body, b2Vec2(bodyWidth * 0.5f - legInset, -bodyHeight * 0.5f), 1 << (layer + 1), 1);
+    rightBackLimb.create(world, rightSegments, body, (b2Vec2){bodyWidth * 0.5f - legInset, -bodyHeight * 0.5f}, 1 << (layer + 1), 1);
+    rightFrontLimb.create(world, rightSegments, body, (b2Vec2){bodyWidth * 0.5f - legInset, -bodyHeight * 0.5f}, 1 << (layer + 1), 1);
 
     whiskerResults.resize(numWhiskers);
     std::fill(whiskerResults.begin(), whiskerResults.end(), 1.0f);
 
-    lVelPrev = b2Vec2(0.0f, 0.0f);
+    lVelPrev = (b2Vec2){0.0f, 0.0f};
     rVelPrev = 0.0f;
 
     positions = std::vector<float>(8, 0.0f);
     speeds = std::vector<float>(8, 0.0f);
+
+    initialized = true;
 }
 
 void Runner::renderDefault(sf::RenderTarget &rt, const sf::Color &color, float metersToPixels) {
-    assert(world != nullptr);
+    assert(initialized);
 
     // Render back legs
     for (int si = leftBackLimb.segments.size() - 1; si >= 0; si--) {
-        b2PolygonShape* bshape = static_cast<b2PolygonShape*>(leftBackLimb.segments[si].body->GetFixtureList()->GetShape());
-        int numVertices = bshape->GetVertexCount();
+        b2Polygon poly = b2Shape_GetPolygon(leftBackLimb.segments[si].bodyShape);
+        int numVertices = poly.count;
 
         sf::ConvexShape shape;
 
         shape.setPointCount(numVertices);
 
         for (int i = 0; i < numVertices; i++)
-            shape.setPoint(i, sf::Vector2f(bshape->GetVertex(i).x, bshape->GetVertex(i).y));
+            shape.setPoint(i, sf::Vector2f(poly.vertices[i].x, poly.vertices[i].y));
 
-        shape.setPosition(metersToPixels * sf::Vector2f(leftBackLimb.segments[si].body->GetPosition().x, -leftBackLimb.segments[si].body->GetPosition().y));
-        shape.setRotation(-leftBackLimb.segments[si].body->GetAngle() * 180.0f / 3.141592f);
-        shape.setScale(metersToPixels, -metersToPixels);
+        b2Vec2 p = b2Body_GetPosition(leftBackLimb.segments[si].body);
+        shape.setPosition(metersToPixels * sf::Vector2f(p.x, -p.y));
+        shape.setRotation(sf::radians(-b2Rot_GetAngle(b2Body_GetRotation(leftBackLimb.segments[si].body))));
+        shape.setScale(sf::Vector2f(metersToPixels, -metersToPixels));
 
         shape.setFillColor(mulColors(sf::Color(200, 200, 200), color));
         shape.setOutlineColor(sf::Color::Black);
@@ -226,19 +191,20 @@ void Runner::renderDefault(sf::RenderTarget &rt, const sf::Color &color, float m
     }
 
     for (int si = rightBackLimb.segments.size() - 1; si >= 0; si--) {
-        b2PolygonShape* bshape = static_cast<b2PolygonShape*>(rightBackLimb.segments[si].body->GetFixtureList()->GetShape());
-        int numVertices = bshape->GetVertexCount();
+        b2Polygon poly = b2Shape_GetPolygon(rightBackLimb.segments[si].bodyShape);
+        int numVertices = poly.count;
 
         sf::ConvexShape shape;
 
         shape.setPointCount(numVertices);
 
         for (int i = 0; i < numVertices; i++)
-            shape.setPoint(i, sf::Vector2f(bshape->GetVertex(i).x, bshape->GetVertex(i).y));
+            shape.setPoint(i, sf::Vector2f(poly.vertices[i].x, poly.vertices[i].y));
 
-        shape.setPosition(metersToPixels * sf::Vector2f(rightBackLimb.segments[si].body->GetPosition().x, -rightBackLimb.segments[si].body->GetPosition().y));
-        shape.setRotation(-rightBackLimb.segments[si].body->GetAngle() * 180.0f / 3.141592f);
-        shape.setScale(metersToPixels, -metersToPixels);
+        b2Vec2 p = b2Body_GetPosition(rightBackLimb.segments[si].body);
+        shape.setPosition(metersToPixels * sf::Vector2f(p.x, -p.y));
+        shape.setRotation(sf::radians(-b2Rot_GetAngle(b2Body_GetRotation(rightBackLimb.segments[si].body))));
+        shape.setScale(sf::Vector2f(metersToPixels, -metersToPixels));
 
         shape.setFillColor(mulColors(sf::Color(200, 200, 200), color));
         shape.setOutlineColor(sf::Color::Black);
@@ -249,19 +215,20 @@ void Runner::renderDefault(sf::RenderTarget &rt, const sf::Color &color, float m
 
     // Render body
     {
-        b2PolygonShape* bshape = static_cast<b2PolygonShape*>(body->GetFixtureList()->GetShape());
-        int numVertices = bshape->GetVertexCount();
+        b2Polygon poly = b2Shape_GetPolygon(bodyShape);
+        int numVertices = poly.count;
 
         sf::ConvexShape shape;
 
         shape.setPointCount(numVertices);
 
         for (int i = 0; i < numVertices; i++)
-            shape.setPoint(i, sf::Vector2f(bshape->GetVertex(i).x, bshape->GetVertex(i).y));
+            shape.setPoint(i, sf::Vector2f(poly.vertices[i].x, poly.vertices[i].y));
 
-        shape.setPosition(metersToPixels * sf::Vector2f(body->GetPosition().x, -body->GetPosition().y));
-        shape.setRotation(-body->GetAngle() * 180.0f / 3.141592f);
-        shape.setScale(metersToPixels, -metersToPixels);
+        b2Vec2 p = b2Body_GetPosition(body);
+        shape.setPosition(metersToPixels * sf::Vector2f(p.x, -p.y));
+        shape.setRotation(sf::radians(-b2Rot_GetAngle(b2Body_GetRotation(body))));
+        shape.setScale(sf::Vector2f(metersToPixels, -metersToPixels));
 
         shape.setFillColor(mulColors(sf::Color::White, color));
         shape.setOutlineColor(sf::Color::Black);
@@ -270,53 +237,54 @@ void Runner::renderDefault(sf::RenderTarget &rt, const sf::Color &color, float m
         rt.draw(shape);
     }
 
-    // Render front legs
-    for (int si = 0; si < leftFrontLimb.segments.size(); si++) {
-        b2PolygonShape* bshape = static_cast<b2PolygonShape*>(leftFrontLimb.segments[si].body->GetFixtureList()->GetShape());
-        int numVertices = bshape->GetVertexCount();
+    for (int si = leftFrontLimb.segments.size() - 1; si >= 0; si--) {
+        b2Polygon poly = b2Shape_GetPolygon(leftFrontLimb.segments[si].bodyShape);
+        int numVertices = poly.count;
 
         sf::ConvexShape shape;
 
         shape.setPointCount(numVertices);
 
         for (int i = 0; i < numVertices; i++)
-            shape.setPoint(i, sf::Vector2f(bshape->GetVertex(i).x, bshape->GetVertex(i).y));
+            shape.setPoint(i, sf::Vector2f(poly.vertices[i].x, poly.vertices[i].y));
 
-        shape.setPosition(metersToPixels * sf::Vector2f(leftFrontLimb.segments[si].body->GetPosition().x, -leftFrontLimb.segments[si].body->GetPosition().y));
-        shape.setRotation(-leftFrontLimb.segments[si].body->GetAngle() * 180.0f / 3.141592f);
-        shape.setScale(metersToPixels, -metersToPixels);
+        b2Vec2 p = b2Body_GetPosition(leftFrontLimb.segments[si].body);
+        shape.setPosition(metersToPixels * sf::Vector2f(p.x, -p.y));
+        shape.setRotation(sf::radians(-b2Rot_GetAngle(b2Body_GetRotation(leftFrontLimb.segments[si].body))));
+        shape.setScale(sf::Vector2f(metersToPixels, -metersToPixels));
 
-        shape.setFillColor(mulColors(sf::Color::White, color));
+        shape.setFillColor(color);
         shape.setOutlineColor(sf::Color::Black);
         shape.setOutlineThickness(0.01f);
 
         rt.draw(shape);
     }
 
-    for (int si = 0; si < rightFrontLimb.segments.size(); si++) {
-        b2PolygonShape* bshape = static_cast<b2PolygonShape*>(rightFrontLimb.segments[si].body->GetFixtureList()->GetShape());
-        int numVertices = bshape->GetVertexCount();
+    for (int si = rightFrontLimb.segments.size() - 1; si >= 0; si--) {
+        b2Polygon poly = b2Shape_GetPolygon(rightFrontLimb.segments[si].bodyShape);
+        int numVertices = poly.count;
 
         sf::ConvexShape shape;
 
         shape.setPointCount(numVertices);
 
         for (int i = 0; i < numVertices; i++)
-            shape.setPoint(i, sf::Vector2f(bshape->GetVertex(i).x, bshape->GetVertex(i).y));
+            shape.setPoint(i, sf::Vector2f(poly.vertices[i].x, poly.vertices[i].y));
 
-        shape.setPosition(metersToPixels * sf::Vector2f(rightFrontLimb.segments[si].body->GetPosition().x, -rightFrontLimb.segments[si].body->GetPosition().y));
-        shape.setRotation(-rightFrontLimb.segments[si].body->GetAngle() * 180.0f / 3.141592f);
-        shape.setScale(metersToPixels, -metersToPixels);
+        b2Vec2 p = b2Body_GetPosition(rightFrontLimb.segments[si].body);
+        shape.setPosition(metersToPixels * sf::Vector2f(p.x, -p.y));
+        shape.setRotation(sf::radians(-b2Rot_GetAngle(b2Body_GetRotation(rightFrontLimb.segments[si].body))));
+        shape.setScale(sf::Vector2f(metersToPixels, -metersToPixels));
 
-        shape.setFillColor(mulColors(sf::Color::White, color));
+        shape.setFillColor(color);
         shape.setOutlineColor(sf::Color::Black);
         shape.setOutlineThickness(0.01f);
 
         rt.draw(shape);
     }
 
-    b2Vec2 whiskersStart(body->GetWorldPoint(b2Vec2(bodyWidth * 0.5f, 0.0f)));
-    float whiskersBaseAngle = body->GetAngle();
+    b2Vec2 whiskersStart(b2Body_GetWorldPoint(body, (b2Vec2){bodyWidth * 0.5f, 0.0f}));
+    float whiskersBaseAngle = b2Rot_GetAngle(b2Body_GetRotation(body));
 
     for (int i = 0; i < numWhiskers; i++) {
         float angle = whiskersBaseAngle - whiskerSpread * i;
@@ -324,7 +292,7 @@ void Runner::renderDefault(sf::RenderTarget &rt, const sf::Color &color, float m
         sf::RectangleShape rs;
         rs.setSize(sf::Vector2f(whiskerLen * whiskerResults[i], 0.01f) * metersToPixels);
         rs.setPosition(sf::Vector2f(whiskersStart.x, -whiskersStart.y) * metersToPixels);
-        rs.setRotation(-angle * 180.0f / 3.131592f);
+        rs.setRotation(sf::radians(-angle));
         rs.setFillColor(sf::Color(0, 255, 0, 50));
 
         //float d = std::sqrt(std::pow(vertices[0].position.x - vertices[1].position.x, 2) + std::pow(vertices[0].position.y - vertices[1].position.y, 2));
@@ -334,7 +302,7 @@ void Runner::renderDefault(sf::RenderTarget &rt, const sf::Color &color, float m
 }
 
 void Runner::getStateVector(std::vector<float> &state) {
-    assert(world != nullptr);
+    assert(initialized);
 
     const int stateSize = 2 + 2 + 2 + 2 + 1 + 2 + 2 + numWhiskers + 3;
 
@@ -344,95 +312,117 @@ void Runner::getStateVector(std::vector<float> &state) {
     int si = 0;
 
     for (int i = 0; i < 2; i++)
-        state[si++] = leftBackLimb.segments[i].joint->GetJointAngle();
+        state[si++] = b2RevoluteJoint_GetAngle(leftBackLimb.segments[i].joint);
 
     for (int i = 0; i < 2; i++)
-        state[si++] = leftFrontLimb.segments[i].joint->GetJointAngle();
+        state[si++] = b2RevoluteJoint_GetAngle(leftFrontLimb.segments[i].joint);
 
     for (int i = 0; i < 2; i++)
-        state[si++] = rightBackLimb.segments[i].joint->GetJointAngle();
+        state[si++] = b2RevoluteJoint_GetAngle(rightBackLimb.segments[i].joint);
 
     for (int i = 0; i < 2; i++)
-        state[si++] = rightFrontLimb.segments[i].joint->GetJointAngle();
+        state[si++] = b2RevoluteJoint_GetAngle(rightFrontLimb.segments[i].joint);
 
-    state[si++] = body->GetAngle();
+    state[si++] = b2Rot_GetAngle(b2Body_GetRotation(body));
 
-    b2ContactEdge* edge;
+    {
+        state[si] = 0.0f;
 
-    state[si] = 0.0f;
-    
-    edge = leftBackLimb.segments.back().body->GetContactList();
+        std::vector<b2ContactData> cds(16);
+        std::vector<b2ShapeId> shapes(16);
+        
+        int c = b2Body_GetContactData(leftBackLimb.segments.back().body, cds.data(), cds.size());
 
-    while (edge != nullptr) {
-        if (edge->contact->IsTouching() && edge->contact->GetFixtureA()->GetFilterData().categoryBits != 0x0002 && edge->contact->GetFixtureA()->GetFilterData().categoryBits != 0x0004) {
-            state[si++] = 1.0f;
+        for (int i = 0; i < c; c++) {
+            b2Filter f = b2Shape_GetFilter(cds[i].shapeIdA);
 
-            break;
+            if (f.categoryBits != 0x0002 && f.categoryBits != 0x0004) {
+                state[si++] = 1.0f;
+
+                break;
+            }
         }
-
-        edge = edge->next;
     }
 
-    state[si] = 0.0f;
+    {
+        state[si] = 0.0f;
 
-    edge = leftFrontLimb.segments.back().body->GetContactList();
+        std::vector<b2ContactData> cds(16);
+        std::vector<b2ShapeId> shapes(16);
+        
+        int c = b2Body_GetContactData(leftFrontLimb.segments.back().body, cds.data(), cds.size());
 
-    while (edge != nullptr) {
-        if (edge->contact->IsTouching() && edge->contact->GetFixtureA()->GetFilterData().categoryBits != 0x0002 && edge->contact->GetFixtureA()->GetFilterData().categoryBits != 0x0004) {
-            state[si++] = 1.0f;
+        for (int i = 0; i < c; c++) {
+            b2Filter f = b2Shape_GetFilter(cds[i].shapeIdA);
 
-            break;
+            if (f.categoryBits != 0x0002 && f.categoryBits != 0x0004) {
+                state[si++] = 1.0f;
+
+                break;
+            }
         }
-
-        edge = edge->next;
     }
 
-    state[si] = 0.0f;
+    {
+        state[si] = 0.0f;
 
-    edge = rightBackLimb.segments.back().body->GetContactList();
+        std::vector<b2ContactData> cds(16);
+        std::vector<b2ShapeId> shapes(16);
+        
+        int c = b2Body_GetContactData(rightBackLimb.segments.back().body, cds.data(), cds.size());
 
-    while (edge != nullptr) {
-        if (edge->contact->IsTouching() && edge->contact->GetFixtureA()->GetFilterData().categoryBits != 0x0002 && edge->contact->GetFixtureA()->GetFilterData().categoryBits != 0x0004) {
-            state[si++] = 1.0f;
+        for (int i = 0; i < c; c++) {
+            b2Filter f = b2Shape_GetFilter(cds[i].shapeIdA);
 
-            break;
+            if (f.categoryBits != 0x0002 && f.categoryBits != 0x0004) {
+                state[si++] = 1.0f;
+
+                break;
+            }
         }
-
-        edge = edge->next;
     }
 
-    state[si] = 0.0f;
+    {
+        state[si] = 0.0f;
 
-    edge = rightFrontLimb.segments.back().body->GetContactList();
+        std::vector<b2ContactData> cds(16);
+        std::vector<b2ShapeId> shapes(16);
+        
+        int c = b2Body_GetContactData(rightFrontLimb.segments.back().body, cds.data(), cds.size());
 
-    while (edge != nullptr) {
-        if (edge->contact->IsTouching() && edge->contact->GetFixtureA()->GetFilterData().categoryBits != 0x0002 && edge->contact->GetFixtureA()->GetFilterData().categoryBits != 0x0004) {
-            state[si++] = 1.0f;
+        for (int i = 0; i < c; c++) {
+            b2Filter f = b2Shape_GetFilter(cds[i].shapeIdA);
 
-            break;
+            if (f.categoryBits != 0x0002 && f.categoryBits != 0x0004) {
+                state[si++] = 1.0f;
+
+                break;
+            }
         }
-
-        edge = edge->next;
     }
 
     // Whiskers
-    b2Vec2 whiskersStart(body->GetWorldPoint(b2Vec2(bodyWidth * 0.5f, 0.0f)));
-    float whiskersBaseAngle = body->GetAngle();
+    b2Vec2 whiskersStart(b2Body_GetWorldPoint(body, (b2Vec2){bodyWidth * 0.5f, 0.0f}));
+    float whiskersBaseAngle = b2Rot_GetAngle(b2Body_GetRotation(body));
 
     for (int i = 0; i < numWhiskers; i++) {
         float angle = whiskersBaseAngle - whiskerSpread * i;
-        RunnerRayCastCallback cb;
-        world->RayCast(&cb, whiskersStart, b2Vec2(whiskersStart.x + std::cos(angle) * whiskerLen, whiskersStart.y + std::sin(angle) * whiskerLen));
 
-        whiskerResults[i] = state[si++] = cb.result;
+        b2QueryFilter f = b2DefaultQueryFilter();
+
+        b2RayResult res = b2World_CastRayClosest(world, whiskersStart, (b2Vec2){std::cos(angle) * whiskerLen, whiskersStart.y + std::sin(angle) * whiskerLen}, f);
+
+        whiskerResults[i] = state[si++] = res.fraction;
     }
 
     // IMU
-    b2Vec2 lAccel = body->GetLinearVelocity() - lVelPrev;
-    lVelPrev = body->GetLinearVelocity();
+    b2Vec2 lVel = b2Body_GetLinearVelocity(body);
+    b2Vec2 lAccel = (b2Vec2){lVel.x - lVelPrev.x, lVel.y - lVelPrev.y};
+    lVelPrev = lVel;
 
-    float rAccel = body->GetAngularVelocity() - rVelPrev;
-    rVelPrev = body->GetAngularVelocity();
+    float rVel = b2Body_GetAngularVelocity(body);
+    float rAccel = rVel - rVelPrev;
+    rVelPrev = rVel;
 
     state[si++] = lAccel.x;
     state[si++] = lAccel.y;
@@ -440,7 +430,7 @@ void Runner::getStateVector(std::vector<float> &state) {
 }
 
 void Runner::motorUpdate(const std::vector<float> &actions, float propPos, float propSpeed) {
-    assert(world != nullptr);
+    assert(initialized);
 
     int ai = 0;
 
@@ -452,11 +442,11 @@ void Runner::motorUpdate(const std::vector<float> &actions, float propPos, float
 
         positions[ai] += propPos * (pos - positions[ai]);
         
-        float speed = positions[ai] - seg.joint->GetJointAngle();
+        float speed = positions[ai] - b2RevoluteJoint_GetAngle(seg.joint);
 
         speeds[ai] += propSpeed * (speed - speeds[ai]);
 
-        seg.joint->SetMotorSpeed(speeds[ai] * leftBackLimb.segments[i].maxSpeed);
+        b2RevoluteJoint_SetMotorSpeed(seg.joint, speeds[ai] * seg.maxSpeed);
 
         ai++;
     }
@@ -469,11 +459,11 @@ void Runner::motorUpdate(const std::vector<float> &actions, float propPos, float
 
         positions[ai] += propPos * (pos - positions[ai]);
         
-        float speed = positions[ai] - seg.joint->GetJointAngle();
+        float speed = positions[ai] - b2RevoluteJoint_GetAngle(seg.joint);
 
         speeds[ai] += propSpeed * (speed - speeds[ai]);
 
-        seg.joint->SetMotorSpeed(speeds[ai] * leftBackLimb.segments[i].maxSpeed);
+        b2RevoluteJoint_SetMotorSpeed(seg.joint, speeds[ai] * seg.maxSpeed);
 
         ai++;
     }
@@ -486,11 +476,11 @@ void Runner::motorUpdate(const std::vector<float> &actions, float propPos, float
 
         positions[ai] += propPos * (pos - positions[ai]);
         
-        float speed = positions[ai] - seg.joint->GetJointAngle();
+        float speed = positions[ai] - b2RevoluteJoint_GetAngle(seg.joint);
 
         speeds[ai] += propSpeed * (speed - speeds[ai]);
 
-        seg.joint->SetMotorSpeed(speeds[ai] * leftBackLimb.segments[i].maxSpeed);
+        b2RevoluteJoint_SetMotorSpeed(seg.joint, speeds[ai] * seg.maxSpeed);
 
         ai++;
     }
@@ -503,11 +493,11 @@ void Runner::motorUpdate(const std::vector<float> &actions, float propPos, float
 
         positions[ai] += propPos * (pos - positions[ai]);
         
-        float speed = positions[ai] - seg.joint->GetJointAngle();
+        float speed = positions[ai] - b2RevoluteJoint_GetAngle(seg.joint);
 
         speeds[ai] += propSpeed * (speed - speeds[ai]);
 
-        seg.joint->SetMotorSpeed(speeds[ai] * leftBackLimb.segments[i].maxSpeed);
+        b2RevoluteJoint_SetMotorSpeed(seg.joint, speeds[ai] * seg.maxSpeed);
 
         ai++;
     }
