@@ -74,12 +74,7 @@ FetchContent_MakeAvailable(SFML)
 ############################################################################
 # Find Box2D include and libs
 
-find_package(box2d)
-
-if(box2d_FOUND)
-    include_directories(${box2d_INCLUDE_DIRS})
-    message(STATUS "Found existing box2d in ${box2d_INCLUDE_DIRS}")
-endif()
+include_directories("/usr/include/box2d/")
 
 
 ############################################################################
@@ -494,7 +489,7 @@ foreach(i RANGE ${num_demos})
     # Does this demo require Box2D?
     list(FIND ${DEMO_DEPENDS} "BOX2D" _box2d_depends_index)
     if (${_box2d_depends_index} GREATER -1)
-        target_link_libraries(${DEMO_PROJECT} ${box2d_LIBRARIES})
+        target_link_libraries(${DEMO_PROJECT} "/usr/local/lib/libbox2dd.so")
     endif()
 
     # Does this demo require OpenCV?

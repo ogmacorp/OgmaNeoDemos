@@ -69,7 +69,7 @@ int main() {
 
     for (int i = 0; i < hurdles.size(); i++) {
         b2BodyDef hurdleBodyDef = b2DefaultBodyDef();
-        hurdleBodyDef.type = b2_dynamicBody;
+        hurdleBodyDef.type = b2_staticBody;
         hurdleBodyDef.position = (b2Vec2){i * hurdleOffset + hurdleStart, groundHeight * 0.5f + (hurdleHeight + hurdleHeightInc * i) * 0.5f};
 
         b2BodyId hurdleBody = b2CreateBody(world, &hurdleBodyDef);

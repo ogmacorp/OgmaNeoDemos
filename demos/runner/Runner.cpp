@@ -19,6 +19,7 @@ const float bodyRestitution = 0.01f;
 const int numWhiskers = 6;
 const float whiskerLen = 1.5f;
 const float whiskerSpread = 0.25f;
+const float whiskerOffsetX = 0.05f;
 
 void Runner::Limb::create(b2WorldId world, const std::vector<LimbSegmentDesc> &descs, b2BodyId attachBody, const b2Vec2 &localAttachPoint, std::uint16_t categoryBits, std::uint16_t maskBits) {
     segments.resize(descs.size());
@@ -53,16 +54,18 @@ void Runner::Limb::create(b2WorldId world, const std::vector<LimbSegmentDesc> &d
 
         segments[si].bodyShape = b2CreatePolygonShape(segments[si].body, &shape, &box);
 
-        b2RevoluteJointDef jointDef = b2RevoluteJointDef();
+        b2RevoluteJointDef jointDef = b2DefaultRevoluteJointDef();
 
-        jointDef.bodyIdA = prevBody;
-
-        jointDef.bodyIdB = segments[si].body;
-
-        jointDef.referenceAngle = descs[si].relativeAngle;
-        jointDef.localAnchorA = prevAttachPoint;
-        jointDef.localAnchorB = (b2Vec2){-offset, 0.0f};
-        jointDef.collideConnected = false;
+        b2Transform frameA = b2Transform_identity;
+        frameA.p = prevAttachPoint;
+        frameA.q = b2MakeRot(descs[si].relativeAngle);
+        b2Transform frameB = b2Transform_identity;
+        frameB.p = (b2Vec2){-offset, 0.0f};
+        jointDef.base.bodyIdA = prevBody;
+        jointDef.base.bodyIdB = segments[si].body;
+        jointDef.base.localFrameA = frameA;
+        jointDef.base.localFrameB = frameB;
+        jointDef.base.collideConnected = false;
         jointDef.lowerAngle = descs[si].minAngle;
         jointDef.upperAngle = descs[si].maxAngle;
         jointDef.enableLimit = true;
@@ -83,7 +86,7 @@ void Runner::Limb::create(b2WorldId world, const std::vector<LimbSegmentDesc> &d
 
 void Runner::Limb::remove(b2WorldId world) {
     for (int si = segments.size() - 1; si >= 0; si--) {
-        b2DestroyJoint(segments[si].joint);
+        b2DestroyJoint(segments[si].joint, false);
         b2DestroyBody(segments[si].body);
     }
 }
@@ -283,7 +286,7 @@ void Runner::renderDefault(sf::RenderTarget &rt, const sf::Color &color, float m
         rt.draw(shape);
     }
 
-    b2Vec2 whiskersStart(b2Body_GetWorldPoint(body, (b2Vec2){bodyWidth * 0.5f, 0.0f}));
+    b2Vec2 whiskersStart(b2Body_GetWorldPoint(body, (b2Vec2){bodyWidth * 0.5f + whiskerOffsetX, 0.0f}));
     float whiskersBaseAngle = b2Rot_GetAngle(b2Body_GetRotation(body));
 
     for (int i = 0; i < numWhiskers; i++) {
@@ -333,7 +336,7 @@ void Runner::getStateVector(std::vector<float> &state) {
         
         int c = b2Body_GetContactData(leftBackLimb.segments.back().body, cds.data(), cds.size());
 
-        for (int i = 0; i < c; c++) {
+        for (int i = 0; i < c; i++) {
             b2Filter f = b2Shape_GetFilter(cds[i].shapeIdA);
 
             if (f.categoryBits != 0x0002 && f.categoryBits != 0x0004) {
@@ -352,7 +355,7 @@ void Runner::getStateVector(std::vector<float> &state) {
         
         int c = b2Body_GetContactData(leftFrontLimb.segments.back().body, cds.data(), cds.size());
 
-        for (int i = 0; i < c; c++) {
+        for (int i = 0; i < c; i++) {
             b2Filter f = b2Shape_GetFilter(cds[i].shapeIdA);
 
             if (f.categoryBits != 0x0002 && f.categoryBits != 0x0004) {
@@ -371,7 +374,7 @@ void Runner::getStateVector(std::vector<float> &state) {
         
         int c = b2Body_GetContactData(rightBackLimb.segments.back().body, cds.data(), cds.size());
 
-        for (int i = 0; i < c; c++) {
+        for (int i = 0; i < c; i++) {
             b2Filter f = b2Shape_GetFilter(cds[i].shapeIdA);
 
             if (f.categoryBits != 0x0002 && f.categoryBits != 0x0004) {
@@ -390,7 +393,7 @@ void Runner::getStateVector(std::vector<float> &state) {
         
         int c = b2Body_GetContactData(rightFrontLimb.segments.back().body, cds.data(), cds.size());
 
-        for (int i = 0; i < c; c++) {
+        for (int i = 0; i < c; i++) {
             b2Filter f = b2Shape_GetFilter(cds[i].shapeIdA);
 
             if (f.categoryBits != 0x0002 && f.categoryBits != 0x0004) {
@@ -402,7 +405,7 @@ void Runner::getStateVector(std::vector<float> &state) {
     }
 
     // Whiskers
-    b2Vec2 whiskersStart(b2Body_GetWorldPoint(body, (b2Vec2){bodyWidth * 0.5f, 0.0f}));
+    b2Vec2 whiskersStart(b2Body_GetWorldPoint(body, (b2Vec2){bodyWidth * 0.5f + whiskerOffsetX, 0.0f}));
     float whiskersBaseAngle = b2Rot_GetAngle(b2Body_GetRotation(body));
 
     for (int i = 0; i < numWhiskers; i++) {
@@ -412,7 +415,12 @@ void Runner::getStateVector(std::vector<float> &state) {
 
         b2RayResult res = b2World_CastRayClosest(world, whiskersStart, (b2Vec2){std::cos(angle) * whiskerLen, whiskersStart.y + std::sin(angle) * whiskerLen}, f);
 
-        whiskerResults[i] = state[si++] = res.fraction;
+        float fract = 1.0f;
+
+        if (res.hit)
+            fract = res.fraction;
+
+        whiskerResults[i] = state[si++] = fract;
     }
 
     // IMU
