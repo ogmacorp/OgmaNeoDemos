@@ -8,97 +8,97 @@
 #include <fstream>
 #include <random>
 
-//class MiniART {
-//public:
-//    int num_inputs;
-//    int num_hidden;
-//    std::vector<float> weights0;
-//    std::vector<float> weights1;
-//    std::vector<bool> commits;
-//    float max_act;
-//    float max_match;
-//    int state;
-//
-//    void init(
-//        int num_inputs,
-//        int num_hidden,
-//        std::mt19937 &rng
-//    ) {
-//        this->num_inputs = num_inputs;
-//        this->num_hidden = num_hidden;
-//
-//        std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
-//
-//        weights0.resize(num_inputs * num_hidden);
-//        weights1.resize(weights0.size());
-//
-//        for (int i = 0; i < weights0.size(); i++) {
-//            weights0[i] = dist01(rng);
-//            weights1[i] = dist01(rng);
-//        }
-//
-//        commits.resize(num_hidden, false);
-//
-//        max_act = 0.0f;
-//        max_match = 0.0f;
-//        state = -1;
-//    }
-//
-//    void step(
-//        const std::vector<float> &inputs,
-//        bool learn = true
-//    ) {
-//        int max_index = -1;
-//        max_act = 0.0f;
-//        max_match = 0.0f;
-//
-//        for (int hc = 0; hc < num_hidden; hc++) {
-//            float sum = 0.0f;
-//            float total = 0.0f;
-//
-//            for (int vc = 0; vc < num_inputs; vc++) {
-//                int wi = vc + num_inputs * hc;
-//
-//                sum += std::min(inputs[vc], weights0[wi]) + std::min(1.0f - inputs[vc], weights1[wi]);
-//                total += weights0[wi] + weights1[wi];
-//            }
-//
-//            float match = sum / num_inputs;
-//            float act = sum / (0.01f + total);
-//
-//            if ((!commits[hc] || match >= 0.95f) && act > max_act) {
-//                max_act = act;
-//                max_match = match;
-//                max_index = hc;
-//            }
-//        }
-//
-//        state = max_index;
-//
-//        if (learn && max_index != -1) {
-//            if (commits[max_index]) {
-//                float lr = 0.5f;
-//
-//                for (int vc = 0; vc < num_inputs; vc++) {
-//                    int wi = vc + num_inputs * max_index;
-//
-//                    weights0[wi] += lr * std::min(0.0f, inputs[vc] - weights0[wi]);
-//                    weights1[wi] += lr * std::min(0.0f, 1.0f - inputs[vc] - weights1[wi]);
-//                }
-//            }
-//            else {
-//                for (int vc = 0; vc < num_inputs; vc++) {
-//                    int wi = vc + num_inputs * max_index;
-//
-//                    weights0[wi] = inputs[vc];
-//                    weights1[wi] = 1.0f - inputs[vc];
-//                }
-//
-//                commits[max_index] = true;
-//            }
-//        }
-//    }
-//};
+class MiniART {
+public:
+    int num_inputs;
+    int num_hidden;
+    std::vector<float> weights0;
+    std::vector<float> weights1;
+    std::vector<bool> commits;
+    float max_act;
+    float max_match;
+    int state;
+
+    void init(
+        int num_inputs,
+        int num_hidden,
+        std::mt19937 &rng
+    ) {
+        this->num_inputs = num_inputs;
+        this->num_hidden = num_hidden;
+
+        std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
+
+        weights0.resize(num_inputs * num_hidden);
+        weights1.resize(weights0.size());
+
+        for (int i = 0; i < weights0.size(); i++) {
+            weights0[i] = dist01(rng);
+            weights1[i] = dist01(rng);
+        }
+
+        commits.resize(num_hidden, false);
+
+        max_act = 0.0f;
+        max_match = 0.0f;
+        state = -1;
+    }
+
+    void step(
+        const std::vector<float> &inputs,
+        bool learn = true
+    ) {
+        int max_index = -1;
+        max_act = 0.0f;
+        max_match = 0.0f;
+
+        for (int hc = 0; hc < num_hidden; hc++) {
+            float sum = 0.0f;
+            float total = 0.0f;
+
+            for (int vc = 0; vc < num_inputs; vc++) {
+                int wi = vc + num_inputs * hc;
+
+                sum += std::min(inputs[vc], weights0[wi]) + std::min(1.0f - inputs[vc], weights1[wi]);
+                total += weights0[wi] + weights1[wi];
+            }
+
+            float match = sum / num_inputs;
+            float act = sum / (0.01f + total);
+
+            if ((!commits[hc] || match >= 0.95f) && act > max_act) {
+                max_act = act;
+                max_match = match;
+                max_index = hc;
+            }
+        }
+
+        state = max_index;
+
+        if (learn && max_index != -1) {
+            if (commits[max_index]) {
+                float lr = 0.5f;
+
+                for (int vc = 0; vc < num_inputs; vc++) {
+                    int wi = vc + num_inputs * max_index;
+
+                    weights0[wi] += lr * std::min(0.0f, inputs[vc] - weights0[wi]);
+                    weights1[wi] += lr * std::min(0.0f, 1.0f - inputs[vc] - weights1[wi]);
+                }
+            }
+            else {
+                for (int vc = 0; vc < num_inputs; vc++) {
+                    int wi = vc + num_inputs * max_index;
+
+                    weights0[wi] = inputs[vc];
+                    weights1[wi] = 1.0f - inputs[vc];
+                }
+
+                commits[max_index] = true;
+            }
+        }
+    }
+};
 
 class MiniFuzzyMinMax {
 public:
@@ -243,7 +243,7 @@ int main() {
             total_density += gray;
         }
 
-    MiniFuzzyMinMax a;
+    MiniART a;
     a.init(2, 24, rng);
 
     std::vector<sf::Color> palette(a.num_hidden);
