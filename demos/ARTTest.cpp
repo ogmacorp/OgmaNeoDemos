@@ -8,6 +8,114 @@
 #include <fstream>
 #include <random>
 
+class MiniARTSphere {
+public:
+    int num_inputs;
+    int num_hidden;
+    std::vector<float> centers;
+    std::vector<float> radii;
+    std::vector<float> dists;
+    std::vector<bool> commits;
+    float max_act;
+    int state;
+
+    void init(
+        int num_inputs,
+        int num_hidden,
+        std::mt19937 &rng
+    ) {
+        this->num_inputs = num_inputs;
+        this->num_hidden = num_hidden;
+
+        std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
+
+        centers.resize(num_inputs * num_hidden);
+        radii.resize(num_hidden, 0.0f);
+
+        for (int i = 0; i < centers.size(); i++) {
+            centers[i] = dist01(rng);
+        }
+
+        commits.resize(num_hidden, false);
+        dists.resize(num_hidden);
+
+        max_act = 0.0f;
+        state = -1;
+    }
+
+    void step(
+        const std::vector<float> &inputs,
+        bool learn = true
+    ) {
+        int max_index = -1;
+        max_act = 0.0f;
+
+        int max_index_complete = 0;
+        float max_act_complete = 0.0f;
+
+        const float ref_radius = 0.5f;
+        const float choice = 0.0001f;
+
+        for (int hc = 0; hc < num_hidden; hc++) {
+            float sum = 0.0f;
+
+            for (int vc = 0; vc < num_inputs; vc++) {
+                int wi = vc + num_inputs * hc;
+
+                float diff = inputs[vc] - centers[wi];
+
+                sum += diff * diff;
+            }
+
+            float dist = std::sqrt(sum / num_inputs);
+
+            dists[hc] = dist;
+
+            float match = 1.0f - std::max(radii[hc], dist) / ref_radius;
+            float act = (ref_radius - std::max(radii[hc], dist)) / (ref_radius - radii[hc] + choice);
+
+            if ((!commits[hc] || match >= 0.97f) && act > max_act) {
+                max_act = act;
+                max_index = hc;
+            }
+
+            if (act > max_act_complete) {
+                max_act_complete = act;
+                max_index_complete = hc;
+            }
+        }
+
+        state = (max_index == -1 ? max_index_complete : max_index);
+
+        if (learn && max_index != -1) {
+            if (commits[max_index]) {
+                float lr = 0.5f;
+
+                float rate = lr * (1.0f - std::min(radii[max_index], dists[max_index]) / std::max(0.0001f, dists[max_index]));
+
+                for (int vc = 0; vc < num_inputs; vc++) {
+                    int wi = vc + num_inputs * max_index;
+
+                    centers[wi] += rate * (inputs[vc] - centers[wi]);
+                }
+
+                radii[max_index] += lr * std::max(0.0f, dists[max_index] - radii[max_index]);
+            }
+            else {
+                for (int vc = 0; vc < num_inputs; vc++) {
+                    int wi = vc + num_inputs * max_index;
+
+                    centers[wi] = inputs[vc];
+                }
+
+                radii[max_index] = 0.0f;
+
+                commits[max_index] = true;
+            }
+        }
+    }
+};
+
 class MiniART {
 public:
     int num_inputs;
@@ -16,7 +124,7 @@ public:
     std::vector<float> weights1;
     std::vector<bool> commits;
     float max_act;
-    float max_match;
+    float max_act2;
     int state;
 
     void init(
@@ -40,7 +148,7 @@ public:
         commits.resize(num_hidden, false);
 
         max_act = 0.0f;
-        max_match = 0.0f;
+        max_act2 = 0.0f;
         state = -1;
     }
 
@@ -49,31 +157,57 @@ public:
         bool learn = true
     ) {
         int max_index = -1;
+        int max_index2 = -1;
         max_act = 0.0f;
-        max_match = 0.0f;
+        max_act2 = 0.0f;
+
+        int max_index_complete = 0;
+        float max_act_complete = 0.0f;
 
         for (int hc = 0; hc < num_hidden; hc++) {
             float sum = 0.0f;
+            float sum2 = 0.0f;
             float total = 0.0f;
 
             for (int vc = 0; vc < num_inputs; vc++) {
                 int wi = vc + num_inputs * hc;
 
                 sum += std::min(inputs[vc], weights0[wi]) + std::min(1.0f - inputs[vc], weights1[wi]);
+                //sum2 += std::max(inputs[vc], weights0[wi]) + std::max(1.0f - inputs[vc], weights1[wi]);
+                if (inputs[vc] > weights0[wi] && inputs[vc] < weights1[wi])
+                    sum2 += 1.0f;
+                else if (inputs[vc] < weights0[wi])
+                    sum2 += 1.0f - std::abs(inputs[vc] - weights0[wi]);
+                else
+                    sum2 += 1.0f - std::abs(inputs[vc] - weights1[wi]);
+
                 total += weights0[wi] + weights1[wi];
             }
 
             float match = sum / num_inputs;
-            float act = sum / (0.01f + total);
+            float act = powf(sum / num_inputs, 4.0f) / (0.01f + total / num_inputs);
+            //float act = sum / (0.01f + total);
+            float act2 = sum2 / num_inputs;
 
-            if ((!commits[hc] || match >= 0.95f) && act > max_act) {
-                max_act = act;
-                max_match = match;
+            //float act = (num_inputs - (total - sum) + 0.01f * (sum2 - total)) / num_inputs; // choice by difference
+
+            if ((!commits[hc] || match >= 0.97f) && act2 > max_act) {
+                max_act = act2;
                 max_index = hc;
+            }
+
+            if ((!commits[hc] || match >= 0.95f) && act2 > max_act2) {
+                max_act2 = act2;
+                max_index2 = hc;
+            }
+
+            if (act2 > max_act_complete) {
+                max_act_complete = act2;
+                max_index_complete = hc;
             }
         }
 
-        state = max_index;
+        state = (max_index == -1 ? max_index_complete : max_index);
 
         if (learn && max_index != -1) {
             if (commits[max_index]) {
@@ -175,7 +309,7 @@ public:
             }
         }
 
-        state = max_index_complete;
+        state = (max_index == -1 ? max_index_complete : max_index);
 
         if (learn && max_index != -1) {
             if (commits[max_index]) {
@@ -243,8 +377,8 @@ int main() {
             total_density += gray;
         }
 
-    MiniART a;
-    a.init(2, 24, rng);
+    MiniFuzzyMinMax a;
+    a.init(2, 64, rng);
 
     std::vector<sf::Color> palette(a.num_hidden);
 
@@ -294,8 +428,8 @@ int main() {
         int sample_x = sample_index / density.getSize().y;
         int sample_y = sample_index % density.getSize().y;
 
-        float nx = static_cast<float>(sample_x) / density.getSize().x;
-        float ny = static_cast<float>(sample_y) / density.getSize().y;
+        float nx = static_cast<float>(sample_x) / (density.getSize().x - 1);
+        float ny = static_cast<float>(sample_y) / (density.getSize().y - 1);
 
         a.step({ nx, ny }, true);
 
@@ -312,9 +446,10 @@ int main() {
                     float act = a.max_act;
 
                     if (state != -1)
-                        img.setPixel(sf::Vector2u(x, y), sf::Color(palette[state].r * act, palette[state].g * act, palette[state].b * act));
+                        //img.setPixel(sf::Vector2u(x, y), sf::Color(palette[state].r * act, palette[state].g * act, palette[state].b * act, 255));
+                        img.setPixel(sf::Vector2u(x, y), palette[state]);
                     else
-                        img.setPixel(sf::Vector2u(x, y), sf::Color::Black);
+                        img.setPixel(sf::Vector2u(x, y), sf::Color(0, 0, 0, 255));
                 }
 
             sf::Texture tex(img);

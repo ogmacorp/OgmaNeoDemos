@@ -413,7 +413,7 @@ void Runner::getStateVector(std::vector<float> &state) {
 
         b2QueryFilter f = b2DefaultQueryFilter();
 
-        b2RayResult res = b2World_CastRayClosest(world, whiskersStart, (b2Vec2){std::cos(angle) * whiskerLen, whiskersStart.y + std::sin(angle) * whiskerLen}, f);
+        b2RayResult res = b2World_CastRayClosest(world, whiskersStart, (b2Vec2){std::cos(angle) * whiskerLen, std::sin(angle) * whiskerLen}, f);
 
         float fract = 1.0f;
 
