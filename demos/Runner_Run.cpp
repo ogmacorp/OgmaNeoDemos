@@ -80,7 +80,7 @@ int main() {
         //groundShape.material.friction = 1.0f;
         //groundShape.material.restitution = 0.0f;
 
-        b2ShapeId hurdleShape = b2CreatePolygonShape(groundBody, &groundShapeDef, &groundBox);
+        b2ShapeId hurdleShape = b2CreatePolygonShape(hurdleBody, &hurdleShapeDef, &hurdleBox);
 
         hurdles[i] = hurdleBody;
     }
@@ -111,14 +111,14 @@ int main() {
     Array<Hierarchy::Layer_Desc> lds(1);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hidden_size = Int3(5, 5, 32);
+        lds[i].hidden_size = Int3(5, 5, 64);
     }
 
     const int sensorResolution = 16;
     const int actionResolution = 9;
 
     Array<Hierarchy::IO_Desc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IO_Desc(Int3(4, 6, sensorResolution), IO_Type::prediction, 4, 2);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(4, 6, sensorResolution), IO_Type::none, 4, 2);
     ioDescs[1] = Hierarchy::IO_Desc(Int3(2, 4, actionResolution), IO_Type::action, 2, 2);
 
     Hierarchy h;
@@ -243,7 +243,7 @@ int main() {
             actionCIs = h.get_prediction_cis(1);
 
             for (int i = 0; i < actionCIs.size(); i++) {
-                if (dist01(rng) < 0.01f)
+                if (dist01(rng) < 0.0f)
                     actionCIs[i] = actionDist(rng);
             }
 
