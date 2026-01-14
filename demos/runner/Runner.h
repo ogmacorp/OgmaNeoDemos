@@ -34,11 +34,11 @@ public:
         relativeAngle(0.0f),
         thickness(0.03f), length(0.125f),
         minAngle(-0.9f), maxAngle(0.9f),
-        maxTorque(3.0f),
-        maxSpeed(30.0f),
+        maxTorque(0.25f),
+        maxSpeed(40.0f),
         density(2.0f),
         friction(5.0f),
-        restitution(0.01f),
+        restitution(0.001f),
         motorEnabled(true)
         {}
     };
@@ -99,7 +99,7 @@ public:
     void renderDefault(sf::RenderTarget &rt, const sf::Color &color, float metersToPixels);
 
     void getStateVector(std::vector<float> &state);
-    void motorUpdate(const std::vector<float> &actions, float propPos = 0.5f, float propSpeed = 0.2f);
+    void motorUpdate(const std::vector<float> &actions, float propPos = 0.5f, float propSpeed = 0.25f);
 
     bool infrontOfWall() const {
         return whiskerResults[0] < 0.01f;
