@@ -57,7 +57,7 @@ int main() {
     Array<Hierarchy::Layer_Desc> lds(1);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hidden_size = Int3(7, 7, 64);
+        lds[i].hidden_size = Int3(7, 7, 128);
     }
 
     int sensorRes = 16;
@@ -206,7 +206,7 @@ int main() {
 
         // Exploration
         for (int i = 0; i < actionCIs.size(); i++) {
-            if (dist01(rng) < 0.01f) {
+            if (dist01(rng) < 0.02f) {
                 std::uniform_int_distribution<int> actionDist(0, actionRes - 1);
 
                 actionCIs[i] = actionDist(rng);

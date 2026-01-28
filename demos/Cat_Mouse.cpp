@@ -42,7 +42,7 @@ public:
 int main() {
     bool load = false;
     bool manualControl = false;
-    float epsilon = 0.01f;
+    float epsilon = 0.05f;
 
     const std::string hCatFileName = "hCat.ohr";
     const std::string hMouseFileName = "hMouse.ohr";

@@ -286,7 +286,7 @@ int main(int argc, char *argv[])
 
     set_num_threads(8);
 
-    Array<Hierarchy::Layer_Desc> lds(1);
+    Array<Hierarchy::Layer_Desc> lds(2);
 
     for (int i = 0; i < lds.size(); i++) {
         lds[i].hidden_size = Int3(5, 5, 64);

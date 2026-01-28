@@ -40,9 +40,7 @@ int main() {
     unsigned int windowWidth = 512;
     unsigned int windowHeight = 512;
 
-    sf::RenderWindow window;
-
-    window.create(sf::VideoMode(windowWidth, windowHeight), "Fluid", sf::Style::Default);
+    sf::RenderWindow window(sf::VideoMode(sf::Vector2u(windowWidth, windowHeight)), "Fluid", sf::Style::Default);
 
     //window.setVerticalSyncEnabled(true);
     window.setFramerateLimit(60);
@@ -65,9 +63,6 @@ int main() {
 
         reader.ins.open("resources/fluidsim.oenc", std::ios::binary);
 
-        int magic;
-        reader.read(&magic, sizeof(int));
-
         img_enc.read(reader);
     }
 
@@ -76,17 +71,14 @@ int main() {
 
         reader.ins.open("resources/fluidsim.ohr", std::ios::binary);
 
-        int magic;
-        reader.read(&magic, sizeof(int));
-
         h.read(reader);
     }
 
-    Array<Byte_Buffer_View> imgs(1);
-    Byte_Buffer img(sim_width * sim_height * 3, 0);
+    Array<U8_Array_View> imgs(1);
+    U8_Array img(sim_width * sim_height * 3, 0);
     imgs[0] = img;
 
-    Array<Int_Buffer_View> input_cis(1);
+    Array<S32_Array_View> input_cis(1);
 
     bool quit = false;
     bool sim_mode = false;
@@ -94,58 +86,50 @@ int main() {
 
     sf::View view = window.getDefaultView();
 
-    sf::RenderTexture rt;
-    rt.create(sim_width, sim_height);
+    sf::RenderTexture rt(sf::Vector2u(sim_width, sim_height));
     rt.clear();
 
     std::cout << "Ready." << std::endl;
 
     do {
-        sf::Event event;
-
-        while (window.pollEvent(event)) {
-            if (window.hasFocus()) {
-                switch (event.type) {
-                case sf::Event::Closed:
-                    quit = true;
-                    break;
-                }
-            }
+        while (const std::optional event = window.pollEvent()) {
+            if (event->is<sf::Event::Closed>())
+                quit = true;
         }
 
         if (window.hasFocus()) {
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape))
                 quit = true;
 
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space))
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space))
                 rt.clear();
 
-            if (sf::Mouse::isButtonPressed(sf::Mouse::Left)) {
+            if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left)) {
                 sf::Vector2i mousePos = sf::Mouse::getPosition(window);
 
                 // draw terrain
                 sf::CircleShape cs;
                 cs.setRadius(2.0f);
-                cs.setOrigin(cs.getRadius(), cs.getRadius());
-                cs.setPosition(mousePos.x * sim_width / static_cast<float>(window.getSize().x), mousePos.y * sim_height / static_cast<float>(window.getSize().y));
+                cs.setOrigin(sf::Vector2f(cs.getRadius(), cs.getRadius()));
+                cs.setPosition(sf::Vector2f(mousePos.x * sim_width / static_cast<float>(window.getSize().x), mousePos.y * sim_height / static_cast<float>(window.getSize().y)));
 
                 rt.draw(cs);
             }
 
-            if (sf::Mouse::isButtonPressed(sf::Mouse::Right)) {
+            if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Right)) {
                 sf::Vector2i mousePos = sf::Mouse::getPosition(window);
 
                 // draw terrain
                 sf::CircleShape cs;
                 cs.setFillColor(sf::Color::Blue);
                 cs.setRadius(2.0f);
-                cs.setOrigin(cs.getRadius(), cs.getRadius());
-                cs.setPosition(mousePos.x * sim_width / static_cast<float>(window.getSize().x), mousePos.y * sim_height / static_cast<float>(window.getSize().y));
+                cs.setOrigin(sf::Vector2f(cs.getRadius(), cs.getRadius()));
+                cs.setPosition(sf::Vector2f(mousePos.x * sim_width / static_cast<float>(window.getSize().x), mousePos.y * sim_height / static_cast<float>(window.getSize().y)));
 
                 rt.draw(cs);
             }
 
-            bool s_pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::S);
+            bool s_pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S);
 
             if (s_pressed && !s_pressed_prev) {
                 sim_mode = !sim_mode;
@@ -160,7 +144,7 @@ int main() {
 
                     for (int x = 0; x < sim_width; x++)
                         for (int y = 0; y < sim_height; y++) {
-                            sf::Color c = rt_img.getPixel(x, y);
+                            sf::Color c = rt_img.getPixel(sf::Vector2u(x, y));
 
                             // transpose needed
                             img[0 + 3 * (x + sim_width * y)] = c.r;
@@ -179,11 +163,6 @@ int main() {
             s_pressed_prev = s_pressed;
         }
 
-        sf::Sprite s;
-        s.setOrigin(sim_width * 0.5f, sim_height * 0.5f);
-        s.setPosition(windowWidth * 0.5f, windowHeight * 0.5f);
-        s.setScale(scale, scale);
-
         sf::Texture tex;
 
         if (sim_mode) {
@@ -195,8 +174,7 @@ int main() {
 
             h.step(input_cis, false);
 
-            sf::Image result;
-            result.create(sim_width, sim_height);
+            sf::Image result(sf::Vector2u(sim_width, sim_height));
 
             for (int x = 0; x < sim_width; x++)
                 for (int y = 0; y < sim_height; y++) {
@@ -208,17 +186,19 @@ int main() {
                     c.b = img[2 + 3 * (x + sim_width * y)];
                     c.a = 255;
 
-                    result.setPixel(x, y, c);
+                    result.setPixel(sf::Vector2u(x, y), c);
                 }
 
-            tex.loadFromImage(result);
-            s.setTexture(tex);
+            tex = sf::Texture(result);
         }
         else {
             rt.display();
-
-            s.setTexture(rt.getTexture());
         }
+
+        sf::Sprite s(sim_mode ? tex : rt.getTexture());
+        s.setOrigin(sf::Vector2f(sim_width * 0.5f, sim_height * 0.5f));
+        s.setPosition(sf::Vector2f(windowWidth * 0.5f, windowHeight * 0.5f));
+        s.setScale(sf::Vector2f(scale, scale));
 
         window.draw(s);
         
