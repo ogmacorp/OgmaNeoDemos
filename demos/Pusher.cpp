@@ -70,6 +70,8 @@ int main() {
     Hierarchy h;
     h.init_random(ioDescs, lds);
 
+    h.params.ios[1].importance = 0.0f;
+
     S32_Array actionCIs = h.get_prediction_cis(1);
 
     //CustomStreamReader reader;
@@ -206,7 +208,7 @@ int main() {
 
         // Exploration
         for (int i = 0; i < actionCIs.size(); i++) {
-            if (dist01(rng) < 0.02f) {
+            if (dist01(rng) < 0.0f) {
                 std::uniform_int_distribution<int> actionDist(0, actionRes - 1);
 
                 actionCIs[i] = actionDist(rng);
@@ -261,7 +263,7 @@ int main() {
         if (objectDistPrev == -1.0f)
             objectDistPrev = distToObject;
 
-        float reward = -10.0f * (distToCenter - distPrev) - 2.0f * (distToObject - objectDistPrev);
+        float reward = -5.0f * (distToCenter - distPrev) - 2.0f * (distToObject - objectDistPrev);
 
         distPrev = distToCenter;
         objectDistPrev = distToObject;
@@ -301,6 +303,11 @@ int main() {
         inputCIs[1] = actionCIs;
 
         h.step(inputCIs, true, reward * 1.0f);
+
+        //for (int i = 0; i < h.get_encoder(0).get_hidden_cis().size(); i++) {
+        //    std::cout << h.get_encoder(0).get_hidden_cis()[i] << " ";
+        //}
+        //std::cout << std::endl;
 
         average_reward += 0.0001f * (reward - average_reward);
 

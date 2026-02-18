@@ -103,13 +103,13 @@ int main() {
     std::mt19937 rng(time(nullptr));
 
     // Create hierarchy
-    set_num_threads(4);
+    set_num_threads(8);
     global_state = rand_get_state(12345);
 
     aon::Array<aon::Hierarchy::Layer_Desc> lds(2);
 
     for (int i = 0; i < lds.size(); i++)
-        lds[i].hidden_size = aon::Int3(7, 7, 32);
+        lds[i].hidden_size = aon::Int3(7, 7, 64);
 
     aon::Array<aon::Hierarchy::IO_Desc> iods(1);
     iods[0].size = Int3( 16, 16, 8);
@@ -211,7 +211,7 @@ int main() {
                             Vec1 cv = v / pos[i];
 
                             // search for closest vector
-                            int max_index2 = 0;
+                            max_index = 0;
                             int max_similarity = 0;
 
                             for (int j = 0; j < vecs.size(); j++) {
@@ -219,11 +219,11 @@ int main() {
 
                                 if (similarity > max_similarity) {
                                     max_similarity = similarity;
-                                    max_index2 = j;
+                                    max_index = j;
                                 }
                             }
 
-                            char ch = max_index2;
+                            char ch = max_index;
 
                             if (i < last_char_index && (ch == ' ' || ch == '\n'))
                                 break;

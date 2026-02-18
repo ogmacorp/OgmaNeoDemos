@@ -377,7 +377,7 @@ int main() {
             total_density += gray;
         }
 
-    MiniFuzzyMinMax a;
+    MiniART a;
     a.init(2, 64, rng);
 
     std::vector<sf::Color> palette(a.num_hidden);

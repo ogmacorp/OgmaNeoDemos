@@ -31,7 +31,7 @@ using namespace cv;
 const float pi = 3.141592f;
 
 const std::vector<std::string> files = {
-    "data/laps2.mkv"
+    "resources/data/shortenedlaps4.mp4"
 };
 
 float min_angle_delta(float delta) {
@@ -48,14 +48,12 @@ int main() {
 
     sf::Vector2u window_size(1280, 720);
 
-    sf::RenderWindow window;
-
-    window.create(sf::VideoMode({window_size.x, window_size.y}), "Car Tracking", sf::Style::Default);
+    sf::RenderWindow window(sf::VideoMode({window_size.x, window_size.y}), "Car Tracking", sf::Style::Default);
 
     window.setFramerateLimit(0);
 
     Mat background;
-    imread("resources/background.png", background);
+    imread("resources/background2.png", background);
 
     Mat background_gray;
 
@@ -120,7 +118,7 @@ int main() {
 
                     img.setPixel(sf::Vector2u(x, y), sf::Color(r, r, r));
 
-                    float w = max(0.0f, r / 255.0f - 0.5f); // weighting
+                    float w = max(0.0f, r / 255.0f - 0.3f); // weighting
 
                     pos += w * sf::Vector2f(x, y);
                     div += w;
@@ -167,7 +165,7 @@ int main() {
 
         sf::Texture background_tex;
 
-        background_tex.loadFromFile("resources/background.png");
+        background_tex.loadFromFile("resources/background2.png");
 
         sf::Sprite s(background_tex);
 

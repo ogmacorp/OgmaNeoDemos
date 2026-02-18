@@ -42,7 +42,7 @@ public:
 int main() {
     bool load = false;
     bool manualControl = false;
-    float epsilon = 0.05f;
+    float epsilon = 0.0f;
 
     const std::string hCatFileName = "hCat.ohr";
     const std::string hMouseFileName = "hMouse.ohr";
@@ -75,7 +75,7 @@ int main() {
     Array<Hierarchy::Layer_Desc> lds(1);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hidden_size = Int3(5, 5, 64);
+        lds[i].hidden_size = Int3(5, 5, 128);
         //lds[i].eRadius = 2;
         //lds[i].dRadius = 2;
         //lds[i].ticksPerUpdate = 4;
@@ -244,7 +244,7 @@ int main() {
             if (aiTimer >= aiDT) {
                 aiTimer = std::fmod(aiTimer, aiDT);
 
-                const float rewardScale = 10.0f;
+                const float rewardScale = 1.0f;
 
                 hCat.step(catInputs, true, catRewardTotal * rewardScale);
                 hMouse.step(mouseInputs, true, mouseRewardTotal * rewardScale);
