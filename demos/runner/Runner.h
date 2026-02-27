@@ -99,7 +99,7 @@ public:
     void renderDefault(sf::RenderTarget &rt, const sf::Color &color, float metersToPixels);
 
     void getStateVector(std::vector<float> &state);
-    void motorUpdate(const std::vector<float> &actions, float propPos = 0.5f, float propSpeed = 0.4f);
+    void motorUpdate(const std::vector<float> &actions, float propPos = 0.5f, float propSpeed = 0.5f);
 
     bool infrontOfWall() const {
         return whiskerResults[0] < 0.01f;

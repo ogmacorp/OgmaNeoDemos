@@ -1,11 +1,3 @@
-// ----------------------------------------------------------------------------
-//  OgmaNeoDemos
-//  Copyright(c) 2016-2020 Ogma Intelligent Systems Corp. All rights reserved.
-//
-//  This copy of OgmaNeoDemos is licensed to you under the terms described
-//  in the OGMANEODEMOS_LICENSE.md file included in this distribution.
-// ----------------------------------------------------------------------------
-
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 
@@ -103,23 +95,23 @@ int main() {
     runner.createDefault(world, (b2Vec2){0.0f, runnerSpawnHeight}, 0.0f, 1);
 
     const int inputCount = 2 + 2 + 2 + 2 + 1 + 4 + 6 + 3 + 1; // 3 inputs for hind legs, 2 for front, body angle, contacts for each leg, 6 whiskers, IMU (lAccel, rAccel), distance to next hurdle
-    const int outputCount = 2 + 2 + 2 + 2; // Motor output for each joint
+    const int outputCount = 2 + 2 + 2 + 2; // motor output for each joint
 
     // Create the agent
     set_num_threads(8);
 
-    Array<Hierarchy::Layer_Desc> lds(1);
+    Array<Hierarchy::Layer_Desc> lds(2);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hidden_size = Int3(5, 5, 128);
+        lds[i].hidden_size = Int3(5, 5, 32);
     }
 
-    const int sensorResolution = 16;
-    const int actionResolution = 9;
+    const int sensorResolution = 31;
+    const int actionResolution = 11;
 
     Array<Hierarchy::IO_Desc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IO_Desc(Int3(4, 6, sensorResolution), IO_Type::none, 6, 4);
-    ioDescs[1] = Hierarchy::IO_Desc(Int3(2, 4, actionResolution), IO_Type::action, 4, 4);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(4, 6, sensorResolution), IO_Type::none, 4, 6, 5);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(2, 4, actionResolution), IO_Type::action, 4, 4, 5);
 
     Hierarchy h;
     h.init_random(ioDescs, lds);
@@ -178,10 +170,6 @@ int main() {
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape))
                     quit = true;
 
-                // Reward is velocity (flipped direction if K is pressed)
-                //if (!kDownPrev && sf::Keyboard::isKeyPressed(sf::Keyboard::K))
-                //    runBackwards = !runBackwards;
-
                 kDownPrev = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::K);
 
                 if (!tDownPrev && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::T))
@@ -198,7 +186,7 @@ int main() {
             S32_Array sensorCIs(h.get_io_size(0).x * h.get_io_size(0).y, 0);
 
             for (int i = 0; i < state.size(); i++)
-                sensorCIs[i] = sigmoidf(state[i] * 2.0f) * (sensorResolution - 1) + 0.5f;
+                sensorCIs[i] = sigmoidf(state[i] * 1.0f) * (sensorResolution - 1) + 0.5f;
 
             b2Vec2 runnerPos = b2Body_GetPosition(runner.body);
 
@@ -233,7 +221,7 @@ int main() {
 
             std::normal_distribution<float> noiseDist(0.0f, 0.1f);
 
-            float reward = vel * 1.0f;// + 2.0f * (runner.body->GetPosition().y - runnerSpawnHeight);// * (1.0f + noiseDist(rng));
+            float reward = vel * 1.0f;
 
             if (reset)
                 reward -= 100.0f;
@@ -248,9 +236,8 @@ int main() {
             }
 
             // Go through tiles
-            for (int i = 0; i < rescaledActions.size(); i++) {
+            for (int i = 0; i < rescaledActions.size(); i++)
                 rescaledActions[i] = actionCIs[i] / static_cast<float>(actionResolution - 1);
-            }
         }
 
         // Step the physics simulation
@@ -352,6 +339,9 @@ int main() {
         steps++;
 
     } while (!quit);
+
+    runner.destroy();
+    b2DestroyWorld(world);
 
     return 0;
 }

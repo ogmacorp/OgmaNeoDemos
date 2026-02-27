@@ -74,8 +74,8 @@ int main() {
         h.read(reader);
     }
 
-    Array<U8_Array_View> imgs(1);
-    U8_Array img(sim_width * sim_height * 3, 0);
+    Array<F32_Array_View> imgs(1);
+    F32_Array img(sim_width * sim_height * 3, 0);
     imgs[0] = img;
 
     Array<S32_Array_View> input_cis(1);
@@ -181,9 +181,9 @@ int main() {
                     sf::Color c;
 
                     // transpose needed
-                    c.r = img[0 + 3 * (x + sim_width * y)];
-                    c.g = img[1 + 3 * (x + sim_width * y)];
-                    c.b = img[2 + 3 * (x + sim_width * y)];
+                    c.r = min(255.0f, max(0.0f, img[0 + 3 * (x + sim_width * y)]));
+                    c.g = min(255.0f, max(0.0f, img[1 + 3 * (x + sim_width * y)]));
+                    c.b = min(255.0f, max(0.0f, img[2 + 3 * (x + sim_width * y)]));
                     c.a = 255;
 
                     result.setPixel(sf::Vector2u(x, y), c);

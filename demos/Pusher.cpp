@@ -64,8 +64,8 @@ int main() {
     int actionRes = 5;
 
     Array<Hierarchy::IO_Desc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IO_Desc(Int3(2, 2, sensorRes), IO_Type::prediction, 2, 3);
-    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 2, actionRes), IO_Type::action, 0, 3);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(2, 2, sensorRes), IO_Type::prediction, 4, 2, 3);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 2, actionRes), IO_Type::action, 4, 0, 3);
 
     Hierarchy h;
     h.init_random(ioDescs, lds);
@@ -115,6 +115,7 @@ int main() {
     int vwidth = 64;
     int vheight = 64;
     float vrate = 0.1f;
+    float extra_exploration = 0.0f;
 
     std::vector<sf::Vector2f> vecs(vwidth * vheight, { 0.0f, 0.0f });
 
@@ -208,7 +209,7 @@ int main() {
 
         // Exploration
         for (int i = 0; i < actionCIs.size(); i++) {
-            if (dist01(rng) < 0.0f) {
+            if (dist01(rng) < extra_exploration) {
                 std::uniform_int_distribution<int> actionDist(0, actionRes - 1);
 
                 actionCIs[i] = actionDist(rng);

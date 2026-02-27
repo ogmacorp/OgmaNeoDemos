@@ -126,10 +126,10 @@ int main() {
     // Create the agent
     setNumThreads(8);
 
-    Array<Hierarchy::LayerDesc> lds(5);
+    Array<Hierarchy::LayerDesc> lds(2);
 
     for (int i = 0; i < lds.size(); i++)
-        lds[i].hiddenSize = Int3(4, 4, 16);
+        lds[i].hiddenSize = Int3(7, 7, 32);
 
     const int motionRes = 13;
 

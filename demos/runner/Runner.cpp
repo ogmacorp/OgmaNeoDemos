@@ -104,6 +104,8 @@ void Runner::destroy() {
         rightFrontLimb.remove(world);
 
         b2DestroyBody(body);
+
+        initialized = false;
     }
 }
 
