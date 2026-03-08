@@ -17,7 +17,7 @@ const float bodyDensity = 2.5f;
 const float bodyFriction = 1.0f;
 const float bodyRestitution = 0.01f;
 const int numWhiskers = 6;
-const float whiskerLen = 1.5f;
+const float whiskerLen = 1.0f;
 const float whiskerSpread = 0.25f;
 const float whiskerOffsetX = 0.05f;
 

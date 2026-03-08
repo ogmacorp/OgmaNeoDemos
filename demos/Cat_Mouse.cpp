@@ -62,7 +62,7 @@ int main() {
     float catRewardTotal = 0.0f;
     float mouseRewardTotal = 0.0f;
 
-    sf::Image map("resources/map_test.png");
+    sf::Image map("resources/map0.png");
 
     CatMouseEnv env;
     env.init(map);
