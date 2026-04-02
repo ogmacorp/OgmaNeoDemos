@@ -110,8 +110,8 @@ int main() {
     const int actionResolution = 11;
 
     Array<Hierarchy::IO_Desc> ioDescs(2);
-    ioDescs[0] = Hierarchy::IO_Desc(Int3(4, 6, sensorResolution), IO_Type::none, 16, 6, 6, 5);
-    ioDescs[1] = Hierarchy::IO_Desc(Int3(2, 4, actionResolution), IO_Type::action, 16, 6, 4, 5);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(4, 6, sensorResolution), IO_Type::none, 16, 6, 5);
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(2, 4, actionResolution), IO_Type::action, 16, 4, 5);
 
     Hierarchy h;
     h.init_random(ioDescs, lds);

@@ -17,7 +17,7 @@ public:
 
     void read(
         void* data,
-        long len
+        aon::u64 len
     ) override {
         ins.read(static_cast<char*>(data), len);
     }
@@ -29,7 +29,7 @@ public:
 
     void write(
         const void* data,
-        long len
+        aon::u64 len
     ) override {
         outs.write(static_cast<const char*>(data), len);
     }
@@ -115,7 +115,7 @@ int main() {
     int vwidth = 64;
     int vheight = 64;
     float vrate = 0.1f;
-    float extra_exploration = 0.02f;
+    float extra_exploration = 0.0f;
 
     std::vector<sf::Vector2f> vecs(vwidth * vheight, { 0.0f, 0.0f });
 
@@ -316,7 +316,6 @@ int main() {
             window.clear();
 
             renderCounter = 0;
-
 
             sf::RenderStates rs;
             rs.coordinateType = sf::CoordinateType::Normalized;
