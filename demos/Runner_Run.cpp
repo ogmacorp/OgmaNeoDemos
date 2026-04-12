@@ -100,7 +100,7 @@ int main() {
     // Create the agent
     set_num_threads(8);
 
-    Array<Hierarchy::Layer_Desc> lds(2);
+    Array<Hierarchy::Layer_Desc> lds(1);
 
     for (int i = 0; i < lds.size(); i++) {
         lds[i].hidden_size = Int3(5, 5, 32);
