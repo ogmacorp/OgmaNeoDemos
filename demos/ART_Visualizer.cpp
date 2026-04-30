@@ -21,6 +21,7 @@ public:
     std::vector<float> comparisons;
     std::vector<int> cell_indices;
     std::vector<int> learn_column_indices;
+    std::vector<bool> committed;
 
     float vigilance_low = 0.8f;
     float vigilance_high = 0.9f;
@@ -50,6 +51,7 @@ public:
         comparisons.resize(num_f2_columns, 0.0f);
         cell_indices.resize(num_f2_columns, -1);
         learn_column_indices.resize(num_f2_columns, -1); // allocate full amount here but actually only goes to k
+        committed.resize(matches.size(), false);
     }
 
     void step0(
@@ -92,12 +94,12 @@ public:
 
                 if (matches[i] >= vigilance_low && activations[i] > max_activation_low) {
                     max_activation_low = activations[i];
-                    winner_cell_low = i;
+                    winner_cell_low = d;
                 }
 
                 if (matches[i] >= vigilance_high && activations[i] > max_activation_high) {
                     max_activation_high = activations[i];
-                    winner_cell_high = i;
+                    winner_cell_high = d;
                 }
             }
 
@@ -105,7 +107,6 @@ public:
 
             comparisons[c] = max_activation_low;
         }
-
     }
 
     void step2() {
@@ -144,11 +145,15 @@ public:
                     // perform learning on cell
                     int i = cell_indices[max_column] + num_f2_cells_per_column * max_column;
 
+                    float rate = (committed[i] ? beta : 1.0f);
+
                     for (int j = 0; j < num_f1_cells; j++) {
                         int wi = j + num_f1_cells * i;
 
-                        weights[wi] += beta * std::min(0.0f, inputs[j] - weights[wi]);
+                        weights[wi] += rate * std::min(0.0f, inputs[j] - weights[wi]);
                     }
+
+                    committed[i] = true;
                 }
             }
         }
@@ -172,17 +177,7 @@ int main() {
     // RNG
     std::mt19937 rng(time(nullptr));
 
-    // Create window
-    sf::ContextSettings glContextSettings;
-
-    sf::RenderWindow window(sf::VideoMode(sf::Vector2u(800, 600)), "Runner Demo", sf::Style::Default, sf::State::Windowed, glContextSettings);
-
-    window.setFramerateLimit(60);
-    window.setVerticalSyncEnabled(true);
-
     // ---------------------------- Game Loop -----------------------------
-
-    sf::View view = window.getDefaultView();
 
     bool quit = false;
 
@@ -195,11 +190,21 @@ int main() {
     DDVFA a;
     a.init(28 * 28, 16, 16, rng);
 
-    const sf::Vector2f cell_size(64.0f, 64.0f);
-    const sf::Vector2f grid_start(128.0f, 0.0f);
+    const sf::Vector2f weights_size(64.0f, 64.0f);
+    const sf::Vector2f weights_spacing(2.0f, 2.0f);
+    const sf::Vector2f cell_size = weights_size + 2.0f * weights_spacing;
     const sf::Vector2f grid_spacing(2.0f, 2.0f);
     const sf::Vector2f spaced_cell_size = cell_size + grid_spacing;
-    const sf::Vector2f grid_size = spaced_cell_size * sf::Vector2f(a.num_f2_columns, a.num_f2_cells_per_column);
+    const sf::Vector2f grid_size = sf::Vector2f(spaced_cell_size.x * a.num_f2_columns, spaced_cell_size.y * a.num_f2_cells_per_column);
+    const sf::Vector2f grid_start(128.0f, 0.0f);
+    const sf::Vector2u window_size(grid_start.x + grid_size.x, grid_start.y + grid_size.y);
+
+    // Create window
+    sf::ContextSettings glContextSettings;
+
+    sf::RenderWindow window(sf::VideoMode(window_size), "ART Visualizer", sf::Style::Default, sf::State::Windowed, glContextSettings);
+
+    window.setFramerateLimit(60);
 
     mnist_data* data;
     unsigned int cnt;
@@ -216,8 +221,11 @@ int main() {
 
     int current_input_index = data_dist(rng);
 
+    const int num_states = 4;
     int state = 0;
     bool state_switch = false;
+    int t = 0;
+    int cycle_state_t = 1;
 
     std::vector<float> inputs(28 * 28, 0.0f);
 
@@ -275,6 +283,8 @@ int main() {
             state_switch = false;
         }
 
+        window.clear();
+
         // render current state
         sf::RectangleShape rs;
 
@@ -285,11 +295,44 @@ int main() {
 
         for (int c = 0; c < a.num_f2_columns; c++) {
             for (int d = 0; d < a.num_f2_cells_per_column; d++) {
-                rs.set_po                
+                int i = d + a.num_f2_cells_per_column * c;
+
+                sf::Vector2f start_pos = sf::Vector2f(c * spaced_cell_size.x, d * spaced_cell_size.y);
+
+                rs.setPosition(start_pos);
+
+                window.draw(rs);
+
+                // show weights image
+                for (int x = 0; x < 28; x++)
+                    for (int y = 0; y < 28; y++) {
+                        std::uint8_t gray = a.weights[y + 28 * x + a.num_f1_cells * i] * 255.0f;
+
+                        weights_image.setPixel(sf::Vector2u(x, y), sf::Color(gray, gray, gray));
+                    }
+
+                sf::Texture tex(weights_image);
+
+                sf::Sprite s(tex);
+                s.setScale(sf::Vector2f(weights_size.x / tex.getSize().x, weights_size.y / tex.getSize().y));
+                s.setPosition(start_pos + grid_spacing + weights_spacing);
+
+                window.draw(s);
             }
         }
 
         window.display();
+
+        t++;
+
+        if (t >= cycle_state_t) {
+            t = 0;
+            state = (state + 1) % num_states;
+            state_switch = true;
+
+            if (state == 0)
+                current_input_index = data_dist(rng);
+        }
     } while (!quit);
 
     return 0;
