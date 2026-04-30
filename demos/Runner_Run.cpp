@@ -103,7 +103,7 @@ int main() {
     Array<Hierarchy::Layer_Desc> lds(1);
 
     for (int i = 0; i < lds.size(); i++) {
-        lds[i].hidden_size = Int3(5, 5, 32);
+        lds[i].hidden_size = Int3(5, 5, 64);
     }
 
     const int sensorResolution = 31;

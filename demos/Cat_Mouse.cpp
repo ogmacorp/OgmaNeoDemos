@@ -21,7 +21,7 @@ public:
 
     void read(
         void* data,
-        long len
+        aon::u64 len
     ) override {
         ins.read(static_cast<char*>(data), len);
     }
@@ -33,7 +33,7 @@ public:
 
     void write(
         const void* data,
-        long len
+        aon::u64 len
     ) override {
         outs.write(static_cast<const char*>(data), len);
     }
