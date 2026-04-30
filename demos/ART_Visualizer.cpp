@@ -20,14 +20,15 @@ public:
     std::vector<float> activations;
     std::vector<float> comparisons;
     std::vector<int> cell_indices;
+    std::vector<int> learn_cell_indices;
     std::vector<int> learn_column_indices;
     std::vector<bool> committed;
 
-    float vigilance_low = 0.8f;
-    float vigilance_high = 0.9f;
+    float vigilance_low = 0.5f;
+    float vigilance_high = 0.8f;
     float alpha = 0.01f;
     float beta = 0.5f;
-    int k = 3;
+    int k = 2;
 
     void init(
         int num_f1_cells,
@@ -50,6 +51,7 @@ public:
         activations.resize(matches.size(), 0.0f);
         comparisons.resize(num_f2_columns, 0.0f);
         cell_indices.resize(num_f2_columns, -1);
+        learn_cell_indices.resize(num_f2_columns, -1);
         learn_column_indices.resize(num_f2_columns, -1); // allocate full amount here but actually only goes to k
         committed.resize(matches.size(), false);
     }
@@ -73,7 +75,7 @@ public:
                 total_weight += weights[wi];
             }
 
-            float match = min_sum / total_input;
+            float match = min_sum / std::max(0.0001f, total_input);
             float activation = min_sum / (alpha + total_weight);
 
             matches[i] = match;
@@ -86,8 +88,10 @@ public:
         for (int c = 0; c < num_f2_columns; c++) {
             int winner_cell_low = -1;
             int winner_cell_high = -1;
+            int complete_winner_cell = 0;
             float max_activation_low = 0.0f;
             float max_activation_high = 0.0f;
+            float max_complete_activation = 0.0f;
 
             for (int d = 0; d < num_f2_cells_per_column; d++) {
                 int i = d + num_f2_cells_per_column * c;
@@ -101,9 +105,15 @@ public:
                     max_activation_high = activations[i];
                     winner_cell_high = d;
                 }
+
+                if (activations[i] > max_complete_activation) {
+                    max_complete_activation = activations[i];
+                    complete_winner_cell = d;
+                }
             }
 
-            cell_indices[c] = winner_cell_high;
+            cell_indices[c] = (winner_cell_high == -1 ? complete_winner_cell : winner_cell_high);
+            learn_cell_indices[c] = winner_cell_high;
 
             comparisons[c] = max_activation_low;
         }
@@ -141,9 +151,9 @@ public:
             // if column found
             if (max_column != -1) {
                 // if cell found
-                if (cell_indices[max_column] != -1) {
+                if (learn_cell_indices[max_column] != -1) {
                     // perform learning on cell
-                    int i = cell_indices[max_column] + num_f2_cells_per_column * max_column;
+                    int i = learn_cell_indices[max_column] + num_f2_cells_per_column * max_column;
 
                     float rate = (committed[i] ? beta : 1.0f);
 
@@ -193,7 +203,7 @@ int main() {
     const sf::Vector2f weights_size(64.0f, 64.0f);
     const sf::Vector2f weights_spacing(2.0f, 2.0f);
     const sf::Vector2f cell_size = weights_size + 2.0f * weights_spacing;
-    const sf::Vector2f grid_spacing(2.0f, 2.0f);
+    const sf::Vector2f grid_spacing(8.0f, 8.0f);
     const sf::Vector2f spaced_cell_size = cell_size + grid_spacing;
     const sf::Vector2f grid_size = sf::Vector2f(spaced_cell_size.x * a.num_f2_columns, spaced_cell_size.y * a.num_f2_cells_per_column);
     const sf::Vector2f grid_start(128.0f, 0.0f);
@@ -227,7 +237,7 @@ int main() {
     int t = 0;
     int cycle_state_t = 1;
 
-    std::vector<float> inputs(28 * 28, 0.0f);
+    std::vector<float> inputs(28 * 28 * 2, 0.0f);
 
     sf::Image input_image(sf::Vector2u(28, 28));
     sf::Image weights_image(sf::Vector2u(28, 28));
@@ -249,10 +259,11 @@ int main() {
 
         int label = data[current_input_index].label;
 
-        for (int i = 0; i < inputs.size(); i++) {
+        for (int i = 0; i < inputs.size() / 2; i++) {
             std::uint8_t gray = data[current_input_index].data[i % 28][static_cast<int>(i / 28)];
 
             inputs[i] = gray / 255.0f;
+            inputs[inputs.size() / 2 + i] = 1.0f - gray / 255.0f;
 
             input_image.setPixel(sf::Vector2u(i % 28, i / 28), sf::Color(gray, gray, gray));
         }
@@ -288,18 +299,35 @@ int main() {
         // render current state
         sf::RectangleShape rs;
 
-        rs.setSize(cell_size);
-        rs.setFillColor(sf::Color::Black);
+        rs.setSize(spaced_cell_size);
+        rs.setFillColor(sf::Color::Transparent);
         rs.setOutlineThickness(1.0f);
-        rs.setOutlineColor(sf::Color::White);
 
         for (int c = 0; c < a.num_f2_columns; c++) {
+            bool is_selected_column = false;
+
+            for (int t = 0; t < a.k; t++) {
+                if (a.learn_column_indices[t] == c) {
+                    is_selected_column = true;
+
+                    break;
+                }
+            }
+
+            std::uint8_t alpha = (is_selected_column ? 1.0f : 0.5f) * 255.0f;
+
             for (int d = 0; d < a.num_f2_cells_per_column; d++) {
                 int i = d + a.num_f2_cells_per_column * c;
 
                 sf::Vector2f start_pos = sf::Vector2f(c * spaced_cell_size.x, d * spaced_cell_size.y);
 
+                rs.setSize(spaced_cell_size);
                 rs.setPosition(start_pos);
+
+                sf::Color outline_color = a.cell_indices[c] == d ? sf::Color::Red : sf::Color::White;
+                outline_color.a = alpha;
+
+                rs.setOutlineColor(outline_color);
 
                 window.draw(rs);
 
@@ -315,7 +343,12 @@ int main() {
 
                 sf::Sprite s(tex);
                 s.setScale(sf::Vector2f(weights_size.x / tex.getSize().x, weights_size.y / tex.getSize().y));
-                s.setPosition(start_pos + grid_spacing + weights_spacing);
+                s.setPosition(start_pos + grid_spacing * 0.5f + weights_spacing);
+
+                sf::Color fill_color = is_selected_column && a.cell_indices[c] == d ? sf::Color::Green : sf::Color::White;
+                fill_color.a = alpha;
+
+                s.setColor(fill_color);
 
                 window.draw(s);
             }
