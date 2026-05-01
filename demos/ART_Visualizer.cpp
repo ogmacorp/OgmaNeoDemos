@@ -70,7 +70,7 @@ public:
             for (int j = 0; j < num_f1_cells; j++) {
                 int wi = j + num_f1_cells * i;
 
-                min_sum += 0.99f * std::min(weights[wi], inputs[j]) + 0.01f * weights[wi] * inputs[j];
+                min_sum += std::min(weights[wi], inputs[j]);
                 total_input += inputs[j];
                 total_weight += weights[wi];
             }
