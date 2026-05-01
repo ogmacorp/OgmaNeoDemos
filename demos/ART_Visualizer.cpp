@@ -24,9 +24,9 @@ public:
     std::vector<int> learn_column_indices;
     std::vector<bool> committed;
 
-    float vigilance_low = 0.6f;
-    float vigilance_high = 0.8f;
-    float alpha = 0.0001f;
+    float vigilance_low = 0.5f;
+    float vigilance_high = 0.7f;
+    float alpha = 0.1f;
     float beta = 0.5f;
     int k = 1;
 
@@ -45,7 +45,7 @@ public:
         std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
 
         for (int i = 0; i < weights.size(); i++)
-            weights[i] = 1.0f - dist01(rng) * 0.01f;
+            weights[i] = dist01(rng);
 
         matches.resize(num_f2_columns * num_f2_cells_per_column, 0.0f);
         activations.resize(matches.size(), 0.0f);
@@ -70,7 +70,7 @@ public:
             for (int j = 0; j < num_f1_cells; j++) {
                 int wi = j + num_f1_cells * i;
 
-                min_sum += std::min(weights[wi], inputs[j]);
+                min_sum += 0.99f * std::min(weights[wi], inputs[j]) + 0.01f * weights[wi] * inputs[j];
                 total_input += inputs[j];
                 total_weight += weights[wi];
             }
@@ -78,7 +78,7 @@ public:
             float match = min_sum / std::max(0.0001f, total_input);
             float activation = min_sum / (alpha + total_weight);
 
-            matches[i] = match;
+            matches[i] = (!committed[i] ? 1.0f : match);
             activations[i] = activation;
         }
     }
@@ -155,15 +155,23 @@ public:
                     // perform learning on cell
                     int i = learn_cell_indices[max_column] + num_f2_cells_per_column * max_column;
 
-                    float rate = (committed[i] ? beta : 1.0f);
+                    if (committed[i]) {
+                        for (int j = 0; j < num_f1_cells; j++) {
+                            int wi = j + num_f1_cells * i;
 
-                    for (int j = 0; j < num_f1_cells; j++) {
-                        int wi = j + num_f1_cells * i;
+                            weights[wi] += beta * std::min(0.0f, inputs[j] - weights[wi]);
+                        }
 
-                        weights[wi] += rate * std::min(0.0f, inputs[j] - weights[wi]);
                     }
+                    else {
+                        for (int j = 0; j < num_f1_cells; j++) {
+                            int wi = j + num_f1_cells * i;
 
-                    committed[i] = true;
+                            weights[wi] += 0.99f * (inputs[j] - weights[wi]);
+                        }
+
+                        committed[i] = true;
+                    }
                 }
             }
         }
@@ -232,8 +240,16 @@ int main() {
     int current_input_index = data_dist(rng);
 
     const int num_states = 4;
+
+    const std::vector<std::string> state_labels = {
+        "match cells and activation",
+        "find resonant cell per column",
+        "find resonant column",
+        "update weights"
+    };
+
     int state = 0;
-    bool state_switch = false;
+    bool state_switch = true;
     int t = 0;
     int cycle_state_t = 100;
 
@@ -271,6 +287,26 @@ int main() {
                 quit = true;
         }
 
+        // speed train
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space)) {
+            for (int it = 0; it < 100; it++) {
+                int input_index = data_dist(rng);
+
+                for (int i = 0; i < inputs.size() / 2; i++) {
+                    std::uint8_t gray = data[input_index].data[i % 28][static_cast<int>(i / 28)];
+
+                    inputs[i] = gray / 255.0f;
+                    inputs[inputs.size() / 2 + i] = 1.0f - inputs[i]; // complement coding
+                }
+
+                a.step(inputs, true);
+            }
+
+            t = 0;
+            state = 0;
+            state_switch = true;
+        }
+
         int label = data[current_input_index].label;
 
         for (int i = 0; i < inputs.size() / 2; i++) {
@@ -279,7 +315,7 @@ int main() {
             inputs[i] = gray / 255.0f;
             inputs[inputs.size() / 2 + i] = 1.0f - inputs[i]; // complement coding
 
-            input_image.setPixel(sf::Vector2u(i % 28, i / 28), sf::Color(gray, gray, gray));
+            input_image.setPixel(sf::Vector2u(i / 28, i % 28), sf::Color(gray, gray, gray));
         }
 
         window.clear();
@@ -390,7 +426,7 @@ int main() {
                     rs.setSize(spaced_cell_size);
                     rs.setPosition(start_pos);
 
-                    rs.setOutlineColor(a.matches[i] >= a.vigilance_high ? sf::Color::Blue : sf::Color::White);
+                    rs.setOutlineColor(sf::Color::White);
 
                     window.draw(rs);
 
@@ -599,19 +635,38 @@ int main() {
         sf::Texture input_texture(input_image);
 
         sf::RectangleShape bg_rs;
-        bg_rs.setSize(grid_start);
+        bg_rs.setSize(sf::Vector2f(grid_start.x, grid_start.x));
         bg_rs.setFillColor(sf::Color::Transparent);
         bg_rs.setOutlineColor(sf::Color::White);
         bg_rs.setOutlineThickness(2.0f);
+        bg_rs.setPosition(sf::Vector2f(0.0f, 40.0f));
 
         window.draw(bg_rs);
 
         sf::Sprite input_sprite(input_texture);
 
-        input_sprite.setPosition(sf::Vector2f(2.0f, 2.0f));
-        input_sprite.setScale(sf::Vector2f((grid_start.x - 4.0f) / input_texture.getSize().x, (grid_start.y - 4.0f) / input_texture.getSize().y));
+        input_sprite.setPosition(bg_rs.getPosition() + sf::Vector2f(2.0f, 2.0f));
+        input_sprite.setScale(sf::Vector2f((grid_start.x - 4.0f) / input_texture.getSize().x, (grid_start.x - 4.0f) / input_texture.getSize().y));
 
         window.draw(input_sprite);
+
+        // digit text
+        {
+            sf::Text text(font, "Digit: " + std::to_string(label), 16);
+
+            text.setPosition(sf::Vector2f(4.0f, 4.0f));
+
+            window.draw(text);
+        }
+
+        // state text
+        {
+            sf::Text text(font, state_labels[state], 12);
+
+            text.setPosition(bg_rs.getPosition() + sf::Vector2f(4.0f, 4.0f + bg_rs.getSize().y));
+
+            window.draw(text);
+        }
 
         window.display();
 
