@@ -239,6 +239,20 @@ int main() {
 
     std::vector<float> inputs(28 * 28 * 2, 0.0f);
 
+    sf::Font font;
+    bool font_loaded = false;
+    for (auto &p : {"/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+                    "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
+                    "/System/Library/Fonts/Menlo.ttc",
+                    "C:/Windows/Fonts/consola.ttf",
+                    "/usr/share/fonts/TTF/DejaVuSansMono.ttf"}) {
+        if (font.openFromFile(p)) { font_loaded = true; break; }
+    }
+
+    if (!font_loaded) {
+        std::cerr << "[WARN] Could not load font. Text will be invisible.\n";
+    }
+
     sf::Image input_image(sf::Vector2u(28, 28));
     sf::Image weights_image(sf::Vector2u(28, 28));
 
@@ -580,6 +594,24 @@ int main() {
             break;
         }
         }
+
+        // draw digit display
+        sf::Texture input_texture(input_image);
+
+        sf::RectangleShape bg_rs;
+        bg_rs.setSize(grid_start);
+        bg_rs.setFillColor(sf::Color::Transparent);
+        bg_rs.setOutlineColor(sf::Color::White);
+        bg_rs.setOutlineThickness(2.0f);
+
+        window.draw(bg_rs);
+
+        sf::Sprite input_sprite(input_texture);
+
+        input_sprite.setPosition(sf::Vector2f(2.0f, 2.0f));
+        input_sprite.setScale(sf::Vector2f((grid_start.x - 4.0f) / input_texture.getSize().x, (grid_start.y - 4.0f) / input_texture.getSize().y));
+
+        window.draw(input_sprite);
 
         window.display();
 
