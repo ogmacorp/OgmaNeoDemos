@@ -24,10 +24,12 @@ public:
     std::vector<int> learn_column_indices;
     std::vector<bool> committed;
 
-    float vigilance_low = 0.5f;
-    float vigilance_high = 0.7f;
-    float alpha = 0.1f;
-    float beta = 0.5f;
+    float vigilance_low = 0.87f;
+    float vigilance_high = 0.9f;
+    float alpha = 0.01f;
+    float beta = 0.1f;
+    float leak = 0.01f;
+    float commit_rate = 0.99f;
     int k = 1;
 
     void init(
@@ -70,7 +72,7 @@ public:
             for (int j = 0; j < num_f1_cells; j++) {
                 int wi = j + num_f1_cells * i;
 
-                min_sum += std::min(weights[wi], inputs[j]);
+                min_sum += (1.0f - leak) * std::min(weights[wi], inputs[j]) + leak * weights[wi] * inputs[j];
                 total_input += inputs[j];
                 total_weight += weights[wi];
             }
@@ -136,9 +138,9 @@ public:
             if (max_column != -1) {
                 // set activation to 0 so don't re-select
                 comparisons[max_column] = 0.0f;
-
-                learn_column_indices[t] = max_column;
             }
+
+            learn_column_indices[t] = max_column;
         }
     }
 
@@ -161,13 +163,12 @@ public:
 
                             weights[wi] += beta * std::min(0.0f, inputs[j] - weights[wi]);
                         }
-
                     }
                     else {
                         for (int j = 0; j < num_f1_cells; j++) {
                             int wi = j + num_f1_cells * i;
 
-                            weights[wi] += 0.99f * (inputs[j] - weights[wi]);
+                            weights[wi] += commit_rate * (inputs[j] - weights[wi]);
                         }
 
                         committed[i] = true;
@@ -206,7 +207,7 @@ int main() {
     std::uniform_real_distribution<float> dist01(0.0f, 1.0f);
 
     DDVFA a;
-    a.init(28 * 28, 16, 16, rng);
+    a.init(28 * 28 * 2, 16, 16, rng);
 
     const sf::Vector2f weights_size(64.0f, 64.0f);
     const sf::Vector2f weights_spacing(2.0f, 2.0f);
@@ -305,211 +306,54 @@ int main() {
             t = 0;
             state = 0;
             state_switch = true;
+            current_input_index = data_dist(rng);
         }
+        else {
+            int label = data[current_input_index].label;
 
-        int label = data[current_input_index].label;
+            for (int i = 0; i < inputs.size() / 2; i++) {
+                std::uint8_t gray = data[current_input_index].data[i % 28][static_cast<int>(i / 28)];
 
-        for (int i = 0; i < inputs.size() / 2; i++) {
-            std::uint8_t gray = data[current_input_index].data[i % 28][static_cast<int>(i / 28)];
+                inputs[i] = gray / 255.0f;
+                inputs[inputs.size() / 2 + i] = 1.0f - inputs[i]; // complement coding
 
-            inputs[i] = gray / 255.0f;
-            inputs[inputs.size() / 2 + i] = 1.0f - inputs[i]; // complement coding
-
-            input_image.setPixel(sf::Vector2u(i / 28, i % 28), sf::Color(gray, gray, gray));
-        }
-
-        window.clear();
-
-        if (state_switch) {
-            switch(state) {
-            case 0: { // match and activation
-                a.step0(inputs);
-
-                break;
+                input_image.setPixel(sf::Vector2u(i / 28, i % 28), sf::Color(gray, gray, gray));
             }
 
-            case 1: { // resonance in column
-                a.step1();
+            window.clear();
 
-                break;
-            }
-
-            case 2: { // resonance between columns
-                a.step2();
-
-                break;
-            }
-
-            case 3: { // learning
-                a.step3(inputs);
-
-                break;
-            }
-            }
-
-            state_switch = false;
-        }
-
-        // render current state
-        /*sf::RectangleShape rs;
-
-        rs.setSize(spaced_cell_size);
-        rs.setFillColor(sf::Color::Transparent);
-        rs.setOutlineThickness(2.0f);
-
-        for (int c = 0; c < a.num_f2_columns; c++) {
-            bool is_selected_column = false;
-
-            for (int t = 0; t < a.k; t++) {
-                if (a.learn_column_indices[t] == c) {
-                    is_selected_column = true;
+            if (state_switch) {
+                switch(state) {
+                case 0: { // match and activation
+                    a.step0(inputs);
 
                     break;
                 }
-            }
 
-            std::uint8_t alpha = (is_selected_column ? 1.0f : 0.7f) * 255.0f;
+                case 1: { // resonance in column
+                    a.step1();
 
-            for (int d = 0; d < a.num_f2_cells_per_column; d++) {
-                int i = d + a.num_f2_cells_per_column * c;
-
-                sf::Vector2f start_pos = grid_start + sf::Vector2f(c * spaced_cell_size.x, d * spaced_cell_size.y);
-
-                rs.setSize(spaced_cell_size);
-                rs.setPosition(start_pos);
-
-                sf::Color outline_color = a.cell_indices[c] == d ? sf::Color::Red : sf::Color::White;
-                //outline_color.a = alpha;
-
-                rs.setOutlineColor(outline_color);
-
-                window.draw(rs);
-
-                // show weights image
-                for (int x = 0; x < 28; x++)
-                    for (int y = 0; y < 28; y++) {
-                        std::uint8_t gray = a.weights[y + 28 * x + a.num_f1_cells * i] * 255.0f;
-
-                        weights_image.setPixel(sf::Vector2u(x, y), sf::Color(gray, gray, gray));
-                    }
-
-                sf::Texture tex(weights_image);
-
-                sf::Sprite s(tex);
-                s.setScale(sf::Vector2f(weights_size.x / tex.getSize().x, weights_size.y / tex.getSize().y));
-                s.setPosition(start_pos + grid_spacing * 0.5f + weights_spacing);
-
-                sf::Color fill_color = is_selected_column && a.cell_indices[c] == d ? sf::Color::Green : sf::Color::White;
-                fill_color.a = alpha;
-
-                s.setColor(fill_color);
-
-                window.draw(s);
-            }
-        }*/
-
-        switch(state) {
-        case 0: { // match and activation
-            // render current state
-            sf::RectangleShape rs;
-
-            rs.setSize(spaced_cell_size);
-            rs.setFillColor(sf::Color::Transparent);
-            rs.setOutlineThickness(2.0f);
-
-            for (int c = 0; c < a.num_f2_columns; c++) {
-                for (int d = 0; d < a.num_f2_cells_per_column; d++) {
-                    int i = d + a.num_f2_cells_per_column * c;
-
-                    sf::Vector2f start_pos = grid_start + sf::Vector2f(c * spaced_cell_size.x, d * spaced_cell_size.y);
-
-                    rs.setSize(spaced_cell_size);
-                    rs.setPosition(start_pos);
-
-                    rs.setOutlineColor(sf::Color::White);
-
-                    window.draw(rs);
-
-                    // show weights image
-                    for (int x = 0; x < 28; x++)
-                        for (int y = 0; y < 28; y++) {
-                            std::uint8_t gray = a.weights[y + 28 * x + a.num_f1_cells * i] * 255.0f;
-
-                            weights_image.setPixel(sf::Vector2u(x, y), sf::Color(gray, gray, gray));
-                        }
-
-                    sf::Texture tex(weights_image);
-
-                    sf::Sprite s(tex);
-                    s.setScale(sf::Vector2f(weights_size.x / tex.getSize().x, weights_size.y / tex.getSize().y));
-                    s.setPosition(start_pos + grid_spacing * 0.5f + weights_spacing);
-
-                    s.setColor(a.matches[i] >= a.vigilance_high ? sf::Color::Blue : sf::Color::White);
-
-                    window.draw(s);
-
-                    // show activation as bar
-                    float act = a.activations[i];
-
-                    sf::RectangleShape bar;
-                    bar.setFillColor(sf::Color(0, 255, 0, 128));
-                    bar.setSize(sf::Vector2f(6.0f, spaced_cell_size.y * act));
-                    bar.setPosition(start_pos + sf::Vector2f(0.0f, spaced_cell_size.y - act * spaced_cell_size.y));
-
-                    window.draw(bar);
+                    break;
                 }
-            }
 
-            break;
-        }
+                case 2: { // resonance between columns
+                    a.step2();
 
-        case 1: { // resonance in column
-            // render current state
-            sf::RectangleShape rs;
-
-            rs.setSize(spaced_cell_size);
-            rs.setFillColor(sf::Color::Transparent);
-            rs.setOutlineThickness(2.0f);
-
-            for (int c = 0; c < a.num_f2_columns; c++) {
-                for (int d = 0; d < a.num_f2_cells_per_column; d++) {
-                    int i = d + a.num_f2_cells_per_column * c;
-
-                    sf::Vector2f start_pos = grid_start + sf::Vector2f(c * spaced_cell_size.x, d * spaced_cell_size.y);
-
-                    rs.setSize(spaced_cell_size);
-                    rs.setPosition(start_pos);
-
-                    rs.setOutlineColor(a.cell_indices[c] == d ? sf::Color::Red : sf::Color::White);
-
-                    window.draw(rs);
-
-                    // show weights image
-                    for (int x = 0; x < 28; x++)
-                        for (int y = 0; y < 28; y++) {
-                            std::uint8_t gray = a.weights[y + 28 * x + a.num_f1_cells * i] * 255.0f;
-
-                            weights_image.setPixel(sf::Vector2u(x, y), sf::Color(gray, gray, gray));
-                        }
-
-                    sf::Texture tex(weights_image);
-
-                    sf::Sprite s(tex);
-                    s.setScale(sf::Vector2f(weights_size.x / tex.getSize().x, weights_size.y / tex.getSize().y));
-                    s.setPosition(start_pos + grid_spacing * 0.5f + weights_spacing);
-
-                    s.setColor(a.learn_cell_indices[c] == d ? sf::Color::Green : sf::Color::White);
-
-                    window.draw(s);
+                    break;
                 }
+
+                case 3: { // learning
+                    a.step3(inputs);
+
+                    break;
+                }
+                }
+
+                state_switch = false;
             }
 
-            break;
-        }
-
-        case 2: { // resonance between columns
             // render current state
-            sf::RectangleShape rs;
+            /*sf::RectangleShape rs;
 
             rs.setSize(spaced_cell_size);
             rs.setFillColor(sf::Color::Transparent);
@@ -526,74 +370,9 @@ int main() {
                     }
                 }
 
-                std::uint8_t alpha = (is_selected_column ? 255 : 64);
+                std::uint8_t alpha = (is_selected_column ? 1.0f : 0.7f) * 255.0f;
 
                 for (int d = 0; d < a.num_f2_cells_per_column; d++) {
-                    int i = d + a.num_f2_cells_per_column * c;
-
-                    sf::Vector2f start_pos = grid_start + sf::Vector2f(c * spaced_cell_size.x, d * spaced_cell_size.y);
-
-                    rs.setSize(spaced_cell_size);
-                    rs.setPosition(start_pos);
-
-                    sf::Color outline_color = (a.cell_indices[c] == d ? sf::Color::Red : sf::Color::White);
-                    outline_color.a = alpha;
-
-                    rs.setOutlineColor(outline_color);
-
-                    window.draw(rs);
-
-                    // show weights image
-                    for (int x = 0; x < 28; x++)
-                        for (int y = 0; y < 28; y++) {
-                            std::uint8_t gray = a.weights[y + 28 * x + a.num_f1_cells * i] * 255.0f;
-
-                            weights_image.setPixel(sf::Vector2u(x, y), sf::Color(gray, gray, gray));
-                        }
-
-                    sf::Texture tex(weights_image);
-
-                    sf::Sprite s(tex);
-                    s.setScale(sf::Vector2f(weights_size.x / tex.getSize().x, weights_size.y / tex.getSize().y));
-                    s.setPosition(start_pos + grid_spacing * 0.5f + weights_spacing);
-
-                    sf::Color fill_color = (a.learn_cell_indices[c] == d ? sf::Color::Green : sf::Color::White);
-                    fill_color.a = alpha;
-
-                    s.setColor(fill_color);
-
-                    window.draw(s);
-                }
-            }
-
-            break;
-        }
-
-        case 3: { // learning
-            // render current state
-            sf::RectangleShape rs;
-
-            rs.setSize(spaced_cell_size);
-            rs.setFillColor(sf::Color::Transparent);
-            rs.setOutlineThickness(2.0f);
-
-            for (int c = 0; c < a.num_f2_columns; c++) {
-                bool is_selected_column = false;
-
-                for (int t = 0; t < a.k; t++) {
-                    if (a.learn_column_indices[t] == c) {
-                        is_selected_column = true;
-
-                        break;
-                    }
-                }
-
-                if (!is_selected_column)
-                    continue;
-
-                int d = a.cell_indices[c];
-
-                if (d != -1) {
                     int i = d + a.num_f2_cells_per_column * c;
 
                     sf::Vector2f start_pos = grid_start + sf::Vector2f(c * spaced_cell_size.x, d * spaced_cell_size.y);
@@ -602,6 +381,7 @@ int main() {
                     rs.setPosition(start_pos);
 
                     sf::Color outline_color = a.cell_indices[c] == d ? sf::Color::Red : sf::Color::White;
+                    //outline_color.a = alpha;
 
                     rs.setOutlineColor(outline_color);
 
@@ -621,65 +401,288 @@ int main() {
                     s.setScale(sf::Vector2f(weights_size.x / tex.getSize().x, weights_size.y / tex.getSize().y));
                     s.setPosition(start_pos + grid_spacing * 0.5f + weights_spacing);
 
-                    s.setColor(sf::Color::White);
+                    sf::Color fill_color = is_selected_column && a.cell_indices[c] == d ? sf::Color::Green : sf::Color::White;
+                    fill_color.a = alpha;
+
+                    s.setColor(fill_color);
 
                     window.draw(s);
                 }
+            }*/
+
+            switch(state) {
+            case 0: { // match and activation
+                // render current state
+                sf::RectangleShape rs;
+
+                rs.setSize(spaced_cell_size);
+                rs.setFillColor(sf::Color::Transparent);
+                rs.setOutlineThickness(2.0f);
+
+                for (int c = 0; c < a.num_f2_columns; c++) {
+                    for (int d = 0; d < a.num_f2_cells_per_column; d++) {
+                        int i = d + a.num_f2_cells_per_column * c;
+
+                        sf::Vector2f start_pos = grid_start + sf::Vector2f(c * spaced_cell_size.x, d * spaced_cell_size.y);
+
+                        rs.setSize(spaced_cell_size);
+                        rs.setPosition(start_pos);
+
+                        rs.setOutlineColor(sf::Color::White);
+
+                        window.draw(rs);
+
+                        // show weights image
+                        for (int x = 0; x < 28; x++)
+                            for (int y = 0; y < 28; y++) {
+                                std::uint8_t gray = a.weights[y + 28 * x + a.num_f1_cells * i] * 255.0f;
+
+                                weights_image.setPixel(sf::Vector2u(x, y), sf::Color(gray, gray, gray));
+                            }
+
+                        sf::Texture tex(weights_image);
+
+                        sf::Sprite s(tex);
+                        s.setScale(sf::Vector2f(weights_size.x / tex.getSize().x, weights_size.y / tex.getSize().y));
+                        s.setPosition(start_pos + grid_spacing * 0.5f + weights_spacing);
+
+                        s.setColor(a.matches[i] >= a.vigilance_high ? sf::Color::Blue : sf::Color::White);
+
+                        window.draw(s);
+
+                        // show activation as bar
+                        float act = a.activations[i];
+
+                        sf::RectangleShape bar;
+                        bar.setFillColor(sf::Color(0, 255, 0, 128));
+                        bar.setSize(sf::Vector2f(6.0f, spaced_cell_size.y * act));
+                        bar.setPosition(start_pos + sf::Vector2f(0.0f, spaced_cell_size.y - act * spaced_cell_size.y));
+
+                        window.draw(bar);
+                    }
+                }
+
+                break;
             }
 
-            break;
-        }
-        }
+            case 1: { // resonance in column
+                // render current state
+                sf::RectangleShape rs;
 
-        // draw digit display
-        sf::Texture input_texture(input_image);
+                rs.setSize(spaced_cell_size);
+                rs.setFillColor(sf::Color::Transparent);
+                rs.setOutlineThickness(2.0f);
 
-        sf::RectangleShape bg_rs;
-        bg_rs.setSize(sf::Vector2f(grid_start.x, grid_start.x));
-        bg_rs.setFillColor(sf::Color::Transparent);
-        bg_rs.setOutlineColor(sf::Color::White);
-        bg_rs.setOutlineThickness(2.0f);
-        bg_rs.setPosition(sf::Vector2f(0.0f, 40.0f));
+                for (int c = 0; c < a.num_f2_columns; c++) {
+                    for (int d = 0; d < a.num_f2_cells_per_column; d++) {
+                        int i = d + a.num_f2_cells_per_column * c;
 
-        window.draw(bg_rs);
+                        sf::Vector2f start_pos = grid_start + sf::Vector2f(c * spaced_cell_size.x, d * spaced_cell_size.y);
 
-        sf::Sprite input_sprite(input_texture);
+                        rs.setSize(spaced_cell_size);
+                        rs.setPosition(start_pos);
 
-        input_sprite.setPosition(bg_rs.getPosition() + sf::Vector2f(2.0f, 2.0f));
-        input_sprite.setScale(sf::Vector2f((grid_start.x - 4.0f) / input_texture.getSize().x, (grid_start.x - 4.0f) / input_texture.getSize().y));
+                        rs.setOutlineColor(a.cell_indices[c] == d ? sf::Color::Red : sf::Color::White);
 
-        window.draw(input_sprite);
+                        window.draw(rs);
 
-        // digit text
-        {
-            sf::Text text(font, "Digit: " + std::to_string(label), 16);
+                        // show weights image
+                        for (int x = 0; x < 28; x++)
+                            for (int y = 0; y < 28; y++) {
+                                std::uint8_t gray = a.weights[y + 28 * x + a.num_f1_cells * i] * 255.0f;
 
-            text.setPosition(sf::Vector2f(4.0f, 4.0f));
+                                weights_image.setPixel(sf::Vector2u(x, y), sf::Color(gray, gray, gray));
+                            }
 
-            window.draw(text);
-        }
+                        sf::Texture tex(weights_image);
 
-        // state text
-        {
-            sf::Text text(font, state_labels[state], 12);
+                        sf::Sprite s(tex);
+                        s.setScale(sf::Vector2f(weights_size.x / tex.getSize().x, weights_size.y / tex.getSize().y));
+                        s.setPosition(start_pos + grid_spacing * 0.5f + weights_spacing);
 
-            text.setPosition(bg_rs.getPosition() + sf::Vector2f(4.0f, 4.0f + bg_rs.getSize().y));
+                        s.setColor(a.learn_cell_indices[c] == d ? sf::Color::Green : sf::Color::White);
 
-            window.draw(text);
+                        window.draw(s);
+                    }
+                }
+
+                break;
+            }
+
+            case 2: { // resonance between columns
+                // render current state
+                sf::RectangleShape rs;
+
+                rs.setSize(spaced_cell_size);
+                rs.setFillColor(sf::Color::Transparent);
+                rs.setOutlineThickness(2.0f);
+
+                for (int c = 0; c < a.num_f2_columns; c++) {
+                    bool is_selected_column = false;
+
+                    for (int t = 0; t < a.k; t++) {
+                        if (a.learn_column_indices[t] == c) {
+                            is_selected_column = true;
+
+                            break;
+                        }
+                    }
+
+                    std::uint8_t alpha = (is_selected_column ? 255 : 64);
+
+                    for (int d = 0; d < a.num_f2_cells_per_column; d++) {
+                        int i = d + a.num_f2_cells_per_column * c;
+
+                        sf::Vector2f start_pos = grid_start + sf::Vector2f(c * spaced_cell_size.x, d * spaced_cell_size.y);
+
+                        rs.setSize(spaced_cell_size);
+                        rs.setPosition(start_pos);
+
+                        sf::Color outline_color = (a.cell_indices[c] == d ? sf::Color::Red : sf::Color::White);
+                        outline_color.a = alpha;
+
+                        rs.setOutlineColor(outline_color);
+
+                        window.draw(rs);
+
+                        // show weights image
+                        for (int x = 0; x < 28; x++)
+                            for (int y = 0; y < 28; y++) {
+                                std::uint8_t gray = a.weights[y + 28 * x + a.num_f1_cells * i] * 255.0f;
+
+                                weights_image.setPixel(sf::Vector2u(x, y), sf::Color(gray, gray, gray));
+                            }
+
+                        sf::Texture tex(weights_image);
+
+                        sf::Sprite s(tex);
+                        s.setScale(sf::Vector2f(weights_size.x / tex.getSize().x, weights_size.y / tex.getSize().y));
+                        s.setPosition(start_pos + grid_spacing * 0.5f + weights_spacing);
+
+                        sf::Color fill_color = (a.learn_cell_indices[c] == d ? sf::Color::Green : sf::Color::White);
+                        fill_color.a = alpha;
+
+                        s.setColor(fill_color);
+
+                        window.draw(s);
+                    }
+                }
+
+                break;
+            }
+
+            case 3: { // learning
+                // render current state
+                sf::RectangleShape rs;
+
+                rs.setSize(spaced_cell_size);
+                rs.setFillColor(sf::Color::Transparent);
+                rs.setOutlineThickness(2.0f);
+
+                for (int c = 0; c < a.num_f2_columns; c++) {
+                    bool is_selected_column = false;
+
+                    for (int t = 0; t < a.k; t++) {
+                        if (a.learn_column_indices[t] == c) {
+                            is_selected_column = true;
+
+                            break;
+                        }
+                    }
+
+                    if (!is_selected_column)
+                        continue;
+
+                    int d = a.learn_cell_indices[c];
+
+                    if (d != -1) {
+                        int i = d + a.num_f2_cells_per_column * c;
+
+                        sf::Vector2f start_pos = grid_start + sf::Vector2f(c * spaced_cell_size.x, d * spaced_cell_size.y);
+
+                        rs.setSize(spaced_cell_size);
+                        rs.setPosition(start_pos);
+
+                        sf::Color outline_color = a.learn_cell_indices[c] == d ? sf::Color::Red : sf::Color::White;
+
+                        rs.setOutlineColor(outline_color);
+
+                        window.draw(rs);
+
+                        // show weights image
+                        for (int x = 0; x < 28; x++)
+                            for (int y = 0; y < 28; y++) {
+                                std::uint8_t gray = a.weights[y + 28 * x + a.num_f1_cells * i] * 255.0f;
+
+                                weights_image.setPixel(sf::Vector2u(x, y), sf::Color(gray, gray, gray));
+                            }
+
+                        sf::Texture tex(weights_image);
+
+                        sf::Sprite s(tex);
+                        s.setScale(sf::Vector2f(weights_size.x / tex.getSize().x, weights_size.y / tex.getSize().y));
+                        s.setPosition(start_pos + grid_spacing * 0.5f + weights_spacing);
+
+                        s.setColor(sf::Color::White);
+
+                        window.draw(s);
+                    }
+                }
+
+                break;
+            }
+            }
+
+            // draw digit display
+            sf::Texture input_texture(input_image);
+
+            sf::RectangleShape bg_rs;
+            bg_rs.setSize(sf::Vector2f(grid_start.x, grid_start.x));
+            bg_rs.setFillColor(sf::Color::Transparent);
+            bg_rs.setOutlineColor(sf::Color::White);
+            bg_rs.setOutlineThickness(2.0f);
+            bg_rs.setPosition(sf::Vector2f(0.0f, 40.0f));
+
+            window.draw(bg_rs);
+
+            sf::Sprite input_sprite(input_texture);
+
+            input_sprite.setPosition(bg_rs.getPosition() + sf::Vector2f(2.0f, 2.0f));
+            input_sprite.setScale(sf::Vector2f((grid_start.x - 4.0f) / input_texture.getSize().x, (grid_start.x - 4.0f) / input_texture.getSize().y));
+
+            window.draw(input_sprite);
+
+            // digit text
+            {
+                sf::Text text(font, "Digit: " + std::to_string(label), 16);
+
+                text.setPosition(sf::Vector2f(4.0f, 4.0f));
+
+                window.draw(text);
+            }
+
+            // state text
+            {
+                sf::Text text(font, state_labels[state], 12);
+
+                text.setPosition(bg_rs.getPosition() + sf::Vector2f(4.0f, 4.0f + bg_rs.getSize().y));
+
+                window.draw(text);
+            }
+
+            t++;
+
+            if (t >= cycle_state_t) {
+                t = 0;
+                state = (state + 1) % num_states;
+                state_switch = true;
+
+                if (state == 0)
+                    current_input_index = data_dist(rng);
+            }
         }
 
         window.display();
-
-        t++;
-
-        if (t >= cycle_state_t) {
-            t = 0;
-            state = (state + 1) % num_states;
-            state_switch = true;
-
-            if (state == 0)
-                current_input_index = data_dist(rng);
-        }
     } while (!quit);
 
     return 0;

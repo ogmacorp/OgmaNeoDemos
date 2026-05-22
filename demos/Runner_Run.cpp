@@ -106,7 +106,7 @@ int main() {
         lds[i].hidden_size = Int3(5, 5, 64);
     }
 
-    const int sensorResolution = 31;
+    const int sensorResolution = 21;
     const int actionResolution = 11;
 
     Array<Hierarchy::IO_Desc> ioDescs(2);
@@ -117,6 +117,8 @@ int main() {
     h.init_random(ioDescs, lds);
 
     h.params.ios[1].importance = 0.0f;
+
+    h.params.layers[0].recurrent_importance = 0.1f;
 
     // ---------------------------- Game Loop -----------------------------
 

@@ -71,11 +71,10 @@ int main() {
     for (int i = 0; i < lds.size(); i++)
         lds[i].hidden_size = Int3(5, 5, 32);
 
-    Array<Hierarchy::IO_Desc> ioDescs(4);
-    ioDescs[0] = Hierarchy::IO_Desc(Int3(width, height, 2), IO_Type::none); // Goal
-    ioDescs[1] = Hierarchy::IO_Desc(Int3(width, height, 2), IO_Type::prediction); // Actual
-    ioDescs[2] = Hierarchy::IO_Desc(Int3(1, 1, numActions), IO_Type::action); // Action
-    ioDescs[3] = Hierarchy::IO_Desc(Int3(1, 1, width), IO_Type::none); // Grabber position
+    Array<Hierarchy::IO_Desc> ioDescs(3);
+    ioDescs[0] = Hierarchy::IO_Desc(Int3(width, height, 2), IO_Type::prediction); // Actual
+    ioDescs[1] = Hierarchy::IO_Desc(Int3(1, 1, numActions), IO_Type::action); // Action
+    ioDescs[2] = Hierarchy::IO_Desc(Int3(1, 1, width), IO_Type::prediction); // Grabber position
 
     Hierarchy h;
     h.init_random(ioDescs, lds);
@@ -155,7 +154,7 @@ int main() {
 
         if (speedMode || slowTimer >= slowTime) {
             if (speedMode && dist01(rng) < randomizeChance) {
-                std::fill(targetStacks.begin(), targetStacks.end(), 0.0f);
+                std::fill(targetStacks.begin(), targetStacks.end(), 0);
 
                 for (int i = 0; i < numBlocks; i++) {
                     targetStacks[stackDist(rng)]++;
@@ -190,10 +189,12 @@ int main() {
                 positions[0] = actualPosition;
 
                 Array<S32_Array_View> inputCIs(ioDescs.size());
-                inputCIs[0] = goalStates;
-                inputCIs[1] = actualStates;
-                inputCIs[2] = actions;
-                inputCIs[3] = positions;
+                inputCIs[0] = actualStates;
+                inputCIs[1] = actions;
+                inputCIs[2] = positions;
+
+                Array<S32_Array_View> goalCIs(ioDescs.size());
+                goalCIs[0] = goalStates;
 
                 float reward = 0.0f;
 
@@ -204,9 +205,9 @@ int main() {
                 reward /= actualStates.size();
                 reward *= reward * reward;
 
-                h.step(inputCIs, true, reward);
+                h.step(inputCIs, goalCIs, true);
 
-                actIndex = h.get_prediction_cis(2)[0];
+                actIndex = h.get_prediction_cis(1)[0];
 
                 //if (speedMode) {
                 //    if (dist01(rng) < (speedMode ? 1.0f : 0.0f))

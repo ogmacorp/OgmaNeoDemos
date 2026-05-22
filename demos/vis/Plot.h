@@ -17,7 +17,7 @@ namespace vis {
 		sf::Color color;
 
 		Point() :
-			color(sf::Color::Black) {
+			color(sf::Color::White) {
         }
 	};
 
@@ -28,10 +28,10 @@ namespace vis {
 		sf::Vector2f shadowOffset;
 
 		std::vector<Point> points;
-		int  type = 0;	// 0: line, >0: point (as circle at radius = type)
+		int type = 0;	// 0: line, >0: point (as circle at radius = type)
 
 		Curve() :
-			shadow(0.5f), shadowOffset(-4.0f, 4.0f) {
+			shadow(0.0f), shadowOffset(-4.0f, 4.0f) {
         }
 	};
 
@@ -45,8 +45,8 @@ namespace vis {
         std::vector<Curve> curves;
 
 		Plot() :
-			axesColor(sf::Color::Black), backgroundColor(sf::Color::White),
-            plotBackgroundColor(sf::Color::White), plotXAxisTicks(false) {
+			axesColor(sf::Color::White), backgroundColor(sf::Color::Black),
+            plotBackgroundColor(sf::Color::Black), plotXAxisTicks(false) {
         }
 
 		void draw(sf::RenderTarget &target, const sf::Texture &lineGradientTexture, const sf::Font &tickFont, float tickTextScale,
