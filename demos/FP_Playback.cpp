@@ -32,7 +32,7 @@ int main() {
 
     sf::Vector2f center(window.getSize().x * 0.5f, window.getSize().y * 0.5f);
 
-    window.setFramerateLimit(100);
+    window.setFramerateLimit(60);
 
     sf::Font font("resources/Hack-Regular.ttf");
 
