@@ -118,7 +118,7 @@ int main() {
 
     h.params.ios[1].importance = 0.0f;
 
-    h.params.layers[0].recurrent_importance = 0.1f;
+    //h.params.layers[0].recurrent_importance = 0.1f;
 
     // ---------------------------- Game Loop -----------------------------
 
